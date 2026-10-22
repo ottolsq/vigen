@@ -59,7 +59,7 @@
 | --- | --- |
 | 锚定短语（中文） | {年龄/性别/体型/脸型/发型发色/五官特征/服饰/配饰，7-9要素，顺序固定} |
 | 锚定短语（英文） | {English version, frozen verbatim} |
-| 参考图路径 | assets/{角色名}_ref.png（白底正面全身） |
+| 参考图路径 | 视觉锚定层：assets/{角色名}_sheet.png（白底三视图）+ assets/{角色名}_face.png（面部特写锚定图）+ 按需 assets/{角色名}_expr.png / _detail.png；人工参考层：assets/{角色名}_card.png（拼贴设定卡，自看不喂 AI） |
 | 音色绑定 | voice_id: {id} · 音色描述句：[{角色名}，普通话，{音色特征}] |
 | 微动作习惯 | {可选：紧张时摩挲袖口} |
 
@@ -86,7 +86,34 @@
 
 ## 一、人物参考图（阶段2）
 
-### {角色名} · 正面锚定图（文生图）
+> 三层分工：视觉锚定层（下面三张，喂 AI）+ 文字规则层（锚定短语，已在 02）+ 人工参考层（拼贴设定卡，自看）。
+> 产物/动物主角：仅需 0d 白底正面图。写实人物：0a+0b 必做，0c 按需。
+
+### {角色名} · 0a 白底三视图（主锚，写实人物必做）
+
+```
+A character three-view reference sheet, flat even studio lighting.
+{锚定短语逐字}。three-view reference sheet: front view, side view and back view of the same character standing in a relaxed neutral pose, full body, side by side, evenly spaced, equal height。
+same person in all three views, consistent height, hairstyle, outfit and details across views。纯白背景，无分割线、无边框、无道具、无文字标注。
+natural skin texture, visible pores, realistic and imperfect。
+```
+
+> 生成后裁出三视图分别存 {角色名}_front/_side/_back.png。
+
+### {角色名} · 0b 面部特写锚定图（写实人物必做）
+
+```
+A head-and-shoulders portrait reference photo, medium-format camera, 85mm f/2, flat even studio lighting.
+{锚定短语中的头部要素逐字}。正面平视，头部完整居中，表情平静，纯白背景。
+natural skin texture, visible pores, realistic and imperfect。
+```
+
+### {角色名} · 0c 按需补充锚（≤2 张）
+
+- 表情板：`expression studies sheet, same face: neutral, smiling, sad, angry, front view, plain white background`（面部特写多的项目）
+- 服装细节图：{花纹复杂服装的单独特写}
+
+### {角色名} · 0d 白底正面图（产物/动物主角用）
 
 ```
 {拍摄媒介句}。
@@ -106,12 +133,17 @@ natural skin texture, visible pores, realistic and imperfect。
 {风格圣经逐字}
 ```
 
-## 三、情景参考图（阶段4，多图参考：人物图+场景图）
+## 三、情景参考图（阶段4，多图参考：参考图按镜头机位组配）
 
-### 镜头{N} · {镜名}（image 1={角色名}锚定图，image 2={场景名}参考图）
+### 镜头{N} · {镜名}
+
+**参考图组配**（按机位选）：
+- 正面全身/中景机位 → image 1={角色名}三视图，image 2={场景名}参考图
+- 侧面/背面机位 → image 1={角色名}三视图，image 2={场景名}参考图，**image 3={角色名}_side/_back 裁片**
+- 特写/近景机位 → image 1={角色名}_face 面部锚定图，image 2={场景名}参考图，需要体型时 image 3=三视图
 
 ```
-Use image 1 only for the character's identity and appearance. Use image 2 only for the scene environment and lighting.
+{逐图用途声明，如：Use image 1 only for the character's identity and appearance. Use image 2 only for the scene environment and lighting. Use image 3 for the character's side view.}
 {拍摄媒介句}。
 {锚定短语逐字}，{在场景中的位置与朝向}。
 {蓄力瞬间描述：有势能不锁定方向}。
@@ -120,7 +152,9 @@ Use image 1 only for the character's identity and appearance. Use image 2 only f
 {风格圣经逐字}
 ```
 
+> 锚定范围：全景/中景 → 锚定短语全文逐字；特写/近景 → 允许"头部要素+画面可见部分"的逐字子集（顺序不变，如 0b 抽取逻辑）——特写画布中不可见的元素（长裤/鞋）逐字写入属冗余干扰，由参考图组配（image 3 三视图）兜底身形
 > 蓄力检查：{此镜视频要从什么状态开始动？首帧给足势能了吗？面朝方向留 2/3 空间了吗？}
+> 视图检查：{机位是正面/侧面/背面/特写？参考图组配是否匹配？特写是否带了面部锚定图？}
 ```
 
 ## 04_视频提示词.md
@@ -138,14 +172,14 @@ Use image 1 only for the character's identity and appearance. Use image 2 only f
 ```
 保持人物与背景不变。
 {主体}从{起始状态}，{过程：2-3个具体动词+速度曲线}，至{明确终点状态}。
-镜头：{单一运镜动词+速度}。
+镜头：{固定机位 → "固定机位"；运动运镜 → 平滑模板（V1.4）：推="镜头缓慢匀速平滑推近（slow smooth dolly in）" / 拉="镜头缓慢匀速平滑拉远（slow smooth dolly out）" / 横移="镜头缓慢匀速平滑横移（slow smooth tracking shot）" / 跟拍="镜头如稳定器般平滑跟随（smooth steadicam follow）" / 环绕="镜头以缓慢平滑的弧线环绕（slow smooth arc）"}。
 声音：{环境音（什么物体+什么动作+什么材质=什么声音）+动作音效}，无背景音乐。
 {质感锚定：从风格圣经压缩，必含三项，如"真实胶片质感，自然皮肤纹理，自然运动模糊"。
 {有台词时：{角色}（{情绪}）说："{≤15字台词}"。}
 画面严禁出现任何字幕/水印/logo。
 ```
 
-**自检**：最后一帧画面 = {一句话描述}。台词时长 {N}字 ÷ 4字/秒 × 1.2 = {M}s ≤ 镜头{s}s ✓
+**自检**：最后一帧画面 = {一句话描述}。台词时长 {N}字 ÷ 4字/秒 × 1.2 = {M}s ≤ 镜头{s}s ✓。运动运镜是否带"缓慢匀速平滑"+英文锚定词 ✓；镜头与主体是否避免双高速 ✓
 
 ---
 
@@ -218,6 +252,16 @@ Use image 1 only for the character's identity and appearance. Use image 2 only f
 - **轻微降饱和**：-5 ~ -10（AI 视频普遍过饱和）
 - **降锐化/柔光**：如素材边缘过硬，加轻微柔光或降锐化强度
 - 顺序：先统一调色（LUT），再叠颗粒——颗粒永远最后，覆盖在最终画面上
+
+## 运动运镜防抖（V1.4 新增）
+
+运动运镜素材仍抖动时，按序尝试：
+
+1. 剪映"视频防抖"（推荐档位，先试）
+2. 该段降速 80-90%（慢速掩盖抖动）
+3. 套轻微放大裁切 1.05-1.1x + 稳定（损失边缘换平滑）
+
+> 预防在生成端：运动运镜提示词必带"缓慢匀速平滑"+英文锚定词（见 04 模板）；特写/人脸镜头优先固定机位。
 
 ## 导出
 

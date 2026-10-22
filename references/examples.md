@@ -56,7 +56,7 @@ soft healing atmosphere, warm pastel tones, gentle diffused daylight, soft focus
 ```
 保持人物与背景不变。
 林夏从嘴唇微张欲言又止，喉头轻轻滚动一下、眼眶缓缓湿润、嘴角先是勉强上扬再慢慢垮下，至一滴泪沿脸颊滑落、低头用手背快速抹掉。
-镜头：极缓慢推近。
+镜头：镜头缓慢匀速平滑推近（slow smooth dolly in）。
 声音：便利店冰柜低鸣，关东煮咕嘟声，极轻的雨声背景，无背景音乐。
 真实胶片质感，自然皮肤纹理，自然运动模糊。
 画面严禁出现任何字幕/水印/logo。
@@ -80,7 +80,7 @@ soft healing atmosphere, warm pastel tones, gentle diffused daylight, soft focus
 ```
 保持音箱与背景不变。
 音箱从静止悬浮状态，环状发光元件由暗缓缓亮起至稳定呼吸频率，底座金属盘上光点依次点亮。
-镜头：以产品为中心缓慢环绕四分之一弧。
+镜头：镜头以缓慢平滑的弧线环绕产品四分之一圈（slow smooth arc）。
 声音：低沉的产品启动嗡鸣，光点点位的清脆提示音，无背景音乐。
 冷峻金属质感，真实玻璃透明质感，自然运动模糊。
 画面严禁出现任何字幕/水印/logo。
