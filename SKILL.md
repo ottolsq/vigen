@@ -1,6 +1,6 @@
 ---
 name: ai-video-maker
-description: Use when the user wants to create AI-generated videos from an idea — 短视频/AI视频/做视频/视频制作/分镜/镜头脚本/故事板/图生视频/视频提示词/人物设定图/场景参考图/情景图/首帧/口型/视频配音. Covers the full pipeline: 剧本 → 人物/场景参考图 → 情景图 → 首帧图生视频 → 剪映拼接. Generates copy-ready prompts for image models (gpt-image-2/2.5), video models (happyhorse t2v/i2v/r2v), and TTS (cosyvoice), with character/scene/color consistency anchoring. NOT for executing video editing itself, NOT for real-actor filming guidance, NOT for pure text writing without video generation intent.
+description: Use when the user wants to create AI-generated videos from an idea — 短视频/AI视频/做视频/视频制作/分镜/镜头脚本/故事板/图生视频/视频提示词/人物设定图/场景参考图/情景图/首帧/口型/视频配音. Covers the full pipeline: 剧本 → 人物/场景参考图 → 情景图 → 首帧/首尾帧图生视频 → 剪映拼接. Generates copy-ready prompts for image models (gpt-image-2/2.5), video models (happyhorse t2v/i2v/r2v, MiniMax-H3 t2va/i2va/fl2va/l2va/ref2va), and TTS (cosyvoice), with character/scene/color consistency anchoring. NOT for executing video editing itself, NOT for real-actor filming guidance, NOT for pure text writing without video generation intent.
 ---
 
 # AI Video Maker（AI视频制作辅助）
@@ -15,8 +15,8 @@ description: Use when the user wants to create AI-generated videos from an idea 
 
 | 文件 | 何时读 |
 | --- | --- |
-| references/prompt-rules.md | **写任何图片/视频提示词之前**（骨架、必填槽位、校验规则） |
-| references/models.md | 阶段2-5 生成提示词时（各模型参数、偏好、r2v 语法、台词公式）；更换模型时 |
+| references/prompt-rules.md | **写任何图片/视频提示词之前**（分模型骨架、必填槽位、校验规则） |
+| references/models.md | **确定模型时**（各模型档案与"癖好"、r2v/Ref2VA 语法、台词公式）；更换模型时 |
 | references/cinematography.md | 设计分镜时（运镜/景别/机位/光影选择器 + 15/30/60s 节奏模板 + 高风险运镜降级表） |
 | references/styles.md | 阶段1 定风格时（15 风格库，每风格含完整风格圣经词条） |
 | references/consistency.md | 建锚定表（02）与跨镜一致性问题时 |
@@ -24,21 +24,29 @@ description: Use when the user wants to create AI-generated videos from an idea 
 | references/examples.md | 需要对照完整示例时（治愈自然/人物剧情/科技概念 3 类） |
 | assets/templates.md | 创建项目文件时（01-06 标准模板） |
 
+## 模型确认（步骤0——先于一切生成）
+
+**各视频模型的提示词"癖好"完全不同，绝不能混用**（happyhorse：中文极简；MiniMax-H3：英文结构化语法）。因此：
+
+- **新项目**：阶段1 开始时确认三个模型——生图（默认 gpt-image-2.5）/ 视频（问用户：happyhorse-1.1 还是 MiniMax-H3 还是其他）/ 语音（默认 cosyvoice）。用户创意里已说明的不重复问。确认后 Read references/models.md 找对应档案，模型名记入 01 与 02 锚定表
+- **续作/定向修改**：从 02 锚定表读已记录的模型，按其轨道处理；用户中途换模型（"这条用 H3 生成"）→ 该镜头按新模型轨道重写提示词
+- **models.md 没有档案的模型**：向用户要文档或提示词样例，按"换模型指引"节临时建档再生成，不要套用其他模型的风格
+
 ## 工作流（六阶段）
 
 ```
-创意 → 阶段1 剧本+锚定 ─GATE1─→ 阶段2-4 图片提示词 → 阶段5 视频+台词 → 阶段6 剪辑清单
+创意 → 模型确认 → 阶段1 剧本+锚定 ─GATE1─→ 阶段2-4 图片提示词 → 阶段5 视频+台词 → 阶段6 剪辑清单
 ```
 
-**阶段1**：解析创意（主题/时长/风格/情绪/目标模型——缺省按主题匹配默认值，不追问用户）。定风格时 Read references/styles.md 选风格圣经；设计分镜时 Read references/cinematography.md（镜头数节奏：15s→3-4镜，30s→5-6镜，60s→8-10镜；每镜不同运镜动词；避免连续3个同景别）。产出 `01_方案与剧本.md` + `02_锚定表.md`（Read references/consistency.md + assets/templates.md）。
+**阶段1**：解析创意（主题/时长/风格/情绪——缺省按主题匹配默认值，不追问用户）。定风格时 Read references/styles.md 选风格圣经；设计分镜时 Read references/cinematography.md（镜头数节奏：15s→3-4镜，30s→5-6镜，60s→8-10镜；每镜不同运镜动词；避免连续3个同景别）。产出 `01_方案与剧本.md` + `02_锚定表.md`（Read references/consistency.md + assets/templates.md）。
 
-**GATE1（必须停下）**：在聊天中呈现方案摘要 + 每角色锚定短语全文 + 风格圣经全文，等用户确认后才继续。锚定短语会逐字进入后续所有提示词，此处修改成本最低；确认后再改锚定 = 全部下游文件重写。
+**GATE1（必须停下）**：在聊天中呈现方案摘要（含所选模型）+ 每角色锚定短语全文 + 风格圣经全文，等用户确认后才继续。锚定短语会逐字进入后续所有提示词，此处修改成本最低；确认后再改锚定 = 全部下游文件重写。
 
-**阶段2-4**：产出 `03_图片提示词.md`，三节：人物参考图（白底三视图）、场景参考图、情景参考图（每镜一张=视频首帧）。写之前必须 Read references/prompt-rules.md + references/realism.md + references/models.md。关键规则：情景图用多图参考（人物锚定图+场景锚定图）一次生成，绝不编辑已生成的图换场景；情景图必须捕捉"蓄力瞬间"（动作起点有势能不锁定方向，面朝方向留 2/3 空间）。
+**阶段2-4**：产出 `03_图片提示词.md`，三节：人物参考图（白底三视图）、场景参考图、情景参考图（每镜一张=视频首帧）。写之前必须 Read references/prompt-rules.md + references/realism.md + references/models.md。关键规则：情景图用多图参考（人物锚定图+场景锚定图）一次生成，绝不编辑已生成的图换场景；情景图必须捕捉"蓄力瞬间"（动作起点有势能不锁定方向，面朝方向留 2/3 空间）；**视频模型为 MiniMax-H3 且用 fl2va 时，情景图每镜生成起点图+终点图两张**（动作终点字段直接转化为终点图）。
 
-**阶段5**：产出 `04_视频提示词.md`（每镜 i2v 提示词：不重复外观+动作三段式+单一运镜+音效+约束槽；台词 ≤15字 且按 4字/秒×1.2 估时）+ `05_语音台词表.md`（每角色绑定 cosyvoice 音色；推荐"视频只出画面+环境音，人物语音统一 TTS 后期对轨"）。
+**阶段5**：产出 `04_视频提示词.md`——**按 02 锚定表记录的视频模型选轨道**（两轨骨架与规则见 prompt-rules.md）：happyhorse 轨（中文，i2v 精简型 + r2v 四段式）或 H3 轨（英文三段式/六段式 + [Shot]/At/(S1)/<d> 标签体系 + ban list）。+ `05_语音台词表.md`（每角色绑定 cosyvoice 音色；H3 轨道可附加 Ref2VA 音色参考路线）。
 
-**阶段6**：产出 `06_剪辑清单.md`（拼接顺序、每段头尾各裁 0.5s、转场建议、BGM 后期统一配、调色提示）。
+**阶段6**：产出 `06_剪辑清单.md`（拼接顺序、每段头尾各裁 0.5s、转场建议、BGM 后期统一配、调色提示；H3 注意视频 24h 留存期到期前转存）。
 
 全部完成后聊天中只给摘要（项目路径 + 各文件一行说明），不重复文件内容。
 
@@ -46,23 +54,24 @@ description: Use when the user wants to create AI-generated videos from an idea 
 
 1. **定向修改**：项目目录已存在 + 指令指向具体镜头/文件/阶段 → 只改对应文件的相关部分，其余不动
 2. **续作**：项目目录已存在 + 指令模糊（"继续"）→ 检查 01-06 完成度，从第一个未完成阶段继续
-3. **新创意全流程**：新的一句话/一段创意描述 → 从阶段1 跑起（经 GATE1）
+3. **新创意全流程**：新的一句话/一段创意描述 → 模型确认 → 从阶段1 跑起（经 GATE1）
 4. **阶段重做**：明确要求重做某文件 → 重产该文件并按失效传播规则标记下游
 
-**失效传播**：02 锚定表变更 → 在 03/04/05 文件头部插入"⚠ 上游锚定已变更，本文件待重新生成"；重做01→02-06全失效；重做02→03-06；重做03→04-06；重做04→05-06；05/06 独立。
+**失效传播**：02 锚定表变更（含更换模型）→ 在 03/04/05 文件头部插入"⚠ 上游锚定已变更，本文件待重新生成"；重做01→02-06全失效；重做02→03-06；重做03→04-06；重做04→05-06；05/06 独立。
 
 **项目目录**：默认在当前工作目录下建 `<项目名>/`（项目名从创意生成，用户可指定）；同名已存在则进入模式1/2。
 
 ## 硬规则（违反任何一条 = 输出不合规）
 
-1. **槽位不空**：图片提示词 10 槽位、i2v 提示词 6 槽位（见 prompt-rules.md），任一为空必须按主题补默认值，不留白
+1. **槽位不空**：图片提示词 10 槽位、视频提示词槽位按模型轨道（见 prompt-rules.md），任一为空必须按主题补默认值，不留白
 2. **单值**：速度/光线/景别每个维度只能一个值，矛盾=模型随机选边=不可控
 3. **反空话**：不能被摄影机/麦克风/测光表/秒表检测到的词（"电影感/史诗感/8K/氛围感"）改写成具体维度
 4. **动作必须有终点**：写完每镜自问"最后一帧长什么样"，答不出=重写
-5. **图片正向表述**：gpt-image 系列否定词无效（"no text"会把文字画进去）——图片提示词只写要什么；视频提示词的约束槽除外（happyhorse 实测"画面严禁出现任何字幕/水印/logo"有效，放结尾）
-6. **锚定逐字复制**：锚定短语和风格圣经在每条提示词中逐字出现，一个字都不能改
-7. **每镜 1 个运镜方向**：复合运镜拆段；高风险运镜（dolly zoom/360环绕/长距离跟拍）自动降级（见 cinematography.md 降级表）
-8. **时长容量**：5s=1 动作节拍，10s=1动作+1反应，15s≤3节拍；台词秒数≤镜头秒数
+5. **图片正向表述**：gpt-image 系列否定词无效（"no text"会把文字画进去）——图片提示词只写要什么；happyhorse 视频提示词的约束槽除外（实测有效，放结尾）；H3 无 negative prompt 机制，负面概念写正文 ban list
+6. **锚定逐字复制**：锚定短语和风格圣经在每条提示词中逐字出现，一个字都不能改；H3 轨的锚定短语用英文版（锚定表双语的英文侧）
+7. **每镜 1 个运镜方向**：复合运镜拆段；高风险运镜（dolly zoom/360环绕/长距离跟拍）自动降级（见 cinematography.md 降级表）；运镜表述用所选模型的官方语法（happyhorse 中文平滑模板 / H3 英文自然句+幅度速度修饰）
+8. **时长容量**：5s=1 动作节拍，10s=1动作+1反应，15s≤3节拍；台词时长≤镜头时长（happyhorse 按 4字/秒×1.2 估时；H3 台词逐字保留由模型自动匹配语速，但台词量仍受节拍容量约束）
+9. **模型轨道隔离**：happyhorse 与 H3 的提示词语法/语言/结构/负面机制完全不同，任何一条提示词不得混用两模型的语法（[Shot N] 不进 happyhorse 提示词，中文运镜句不进 H3 提示词）
 
 ## 术语通俗化义务
 

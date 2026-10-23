@@ -159,6 +159,10 @@ natural skin texture, visible pores, realistic and imperfect。
 
 ## 04_视频提示词.md
 
+> **按 02 锚定表的视频模型选模板**：happyhorse → 模板 A（中文）；MiniMax-H3 → 模板 B（英文结构化）。两模板不得混用。
+
+### 模板 A（happyhorse-1.1-i2v）
+
 ```markdown
 # {项目名} · 视频提示词（happyhorse-1.1-i2v）
 
@@ -195,12 +199,66 @@ natural skin texture, visible pores, realistic and imperfect。
 ```
 ```
 
+### 模板 B（MiniMax-H3，英文结构化）
+
+> 使用方式（easyframe 网关）：mode/seconds/aspect_ratio/resolution 是请求参数不进提示词；prompt_optimization 必须 false；**视频留存 24h、URL 1h——生成后立即转存**；首帧图必须与目标画幅同比例（I2VA 首帧会被拉伸）。
+
+#### B-1 I2VA（首帧模式，默认）
+
+```markdown
+# {项目名} · 视频提示词（MiniMax-H3 i2va）
+
+> 参数：model={minimax-h3-base} mode=i2va resolution={720p} seconds={X} aspect_ratio={画幅} prompt_optimization=false
+
+## 镜头{N}（{成片时段}，生成 {X}s）
+
+**首帧图**：{03 中对应情景图文件名/路径}（与画幅同比例）
+
+```
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+integrated_multimodal_description: [Shot 1] {风格圣经英文版开场：媒介+调色}. The scene established in <Picture 1> shows {一句话首帧锚定，不重复细节}. {主体英文锚定逐字} starts from {起始状态}, {过程: 2-3 specific verbs, slow and steady}, until {明确终点状态}. The camera {运镜英文句，如 pushes in with small amplitude at slow speed toward...}. {有台词：The {角色英文名} (S1) says: <d>[Chinese] {台词原文}</d>—旁白则加 while his lips remain completely closed}. {动作涉物理：believable weight, inertia, traction}. Avoid AI artifacts, warped limbs, distorted hands, extra fingers, on-screen text, watermarks, logos.
+overall_soundscape: {1-4 句英文具体声源，如 Steady rain taps the window glass. A distant rumble of thunder rolls by.}
+non_diegetic_music: N/A
+```
+
+**自检**：最后一帧画面 = {一句话}。单一 [Shot]（一镜到底）✓；运镜带幅度/速度修饰 ✓；ban list 在正文结尾 ✓；台词 <d> 逐字 ✓
+
+#### B-2 FL2VA（首尾帧模式——蓄力起点+动作终点两张图）
+
+> 03 情景图为本模式每镜生成起点图+终点图两张（同机位同景别）。
+
+```
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the {S.SS}-second mark of the target video.
+integrated_multimodal_description: [Shot 1] {风格开场}. The video begins from the exact pose and framing established by Picture 1. {主体英文锚定逐字} {变化路径：如何从起点图状态运动到终点图状态——写过程}. The camera {运镜句}. The video ends settled into the exact pose and composition established by Picture 2. Single continuous shot, no cuts. Avoid AI artifacts, warped limbs, distorted hands, extra fingers, on-screen text, watermarks, logos.
+overall_soundscape: {具体声源}
+non_diegetic_music: N/A
+```
+
+#### B-3 Ref2VA（多参考+音色参考，跨镜一致性要求高时）
+
+```
+subject_definitions:
+<Subject 1> is the {人物英文名} whose appearance comes from <Picture 1>.
+<Audio 1> is the voice-timbre reference for <Subject 1> (S1).
+summary:
+[reference generation + audio reference] The target video preserves <Subject 1> and follows the referenced voice timbre.
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - identity and clothing are retained.
+<Audio 1>: reference - voice timbre is referenced without copying the signal.
+detailed_description:
+{350-500 英文词}
+overall_soundscape: {具体声源}
+non_diegetic_music: N/A
+```
+```
+
 ## 05_语音台词表.md
 
 ```markdown
 # {项目名} · 语音台词表
 
 > 推荐架构：视频只出画面+环境音（BGM 已显式关闭），台词全部 cosyvoice 生成后在剪映对轨。
+> B 轨（H3）项目附注：Ref2VA 音色参考（<Audio 1> voice-timbre reference）是视频直出台词时的替代路线，见 04 模板 B-3。
 
 ## 音色配置
 
@@ -261,7 +319,11 @@ natural skin texture, visible pores, realistic and imperfect。
 2. 该段降速 80-90%（慢速掩盖抖动）
 3. 套轻微放大裁切 1.05-1.1x + 稳定（损失边缘换平滑）
 
-> 预防在生成端：运动运镜提示词必带"缓慢匀速平滑"+英文锚定词（见 04 模板）；特写/人脸镜头优先固定机位。
+> 预防在生成端：A 轨运镜用平滑模板（缓慢匀速平滑+英文锚定词）；B 轨（H3）运镜带幅度/速度修饰（with small amplitude at slow speed）；特写/人脸镜头优先 Static Shot/固定机位。
+
+## 素材转存（B 轨 MiniMax-H3 专用）
+
+> H3 视频生成后仅留存 24 小时、下载 URL 1 小时有效。**每次生成完成后立即下载转存到 video/ 目录**，不要攒批下载。
 
 ## 导出
 

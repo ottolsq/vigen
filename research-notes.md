@@ -1,6 +1,68 @@
-# 调研笔记（2026-10-22）
+# 调研笔记（2026-10-22 起）
 
-> 5 路并行调研的结论提炼。来源细节见各节链接。本文件是 Skill 设计的事实依据，设计阶段从这里取材。
+> 并行调研的结论提炼。来源细节见各节链接。本文件是 Skill 设计的事实依据，设计阶段从这里取材。
+
+## 调研六：MiniMax-H3 模型档案（2026-10-23）✅
+
+> 来源：官方 GitHub MiniMax-AI/MiniMax-H3（skills/h3-prompt-writing 一手原文）、HuggingFace docs（与 skill 逐字节同）、platform.minimax.io 官方文档与 Feature Highlights、ComfyUI 官方文档、awesome-minimax-H3（17 个 Reddit 实测帖聚合）、xianyu110 274 条带成片提示词库、1000 条数据集策展分析、pixo.video 官方手册解读、用户提供的 easyframe API 文档。
+
+### 与 happyhorse 的关键差异（提示词风格不可混用）
+
+| 维度 | happyhorse-1.1 | minimax-h3 |
+| --- | --- | --- |
+| 提示词语言 | 中文自然语言 | 结构化语法的字段/标签/运镜句**必须英文**；台词歌词画面文字保留原语言；`<d>` 是 tokenizer 特殊 token 不能翻译 |
+| 结构 | i2v 极简 30-60 字 / r2v 四段式 | T2VA/I2VA/FL2VA/L2VA 三段式（integrated_multimodal_description / overall_soundscape / non_diegetic_music）；Ref2VA 六段式 |
+| 模式 | t2v/i2v/r2v | t2va/i2va/**fl2va（首+尾帧）**/**l2va（尾帧）**/ref2va（9图+3音频，合计12） |
+| 时长 | 3-15s | 5-15s（整数）；分辨率 480p/720p，Pro 未开放 |
+| 运镜 | 中文自然句 | 英文自然句+幅度/速度修饰（pushes in with small amplitude at slow speed）；14 种官方运镜类型 |
+| 镜头切分 | 时间码分镜 | `[Shot N]` **只表示真实切镜**；镜内动作/台词阶段用 `At MM:SS.mmm` 不切镜——哲学与 happyhorse 时间码相反 |
+| 台词 | 口语描述+4字/秒估时 | `(S1)` 说话人 ID（按首次发声顺序，跨镜复用）；`<d>[Chinese] 台词</d>` 逐字保留永不删减；`<scenetrans>` 跨镜连续；`<cutoff>` 截断；旁白必须声明 "while his lips remain completely closed" |
+| 配乐 | "无背景音乐"关闭 | non_diegetic_music 独立段（写 N/A 即无）——更结构化 |
+| 负面约束 | 约束槽禁令 | **无 negative prompt**（cfg=1 无负分支）——负面概念写正文 ban list（社区普遍在结尾堆 no extra fingers, warped hands...） |
+| 分辨率 | 720P/1080P | 480p/720p；**I2VA 首帧会被拉伸到画布（不保宽高比）、尾帧居中裁剪**——参考图必须同比例 |
+| 留存 | — | 视频 24h 留存、下载 URL 1h 有效——**到期前转存** |
+
+### H3 提示词核心技巧（多来源确认）
+
+- **官方提示词公式**（飞书手册经 pixo 转述）：完整提示词 = 参考素材说明 + 核心创意 + 画面过程说明
+- **I2VA 正文结构**（官方 base-en.txt）：首帧锚定（先描述图内风格/主体/构图）→ 动作发生 → 连续发展 → 结果或反应；身份/服装/颜色/关键物体/空间关系保持一致
+- **FL2VA**：默认单镜头插值最好；正文写"变化路径"而非重复两张静帧描述；要一镜到底必须显式写且社区经验强调两遍（"一镜到底""不要出现拼接"）
+- **写实感**：开头钉死媒介+调色（"Shot on 35mm black-and-white film, dense grain"）；格式指令（"Grainy webcam footage, slightly compressed"）比氛围词（"amateur"）有效；环境声用具体声源逗号链（"footsteps, rain, sirens"）不用抽象词
+- **提示词长度**：上限 7000 字符/文本项（合计 30000）；官方手册明确"太短"是记录在案的失败模式（无参考时底线=主体外观+场景细节+动作+风格）；Ref2VA 生成类 detailed_description 建议 350-500 英文词；最长实测 6602 字符成功
+- **语言选择**：托管 API/海螺 App（经 Context-IR 中间层）自然语言完全够用（官方 Feature Highlights 全是自然语言）；直连/easyframe 网关直传 → 必须结构化官方语法（无 IR 中间层）。**翻译过的提示词跑出来不是同一段片子**——按原语言写，不翻译
+
+### 六错误清单（官方手册，pixo 转述）
+1. 糊成一段无结构的话（不按公式分板块）
+2. 上传素材却没写用途（每个文件必须一句分工声明）
+3. 一边要配乐一边禁 BGM（自相矛盾）
+4. 想一镜到底却写了镜头1/镜头2 分镜结构
+5. 想要脸部一致却没传参考图
+6. 无参考时提示词太短
+社区补充：参考没分工、概括式台词（"她说了句安慰的话"必糊）、用比喻代替动作、画幅决定得太晚
+
+### 已知缺陷与避坑
+- 15s 长时序角色漂移（分段链式；面部纹理最先崩，误差累积）——与 skill"一段一运镜/拆段"规则互证
+- 手部仍需主动防御（正文 ban list 堆禁令）
+- 多说话人+音频参考会说错人——台词绑到可见事件而非时间码
+- `<d>` 内省略号损害可懂度；标点只留 , . ? !
+- 物理规律要显式要求（"believable weight, inertia, traction"）——可写但必须写出来
+- 音频收敛晚于视频（语音/音色需更多步数）
+- **Ref2VA 的 killer feature**：`<Audio 1> is the voice-timbre reference for <Subject 1> (S1)` 音色参考——跨段音色一致的新解法
+
+### 官方 skill 生态（可借鉴）
+- h3-prompt-writing（官方，MIT 可移植，npx skills add 安装）：SKILL.md 薄路由 + references/base-en.txt + ref-en.txt
+- 官方失败回退阶梯（3d-animation-short-generator 的 fallback-policy）：①Reference Anchors 块强化重试 → ②缩短到 ≤6s 拆行 → ③该镜头换 Seedance → ④问用户
+- 官方 QC checklist：分镜痕迹泄漏、双绑定标签残留等成片质检项
+- 提示词库：xianyu110 274 条带成片（MIT）；1000 条数据集策展
+
+### 对本 skill 的落地决策
+1. models.md 加 H3 档案卡（含上述全部 + easyframe 特有边界：mode/resolution/seconds/aspect_ratio 参数、480p/720p、24h 留存）
+2. **SKILL.md 触发时先问模型**（用户要求）：生图模型 + 视频模型 + 语音模型，从 02 锚定表读取或询问；按模型路由提示词风格——视频骨架分轨：happyhorse 轨（中文 i2v 精简型/r2v 四段式）与 H3 轨（英文三段式/六段式 + 标签体系）
+3. prompt-rules.md 视频骨架节按模型分轨（不混用）；H3 轨的运镜/台词/禁令全部用 H3 官方语法
+4. FL2VA 首尾帧 = skill"蓄力起点+动作终点"机制的新载体：情景图直接生成起点图+终点图两张
+5. 06 剪辑清单加 H3 的 24h 留存转存提醒
+
+---
 
 ## 调研一：社区已有 AI 视频 Skill 与 SKILL.md 规范 ✅
 

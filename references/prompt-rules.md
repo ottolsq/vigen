@@ -110,9 +110,13 @@
 - 构图用"偏心+前景遮挡"组合防证件照感；"portrait" 单独出现会默认头像式构图，必须搭配景别机位词
 - **画面中不得出现任何文字、水印、logo**（正向表述：保持画面干净无文字元素）——happyhorse 会把参考图上的文字渲染进视频
 
-## 二、视频提示词两种骨架
+## 二、视频提示词骨架（按模型分轨——两轨语法完全不同，禁止混用）
 
-### 1. i2v 精简型（默认路线）
+> 轨道选择：02 锚定表记录的视频模型。happyhorse → A 轨（中文）；MiniMax-H3 → B 轨（英文结构化）。选轨前 Read references/models.md 对应档案。两轨共用的规则：动作三段式、单一运镜、动作终点、时长容量、质感锚定（B 轨质感锚定写进三段式正文的风格部分）。
+
+### A 轨：happyhorse（中文）
+
+#### A1. i2v 精简型（默认路线）
 
 ```
 [不变声明] 保持人物与背景不变。
@@ -132,7 +136,7 @@
 - 音效具体化公式：什么物体+什么动作+什么材质=什么声音（"雨滴打在玻璃窗上的密集轻响"✓，"雨声"✗）
 - BGM 显式关闭（"无背景音乐"）——后期统一配乐
 
-### 2. r2v 四段式（可选路线，跨镜一致性要求高时）
+#### A2. r2v 四段式（可选路线，跨镜一致性要求高时）
 
 ```
 ① [参考图声明] [Image 1] 为{角色}的人物锚定图，[Image 2] 为{场景}的场景参考图。（[Image 1] 必须带空格，[Image1] 会导致解析失败）
@@ -140,6 +144,63 @@
 ③ [分镜表演] {时间码分镜 [00:00-00:04] 或叙述体}
 ④ [全局约束尾段] 角色面部、发型、服装保持一致；台词语速自然，口型与台词同步；画面严禁出现任何字幕/水印/logo。
 ```
+
+### B 轨：MiniMax-H3（英文结构化语法，2026-10-23 新增）
+
+> 完整语法与参数见 references/models.md B 轨档案。此处只列骨架。**字段名/正文/运镜句用英文；台词/歌词/画面文字保留原语言；`<d>` 标签不可翻译**。
+
+#### B1. I2VA 三段式（首帧模式，H3 默认路线）
+
+提示词第一行放关键帧指令，正文按官方 I2VA 结构（首帧锚定→动作→发展→结果）：
+
+```
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+integrated_multimodal_description: [Shot 1] {风格圣经英文化开场：媒介+调色}. {首帧锚定：the scene established in <Picture 1> shows...—只一句，不重复细节}. {主体}（锚定短语英文版逐字）starts from {起始状态}, {过程: 2-3 specific verbs with speed}, until {明确终点状态}. The camera {运镜英文句+幅度速度修饰，如 pushes in with small amplitude at slow speed}. At {MM:SS.mmm}, {镜内动作/台词阶段变化（如需）}. {台词: The {角色} (S1) says: <d>[Chinese] {台词原文}</d>}. {物理词: believable weight, inertia, traction（动作涉及时）}. Avoid AI artifacts, warped limbs, distorted hands, extra fingers, on-screen text, watermarks, logos.
+overall_soundscape: {1-4 句英文：具体声源逗号链+动作音效，不重复台词}
+non_diegetic_music: N/A
+```
+
+B 轨规则：
+- **提示词不能太短**（官方六错误之一）：无参考时底线=主体外观+场景+动作+风格；I2VA 虽有首帧也要写全动作发展与声音——与 A 轨"越短越好"完全相反
+- **一镜到底不写多个 [Shot]**；镜内阶段变化用 `At MM:SS.mmm`（毫秒三位）
+- 运镜用 14 种官方类型英文自然句 + `with small/large amplitude` / `at slow/fast speed` 修饰（幅度+速度修饰即 B 轨的平滑机制）；Static Shot 写 `The camera holds a static shot`
+- 负面约束：**无 negative prompt**，正文结尾 ban list（`Avoid AI artifacts, warped limbs, distorted hands, extra fingers, on-screen text, watermarks, logos.`）
+- 质感锚定（V1.1 规则在 B 轨的实现）：风格圣经英文化开场承担（`Shot on 35mm film, visible grain, natural skin texture` 等），不必单独一行
+- 台词：`(S1)` ID 跨镜头复用；`<d>[Chinese] 原文</d>` 逐字；旁白必须 `while his lips remain completely closed`；标点只留 `, . ? !`；台词绑可见事件不绑时间码
+- 环境声：具体声源逗号链（`footsteps, rain, sirens, paint cans clattering`），禁抽象词
+- 参数（生成时选，不进提示词）：mode=i2va、seconds、aspect_ratio、resolution 480p/720p、prompt_optimization=false
+
+#### B2. FL2VA 三段式（首尾帧模式——skill"蓄力起点+动作终点"机制的直接载体）
+
+```
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the {S.SS}-second mark of the target video.
+integrated_multimodal_description: [Shot 1] {风格开场}. The video begins from the exact pose and framing established by Picture 1. {主体}（锚定英文版）{变化路径：从起点图状态如何运动到终点图状态——写过程，不重复两张静帧描述}. The camera {运镜句}. The video ends settled into the exact pose and composition established by Picture 2. Avoid AI artifacts, warped limbs, distorted hands, extra fingers, on-screen text, watermarks, logos.
+overall_soundscape: {具体声源}
+non_diegetic_music: N/A
+```
+
+- FL2VA 默认**单镜头插值最好**；正文写"变化路径"；想一镜到底显式写 `single continuous shot, no cuts`（社区经验：强调两遍）
+- 03 情景图须为 FL2VA 每镜生成**起点图+终点图两张**（终点图=动作终点字段的画面化，与起点图同机位同景别）
+
+#### B3. Ref2VA 六段式（多参考+音色参考，跨镜一致性要求高时）
+
+```
+subject_definitions:
+<Subject 1> is the {人物英文名} whose appearance comes from <Picture 1>.
+<Audio 1> is the voice-timbre reference for <Subject 1> (S1).
+summary:
+[reference generation + audio reference] The target video preserves <Subject 1> and follows the referenced voice timbre.
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - identity and clothing are retained.
+<Audio 1>: reference - voice timbre is referenced without copying the signal.
+detailed_description:
+{350-500 英文词：风格+构图+主体+环境+动作+运镜+声音+参考生效位置}
+overall_soundscape: {具体声源}
+non_diegetic_music: N/A
+```
+
+- 每个上传素材必须一句分工声明（六错误之二）；summary 任务类型：keyframe completion / reference generation / audio reuse / audio reference
+- 05 台词表在 B 轨项目下列两条路线：cosyvoice TTS 对轨（主）与 Ref2VA 音色参考（H3 独有，视频直出台词时用）
 
 ## 三、必填槽位清单（输出前逐槽自检）
 
@@ -157,16 +218,31 @@
 | 9 | 参考图用途声明 | 仅情景图（多图参考时必填） |
 | 10 | 风格圣经后缀 | 02_锚定表风格圣经（逐字） |
 
-### i2v 视频提示词 7 槽位
+### 视频提示词槽位（按轨道）
+
+**A 轨（happyhorse）i2v 7 槽位**
 | # | 槽位 | 缺省来源 |
 | --- | --- | --- |
 | 1 | 不变声明 | 固定句式 |
 | 2 | 动作三段式 | 分镜表的动作设计（起/程/终） |
-| 3 | 运镜 | 分镜表运镜（单一动词+速度） |
+| 3 | 运镜 | 分镜表运镜（固定机位 或 平滑模板） |
 | 4 | 音效 | 场景音景（环境音+动作音效） |
 | 5 | 质感锚定 | 风格圣经压缩（介质质感+自然皮肤纹理+自然运动模糊，三项缺一不可） |
 | 6 | 约束槽 | 固定句式（字幕/水印/logo 禁令） |
 | 7 | 台词+时长校验 | 有台词时必填（≤15字，4字/秒×1.2） |
+
+**B 轨（H3）三段式槽位**
+| # | 槽位 | 缺省来源 |
+| --- | --- | --- |
+| 1 | 关键帧指令（第一行） | models.md B 轨（按 i2va/fl2va/l2va 模式固定句式） |
+| 2 | 风格英文化开场 | 风格圣经英文版（媒介+调色，兼作质感锚定） |
+| 3 | 首帧锚定句 | 一句话引用 <Picture 1>（不重复细节） |
+| 4 | 动作三段式（英文） | 分镜表动作设计（起/程/终）+ 物理词 |
+| 5 | 运镜英文句 | 14 种官方类型 + 幅度/速度修饰 |
+| 6 | 台词（如有） | (S1) ID + <d>[语言] 原文</d> 逐字 |
+| 7 | ban list | 固定句式（Avoid AI artifacts, warped limbs...） |
+| 8 | overall_soundscape | 具体声源逗号链（1-4 句英文） |
+| 9 | non_diegetic_music | N/A（后期配乐）或配乐描述 |
 
 **任一槽位为空 → 先补默认值再输出，不留白。**
 
@@ -174,8 +250,9 @@
 
 1. **单值规则**：把所有速度词拎出来（快速/缓慢/匀速只能留一个）、所有光线词（正午/黄昏只能一个）、所有景别词（中景/特写只能一个）。矛盾时模型随机选边=不可控
 2. **动作终点检查**：每镜自问"最后一帧长什么样"——答不出=动作无终点=重写
-3. **容量检查**：5s=1 动作节拍，10s=1动作+1反应，15s≤3节拍；台词秒数≤镜头秒数
+3. **容量检查**：5s=1 动作节拍，10s=1动作+1反应，15s≤3节拍；A 轨台词按 4字/秒×1.2 估时；B 轨台词逐字保留模型自动匹配语速，但台词量仍受节拍约束
 4. **反空话**：逐词过一遍——能被摄影机/麦克风/测光表/秒表检测到吗？"电影感/史诗感/8K/氛围感/高质量"→改写成景别+运动+光线+色调的具体组合
 5. **风险运镜降级**：分镜用了 dolly zoom / 360°环绕 / 长距离跟拍 / crash zoom → 套用 cinematography.md 降级表
-6. **锚定逐字校验**：对照 02_锚定表，锚定短语和风格圣经在每条提示词中逐字出现（复制粘贴，不是"意思相同"）；视频提示词的质感锚定行必须与风格圣经的质感词同族（治愈柔和风格不能配"冷峻锐利"质感）
-7. **图片正向表述**：图片提示词中无否定词；视频提示词否定只出现在约束槽
+6. **锚定逐字校验**：对照 02_锚定表，锚定短语和风格圣经在每条提示词中逐字出现（复制粘贴，不是"意思相同"）；A 轨用中文版、B 轨用英文版（锚定表双语的对应侧）；视频提示词的质感锚定行必须与风格圣经的质感词同族（治愈柔和风格不能配"冷峻锐利"质感）
+7. **图片正向表述**：图片提示词中无否定词；A 轨视频否定只出现在约束槽；B 轨负面概念统一进正文 ban list
+8. **轨道隔离**：B 轨提示词中不得出现 A 轨语法（中文运镜句、[Image N]、中文约束槽句式）；A 轨提示词中不得出现 B 轨语法（[Shot N]、At 时间点、<d>、<Subject>/<Picture> 标签）
