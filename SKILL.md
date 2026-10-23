@@ -22,6 +22,7 @@ description: Use when the user wants to create AI-generated videos from an idea 
 | references/consistency.md | 建锚定表（02）与跨镜一致性问题时 |
 | references/realism.md | 写人物/场景/情景图提示词时（拍摄媒介句库、去AI味词汇表、构图多样性） |
 | references/examples.md | 需要对照完整示例时（治愈自然/人物剧情/科技概念 3 类） |
+| **references/knowledge-index.md** | **阶段1 定风格/分镜时先读此索引**——按需定位扩展知识（微表情库/导演风格/多视图/情绪方法论/UGC质感/2D转真人），命中场景才读对应文件，未命中不读 |
 | assets/templates.md | 创建项目文件时（01-06 标准模板） |
 
 ## 模型确认（步骤0——先于一切生成）

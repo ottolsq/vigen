@@ -69,7 +69,26 @@
 - 光线：natural window light / soft diffused daylight / golden hour / overcast morning / Rembrandt lighting / rim light / subtle fill flash
 - 色调锚定（写具体不写模糊）："color grading: warm highlights, slightly desaturated shadows" ✓；"beautiful colors" ✗（模糊词是"倾向"，精确图形词才是锚点）
 
-## 五、实操要点
+## 六、电影级写真人像全维度描述（人物图强化包）
+
+> 人物参考图/情景图需要更强真实感时，把以下维度并入提示词（与骨架 0a/0b 的质感行合并使用，逐项按需选取，不必全堆）：
+
+```
+电影级写真人像，真实活人质感：
+- 光效维度：场景包含体积光（volumetric light）、空气悬浮微粒
+- 质感维度：自然胶片颗粒感，背景层次丰富有真实氛围感
+- 眼部维度：清晰的眼神光（catchlight）与自然对焦效果，眼神灵动不呆滞
+- 表情维度：面部带有微妙情绪表情
+- 肢体维度：肢体具备真实重量感，动态动作体现自然的力度传导，衣物一角随身体动作自然摆动，姿态松弛舒展
+- 皮肤维度：原生真实质感，可见自然毛孔、微细血管，肤色自然红润，保留真实微小皱纹
+```
+
+**原负面提示词清单**（保留原文——后续换用支持负面提示词的生图模型时直接使用）：
+> 干净如僵硬，肢体僵硬漂浮，动作不符合物理逻辑，塑料感皮肤，陶瓷板光滑肌肤，过度磨皮，无暇假脸，AI失真的，过度完美的不真实质感
+
+适配规则（见 knowledge-index.md）：gpt-image 用上面的正向维度描述即可（负面词无效）；H3 把负面概念英文化并入 ban list（`Avoid plastic skin, ceramic-smooth complexion, over-retouched face, stiff floating limbs, motion violating physics`）；支持负面提示词的模型原文直接可用。
+
+## 七、实操要点
 
 1. **顺序权重**：最重要的写最前，技术参数（画幅/宽高比）写最后
 2. **复杂度上限**：有效内容约 256 token——"整体构图"描述优于"物品清单式罗列"，诗意长文无效
