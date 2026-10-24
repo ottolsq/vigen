@@ -22,7 +22,7 @@ description: Use when the user wants to create AI-generated videos from an idea 
 | references/consistency.md | 建锚定表（02）与跨镜/跨集一致性问题时（角色/场景/道具/色调/音色锚定 + 剧情状态机制） |
 | references/realism.md | 写人物/场景/情景图提示词时（媒介句库、去AI味词汇表、构图多样性、画面张力四法） |
 | references/examples.md | 需要对照完整示例时 |
-| **references/knowledge-index.md** | **阶段1 定风格/分镜时先读此索引**——按需定位扩展知识（微表情库/导演风格/多视图/情绪方法论/UGC质感/2D转真人），命中场景才读对应文件，未命中不读 |
+| **references/knowledge-index.md** | **阶段1 定风格/分镜时先读此索引**——按需定位扩展知识（FACS微表情引擎/武打动作引擎/电影级参数块/导演风格/多视图/情绪方法论/UGC质感/2D转真人），命中场景才读对应文件，未命中不读；**动作戏项目必读 action-combat.md** |
 | assets/templates.md | 创建项目文件时（00-06 标准模板） |
 
 > ⚠ references/_archive-suspended-claims.md 是停用主张归档，**任何阶段都不要读取**，其内容不作为规则依据。
