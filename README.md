@@ -73,6 +73,8 @@ GATE0 需求问卷+对齐
 │   ├── consistency.md    #   四层锚定（角色/场景/道具/风格）+ 音色 + 系列记忆机制 + 失效传播
 │   ├── examples.md       #   4 类示例（治愈自然/人物剧情/科技概念/多镜头段落公式）
 │   ├── knowledge-index.md #  扩展知识库路由表（命中才读）
+│   ├── action-combat.md   #  [扩展] 武打动作引擎（武器力学/攻防状态机/HARD LOCK）
+│   ├── cinema-grade-params.md # [扩展] 电影级参数块（ARRI/Kodak色彩科学/K值布光）+ 国漫四视图配方
 │   ├── expressions.md / director-styles.md / extended-views.md / emotion-craft.md / ugc-realism.md / anime-to-real.md  # [扩展]
 │   └── _archive-suspended-claims.md  # 停用主张归档（不读不用）
 ├── assets/
