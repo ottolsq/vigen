@@ -36,14 +36,15 @@
 - slightly imperfect framing / slightly tilted（构图略歪）
 - wrinkled fabric, worn edges, dust motes in the light beam（布料褶皱/磨损边缘/光束中浮尘）
 
-### 禁用词（触发AI感）
-| ❌ 禁用 | ✅ 改用 |
+### 慎用词（触发AI感或无效）
+| ❌ 慎用 | ✅ 改用 |
 | --- | --- |
-| photorealistic / hyperrealistic | a photograph + 相机参数（禁用词触发"画得很像照片的绘画"风格） |
+| photorealistic / hyperrealistic | a photograph + 相机参数（触发"画得很像照片的绘画"风格——社区经验，风格偏好建议） |
 | 8K / ultra HD / masterpiece | 具体质感词（film grain / skin texture） |
 | beautiful / stunning / amazing | 具体构图光线描述 |
-| no text / don't add...（否定词） | 正向写要什么（文字防御靠"画面干净无文字元素"） |
+| 画面类否定词（"不要四仰八叉"） | **正向引导**：把概率推到想要的样子（"坐姿端正像学生上课端坐"）——负面词模型不收且反效果；字幕/音频类禁令除外（放 NO 节有效） |
 | portrait（单独出现） | medium shot + off-center + 机位（单独 portrait 默认头像式构图） |
+| "暖色调/低饱和"倾向词 | 十六进制色号+颜色落在哪里（见 styles.md 色彩基调） |
 
 ## 三、构图多样性（防死板组合拳）
 
@@ -86,7 +87,7 @@
 
 - 焦段：85mm f/1.4（人像特写浅景深）/ 35mm（日常纪实）/ 24mm f/11（环境深焦）
 - 光线：natural window light / soft diffused daylight / golden hour / overcast morning / Rembrandt lighting / rim light / subtle fill flash
-- 色调锚定（写具体不写模糊）："color grading: warm highlights, slightly desaturated shadows" ✓；"beautiful colors" ✗（模糊词是"倾向"，精确图形词才是锚点）
+- 色调锚定（写具体不写模糊）：**十六进制色号+颜色落在哪里**是最强锚点（"低饱和蓝灰雨夜为环境底色 #3A4654，点缀暗酒红只给打火机 #6E2B31"）；退而求其次写精确图形词（"color grading: warm highlights, slightly desaturated shadows"）；"beautiful colors" ✗（模糊词是"倾向"，色号才是锚点）——色板由 02 色彩基调节统一管理（见 styles.md）
 
 ## 五、电影级写真人像全维度描述（人物图强化包）
 

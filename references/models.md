@@ -9,7 +9,7 @@
 | --- | --- | --- |
 | gpt-image-2 / 2.5 | 生图 | 文生图 / 图生图 / 多图参考 / 编辑（2.5）/ 透明背景（2.5）；最高 2K；宽高比最宽 3:1 |
 | happyhorse-1.1 | 视频 | t2v / i2v（首帧）/ r2v（多图参考 1-9 张）；时长 3-15s；中/英/日 |
-| MiniMax-H3 | 视频 | t2va / i2va（首帧）/ fl2va（首+尾帧）/ l2va（尾帧）/ ref2va（多参考）；480p/720p；5-15s 整数 |
+| MiniMax-H3 | 视频 | fl2va 检查点（t2va/首帧/尾帧/首尾帧）+ ref2va 检查点（多媒体参考）；短边默认768px；4-15s |
 | 视频模型自带语音 | 语音（默认） | 优先使用视频模型原生语音/对白能力（happyhorse 自带音效+语音+口型；H3 t2va/i2va 等含音频生成） |
 | cosyvoice-v3.5-flash | 语音（备选） | 音色复刻 + voice_id 持久化；仅当用户要求独立 TTS 对轨时启用 |
 
@@ -33,23 +33,51 @@
 - 自带音效+人物语音+口型同步（纯提示词层控制，无独立音频 API 参数）
 - 异步任务轮询；720P ¥0.9/秒、1080P ¥1.2/秒
 
-### MiniMax-H3（easyframe 网关）
-- model：minimax-h3-mini / -fast / -base（pro 暂未开放，503）
-- mode：t2va / i2va（首帧）/ fl2va（首帧+尾帧）/ l2va（尾帧）/ ref2va（多参考，含音色参考）
-- resolution：480p / 720p；seconds：5-15 整数；aspect_ratio：16:9 / 9:16 / 1:1 / 4:3 / 3:4 / 21:9 / 9:21 / 4:5 / 5:4
-- 提示词上限：单文本项 7000 字符、合计 30000；`prompt_optimization=false`（逐字传递，锚定逐字原则要求 false）
-- **视频留存 24h、下载 URL 1h 有效——生成后立即转存**
-- **I2VA 首帧图会被拉伸到画布（不保宽高比）、尾帧图居中裁剪——参考图必须与目标画幅同比例**
-- 媒体限制：图 ≤9 张、音频 ≤3 个、合计 ≤12；图片单张 ≤20MiB、超 8MiB 或长边超 2048px 自动缩放转 JPEG；**参考视频不支持**（422 拒绝）
-- 异步：POST /v1/videos → GET /v1/videos/{id} 轮询；240s 强制供给期限
-- 自带音频生成（t2va/i2va 等模式）
+### MiniMax-H3（官方 README 一手资料，2026-10-24）
+
+> 来源：MiniMax-AI/MiniMax-H3 官方 README（用户提供本地副本 `skills制作相关参考材料/minimax-h3-README.md`）。标注 `[官方文档]` 的条目为权威能力参数；标注 `[网关口径]` 的以实际控制台为准。
+
+**输出规格 `[官方文档]`**：
+- 时长：**4-15 秒**（旧档案"5-15"为网关口径，官方为 4-15）
+- 宽高比：21:9 / 16:9 / 4:3 / 1:1 / 3:4 / 9:16（含但不限于）
+- 分辨率：**短边默认 768px**；2K 需经 **H3-Regenerate-2K** 模块（768p 结果+原始上下文回灌重生成，能恢复小文字与细节——常规超分要"猜"的东西它能从上下文拿回）
+- 帧率：**24 FPS**；音频：**32 kHz 立体声**（原生带声）
+- 对白语言：**稳定支持 11 种**（阿拉伯/中文/英/法/德/意/日/韩/葡/俄/西），其他语言不同程度支持
+
+**两个任务检查点 `[官方文档]`**：
+
+| 检查点 | 输入模式 | 规格 |
+| --- | --- | --- |
+| **H3-Base-FL2VA** | 首尾帧模式 | 支持 **0 / 1 / 2 张输入图**：0 张=文生视频（t2va）；1 张=首帧生视频 **或** 尾帧生视频；2 张=首尾帧生视频（fl2va） |
+| **H3-Base-Ref2VA** | 全参考模式（omni-reference） | **图片 ≤9 张**；**视频 ≤3 段，每段 2-15 秒，总时长 ≤15 秒**；**音频 ≤3 段，每段 2-15 秒，总时长 ≤15 秒**；混合输入文件总数 **≤12** |
+
+> 网关（easyframe 等）可能把这些拆成 mode=t2va/i2va/fl2va/l2va/ref2va 的独立取值，并附 resolution 480p/720p、seconds 整数、model=minimax-h3-mini/-fast/-base、prompt_optimization 等参数 `[网关口径]`——以实际控制台为准；能力边界以上表官方规格为准。
+
+**三模块架构与提示词形态（决定用哪套骨架）** `[官方文档]`：
+- **H3-Context-IR**：托管的预处理/编排系统——把自由形态多模态输入（文本/图/音/视频）做指令解析、跨模态关联、时序理解、复杂逻辑推理后，**转成 H3-Base 能直接理解的结构化中间表示（Context IR）**。官方原文：**"H3-Context-IR 对最终输出质量至关重要，强烈建议纳入生成流程，或按 Prompting Guidance 自建上下文处理系统"**。未开源（多阶段+多托管模型），提供 API：`/video-generation-v2-h3-context-ir`
+- **H3-Base**：吃 Context-IR 的结构化输出，产 768p 音视频（本地可部署：SGLang/vLLM/diffusers/ComfyUI；BF16；CFG 蒸馏权重）
+- **H3-Regenerate-2K**：768p + 原始上下文回灌重生成 2K；API：`/video-generation-v2-regeneration`
+
+**由此得出的提示词形态规则（关键——决定用哪套骨架）**：
+
+| 生成路径 | 提示词形态 |
+| --- | --- |
+| 官方平台 API / 海螺 App / Hub（**含 Context-IR**） | **自然语言即可**——Context-IR 负责转结构化。用本 skill **骨架 A**（风格1 多镜头公式，中文自然语言） |
+| 直连 H3-Base（本地部署 / 无 Context-IR 的网关） | **必须自己充当 Context-IR，写结构化中间表示**：`integrated_multimodal_description: [Shot N] … / overall_soundscape: … / non_diegetic_music: …`；Ref2VA 另加 `subject_definitions / summary / retention_analysis / detailed_description`；标签 `<Picture N>` `<Video N>` `<Audio N>` `<Subject N>` `(S1)` `<d>[语言] 台词</d>`；台词逐字保留不翻译（`<d>` 是 tokenizer 特殊 token） |
+
+> 官方 README 的三个可复现案例（T2VA 10s / I2VA 8s / Ref2VA 5s）给出了 H3-Context-IR 的输出全文，就是结构化形态的权威样例——走直连路径时按那些样例的字段与写法组织。旧档案中被停用的 H3 结构化语法描述因此**部分恢复为 [官方文档] 级**（见 _archive-suspended-claims.md 第五节）；仍停用的是那些无官方出处的"癖好/效果"类主张（太短是失败模式/15s 漂移/音频收敛晚等）。
+> 官方 I2VA 样例的写法特征（可借鉴进骨架 A）：单段落内用 `[Shot 1]…[Shot 2] At 00:04.500, the camera cuts to…` 表达段内切镜；`overall_soundscape` 按时间顺序写声音演变（"begins with… soon drowned out by… then cuts abruptly back to…"）；`non_diegetic_music` 写乐器/速度/动态而非"悲伤的音乐"。
+
+**安全护栏 `[官方文档]`**：提交的文本/图片/视频与增强后的提示词都会被自动审核，涉嫌违法/色情/侵权第三方权利的内容可能被拦截；官方声明存在误判（false positive/negative）可能。
+
+**其他 `[网关口径]`**：视频留存 24h、下载 URL 1h 有效——生成后立即转存；I2VA 首帧图会被拉伸到画布（不保宽高比）、尾帧居中裁剪——参考图必须与目标画幅同比例；异步 POST /v1/videos → GET /v1/videos/{id} 轮询、240s 强制供给期限；提示词上限单文本项 7000/合计 30000；图片单张 ≤20MiB、超 8MiB 或长边超 2048px 自动缩放转 JPEG；`prompt_optimization=false` 时逐字传递（与锚定逐字原则契合）。
 
 ## 语音能力
 
 ### 默认：视频模型原生语音
 - 优先用视频模型自带的语音/对白生成（happyhorse 口型同步；H3 音频生成）——台词直接写进视频提示词
 - 生成端控制：台词内容、情绪、语速用自然语言写进提示词；BGM 关闭写"无背景音乐"
-- 局限：跨片段音色无法保证一致（每段独立生成）——需要严格音色一致时走 cosyvoice 备选
+- **跨片段音色一致（用户实测方案）**：先生成一段带该角色台词的视频片段 → 剪映中分离/提取音频 → 该音频作为此角色的**音色参考**，在后续片段生成时作为音频参考素材传入（H3 音频参考 ≤3 段）——音色由参考音频锁定，不再依赖文字描述
 
 ### 备选：cosyvoice-v3.5-flash（阿里云百炼，独立 TTS 对轨）
 - 音色复刻：创建后 voice_id 长期有效，每次调用传同一 voice_id；加固定 seed 可复现
