@@ -69,7 +69,7 @@
 - 光线：natural window light / soft diffused daylight / golden hour / overcast morning / Rembrandt lighting / rim light / subtle fill flash
 - 色调锚定（写具体不写模糊）："color grading: warm highlights, slightly desaturated shadows" ✓；"beautiful colors" ✗（模糊词是"倾向"，精确图形词才是锚点）
 
-## 六、电影级写真人像全维度描述（人物图强化包）
+## 五、电影级写真人像全维度描述（人物图强化包）
 
 > 人物参考图/情景图需要更强真实感时，把以下维度并入提示词（与骨架 0a/0b 的质感行合并使用，逐项按需选取，不必全堆）：
 
@@ -88,9 +88,9 @@
 
 适配规则（见 knowledge-index.md）：gpt-image 用上面的正向维度描述即可（负面词无效）；H3 把负面概念英文化并入 ban list（`Avoid plastic skin, ceramic-smooth complexion, over-retouched face, stiff floating limbs, motion violating physics`）；支持负面提示词的模型原文直接可用。
 
-## 七、实操要点
+## 六、实操要点
 
-1. **顺序权重**：最重要的写最前，技术参数（画幅/宽高比）写最后
+1. **顺序权重**：最重要的写最前，技术参数（画幅/宽高比）写最后——画幅写提示词末尾（如 "Aspect ratio 16:9"），与 prompt-rules.md 图片 11 槽位的画幅槽对应
 2. **复杂度上限**：有效内容约 256 token——"整体构图"描述优于"物品清单式罗列"，诗意长文无效
 3. **角色脸部细节分层**（防"塑料硅胶脸"模板）：头发→脸型→眉眼→嘴鼻逐项具体描述，用细节覆盖模板
 4. **颜色感染**：主体颜色会散射影响整体色调；需要统一色调时，色调词在提示词不同位置重复出现以加权

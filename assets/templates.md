@@ -1,10 +1,11 @@
 # 项目文件模板（01-06）
 
 > 创建项目文件时复制对应模板。`{...}` 为待填占位。文件头部带元信息，便于续作与失效标记。
+> 模板外层用四反引号围栏（因内部嵌套提示词代码块）；实际项目文件中不需要外层围栏，只保留内部的提示词块。
 
 ## 01_方案与剧本.md
 
-```markdown
+````markdown
 # {项目名} · 方案与剧本
 
 > 生成日期：{date} · 目标模型：图 {gpt-image-2.5} / 视频 {happyhorse-1.1-i2v} / 语音 {cosyvoice-v3.5-flash}
@@ -38,14 +39,22 @@
 - [ ] 无连续 3 个同景别
 - [ ] 每镜容量：5s=1动作节拍 / 10s=1动作+1反应 / 15s≤3节拍
 - [ ] 高风险运镜已降级（如适用）
-```
+````
 
 ## 02_锚定表.md
 
-```markdown
+````markdown
 # {项目名} · 锚定表
 
 > ⚠ 锚定表是全项目一致性的根。冻结后任何改动 = 03-06 全部标记待重做。
+
+## 目标模型（续作与换轨依据——阶段5 按视频模型选提示词轨道）
+
+| 用途 | 模型 | 轨道/备注 |
+| --- | --- | --- |
+| 生图 | {gpt-image-2.5} | — |
+| 视频 | {happyhorse-1.1-i2v / MiniMax-H3} | {A 轨中文 / B 轨英文结构化；fl2va 项目在此注明} |
+| 语音 | {cosyvoice-v3.5-flash} | — |
 
 ## 风格圣经（全局逐字后缀，一个字都不能改）
 
@@ -73,15 +82,16 @@
 | 光线锚 | {时段+方向+色温} |
 | 生活痕迹 | {≥2处：没喝完的红茶、搭着的毛毯} |
 | 参考图路径 | assets/{场景名}_ref.png |
-```
+````
 
 ## 03_图片提示词.md
 
-```markdown
+````markdown
 # {项目名} · 图片提示词
 
 ## 使用顺序
-1. 先生成全部人物参考图 → 2. 场景参考图 → 3. 情景参考图（用前两者做多图参考）
+
+1. 先生成全部人物参考图 → 场景参考图 → 情景参考图（用前两者做多图参考）
 2. 每张出 2-3 张选优；满意后把最终图路径填到 02_锚定表
 
 ## 一、人物参考图（阶段2）
@@ -135,7 +145,7 @@ natural skin texture, visible pores, realistic and imperfect。
 
 ## 三、情景参考图（阶段4，多图参考：参考图按镜头机位组配）
 
-### 镜头{N} · {镜名}
+### 镜头{N} · {镜名}（起点图）
 
 **参考图组配**（按机位选）：
 - 正面全身/中景机位 → image 1={角色名}三视图，image 2={场景名}参考图
@@ -150,24 +160,42 @@ natural skin texture, visible pores, realistic and imperfect。
 {景别}，{机位}，off-center composition，{前景遮挡元素}。
 光线：{光线锚逐字}。
 {风格圣经逐字}
+Aspect ratio {画幅，与 01 一致——视频模型为 MiniMax-H3 时首帧必须与目标画幅同比例（会被拉伸到画布）}
 ```
 
 > 锚定范围：全景/中景 → 锚定短语全文逐字；特写/近景 → 允许"头部要素+画面可见部分"的逐字子集（顺序不变，如 0b 抽取逻辑）——特写画布中不可见的元素（长裤/鞋）逐字写入属冗余干扰，由参考图组配（image 3 三视图）兜底身形
 > 蓄力检查：{此镜视频要从什么状态开始动？首帧给足势能了吗？面朝方向留 2/3 空间了吗？}
 > 视图检查：{机位是正面/侧面/背面/特写？参考图组配是否匹配？特写是否带了面部锚定图？}
+
+### 镜头{N} · 终点图（仅 B 轨 fl2va 项目——每镜在起点图外额外生成一张）
+
+**参考图组配**：image 1={本镜起点图}，image 2={角色名}面部锚定图或三视图，image 3={场景名}参考图
+
 ```
+Use image 1 only for the exact camera position, framing and lighting. Use image 2 only for the character's identity. Use image 3 only for the scene environment.
+{拍摄媒介句，与起点图相同}。
+{锚定短语逐字}，{动作终点状态——04 该镜动作三段式"终点"字段的画面化}。
+{与起点图相同的景别/机位/构图}。
+光线：{与起点图相同}。
+{风格圣经逐字}
+Aspect ratio {画幅，与起点图一致}
+```
+
+> 终点图 = 独立新生成（起点图仅作构图参考输入），**不是编辑起点图**——"绝不编辑已生成的图"禁令针对改图换场景的伪影累积，不受影响。机位/景别/光线与起点图严格一致，只有主体姿势到达动作终点。
+````
 
 ## 04_视频提示词.md
 
-> **按 02 锚定表的视频模型选模板**：happyhorse → 模板 A（中文）；MiniMax-H3 → 模板 B（英文结构化）。两模板不得混用。
+> **按 02 锚定表"目标模型"节的视频模型选模板**：happyhorse → 模板 A（中文）；MiniMax-H3 → 模板 B（英文结构化）。两模板不得混用。
 
 ### 模板 A（happyhorse-1.1-i2v）
 
-```markdown
+````markdown
 # {项目名} · 视频提示词（happyhorse-1.1-i2v）
 
 > 使用方式：首帧 = 03 中对应镜头的情景参考图；提示词直接复制。
 > 生成时长 = 成片时长 + 1s（头尾各裁 0.5s）。
+> 生成记录：每镜登记采纳版本与 seed（平台支持时）——重抽择优时同 seed 微调提示词，或换 seed 重抽对比。
 
 ## 镜头{N}（{成片时段}，生成 {X}s）
 
@@ -178,34 +206,35 @@ natural skin texture, visible pores, realistic and imperfect。
 {主体}从{起始状态}，{过程：2-3个具体动词+速度曲线}，至{明确终点状态}。
 镜头：{固定机位 → "固定机位"；运动运镜 → 平滑模板（V1.4）：推="镜头缓慢匀速平滑推近（slow smooth dolly in）" / 拉="镜头缓慢匀速平滑拉远（slow smooth dolly out）" / 横移="镜头缓慢匀速平滑横移（slow smooth tracking shot）" / 跟拍="镜头如稳定器般平滑跟随（smooth steadicam follow）" / 环绕="镜头以缓慢平滑的弧线环绕（slow smooth arc）"}。
 声音：{环境音（什么物体+什么动作+什么材质=什么声音）+动作音效}，无背景音乐。
-{质感锚定：从风格圣经压缩，必含三项，如"真实胶片质感，自然皮肤纹理，自然运动模糊"。
+{质感锚定：从风格圣经同族压缩，三项=介质质感+主体表面纹理（人物=自然皮肤纹理；物体/动物=对应材质，如"真实玻璃透明质感""自然毛发纹理"）+自然运动模糊，如"真实胶片质感，自然皮肤纹理，自然运动模糊"。}
 {有台词时：{角色}（{情绪}）说："{≤15字台词}"。}
 画面严禁出现任何字幕/水印/logo。
 ```
 
 **自检**：最后一帧画面 = {一句话描述}。台词时长 {N}字 ÷ 4字/秒 × 1.2 = {M}s ≤ 镜头{s}s ✓。运动运镜是否带"缓慢匀速平滑"+英文锚定词 ✓；镜头与主体是否避免双高速 ✓
+````
 
----
+### 模板 A 可选：r2v 路线（跨镜一致性要求高时）
 
-## 可选：r2v 路线（跨镜一致性要求高时）
-
-### 镜头{N}
+````markdown
+## 镜头{N}
 
 ```
 [Image 1] 为{角色名}的人物锚定图，[Image 2] 为{场景名}的场景参考图。
-{风格圣经逐字}；{角色锚定短语逐字}。
+{风格圣经逐字}；{角色锚定短语逐字}；{质感锚定行——同 i2v 三项}。
 {分镜表演：时间码或叙述体}。
 角色面部、发型、服装保持一致；台词语速自然，口型与台词同步；画面严禁出现任何字幕/水印/logo。
 ```
-```
+````
 
 ### 模板 B（MiniMax-H3，英文结构化）
 
 > 使用方式（easyframe 网关）：mode/seconds/aspect_ratio/resolution 是请求参数不进提示词；prompt_optimization 必须 false；**视频留存 24h、URL 1h——生成后立即转存**；首帧图必须与目标画幅同比例（I2VA 首帧会被拉伸）。
+> 生成记录：同模板 A——每镜登记采纳版本与 seed（平台支持时）。
 
 #### B-1 I2VA（首帧模式，默认）
 
-```markdown
+````markdown
 # {项目名} · 视频提示词（MiniMax-H3 i2va）
 
 > 参数：model={minimax-h3-base} mode=i2va resolution={720p} seconds={X} aspect_ratio={画幅} prompt_optimization=false
@@ -222,19 +251,31 @@ non_diegetic_music: N/A
 ```
 
 **自检**：最后一帧画面 = {一句话}。单一 [Shot]（一镜到底）✓；运镜带幅度/速度修饰 ✓；ban list 在正文结尾 ✓；台词 <d> 逐字 ✓
+````
 
 #### B-2 FL2VA（首尾帧模式——蓄力起点+动作终点两张图）
 
-> 03 情景图为本模式每镜生成起点图+终点图两张（同机位同景别）。
+> 03 情景图为本模式每镜生成起点图+终点图两张（终点图配方见 03 模板第三节）。
+
+````markdown
+## 镜头{N}（{成片时段}，生成 {X}s）
+
+**起点图**：{03 中对应起点图路径} · **终点图**：{03 中对应终点图路径}（均与画幅同比例）
 
 ```
 How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the {S.SS}-second mark of the target video.
-integrated_multimodal_description: [Shot 1] {风格开场}. The video begins from the exact pose and framing established by Picture 1. {主体英文锚定逐字} {变化路径：如何从起点图状态运动到终点图状态——写过程}. The camera {运镜句}. The video ends settled into the exact pose and composition established by Picture 2. Single continuous shot, no cuts. Avoid AI artifacts, warped limbs, distorted hands, extra fingers, on-screen text, watermarks, logos.
+integrated_multimodal_description: [Shot 1] {风格开场}. The video begins from the exact pose and framing established by Picture 1. {主体英文锚定逐字} {变化路径：如何从起点图状态运动到终点图状态——写过程}. The camera {运镜句}. The video ends settled into the exact pose and composition established by Picture 2. Single continuous shot, no cuts — the entire video plays as one single continuous shot with no cuts. Avoid AI artifacts, warped limbs, distorted hands, extra fingers, on-screen text, watermarks, logos.
 overall_soundscape: {具体声源}
 non_diegetic_music: N/A
 ```
 
+**自检**：最后一帧 = 终点图 pose ✓；一镜到底声明写了两遍 ✓；变化路径写过程不重复静帧描述 ✓
+````
+
 #### B-3 Ref2VA（多参考+音色参考，跨镜一致性要求高时）
+
+````markdown
+## 镜头{N}
 
 ```
 subject_definitions:
@@ -250,11 +291,11 @@ detailed_description:
 overall_soundscape: {具体声源}
 non_diegetic_music: N/A
 ```
-```
+````
 
 ## 05_语音台词表.md
 
-```markdown
+````markdown
 # {项目名} · 语音台词表
 
 > 推荐架构：视频只出画面+环境音（BGM 已显式关闭），台词全部 cosyvoice 生成后在剪映对轨。
@@ -277,11 +318,11 @@ non_diegetic_music: N/A
 | 镜号 | 台词 | 音色描述句（逐字） | 注意 |
 | --- | --- | --- | --- |
 | {N} | {≤15字} | {同上，逐字} | 锁定中近景、嘴部动作小、无头部转动 |
-```
+````
 
 ## 06_剪辑清单.md
 
-```markdown
+````markdown
 # {项目名} · 剪辑清单（剪映）
 
 ## 拼接顺序
@@ -328,4 +369,4 @@ non_diegetic_music: N/A
 ## 导出
 
 - {1080×1920 / 1920×1080}，{30}fps，mp4(h.264)，码率"推荐"以上
-```
+````

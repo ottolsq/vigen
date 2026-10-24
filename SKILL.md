@@ -1,6 +1,6 @@
 ---
 name: ai-video-maker
-description: Use when the user wants to create AI-generated videos from an idea — 短视频/AI视频/做视频/视频制作/分镜/镜头脚本/故事板/图生视频/视频提示词/人物设定图/场景参考图/情景图/首帧/口型/视频配音. Covers the full pipeline: 剧本 → 人物/场景参考图 → 情景图 → 首帧/首尾帧图生视频 → 剪映拼接. Generates copy-ready prompts for image models (gpt-image-2/2.5), video models (happyhorse t2v/i2v/r2v, MiniMax-H3 t2va/i2va/fl2va/l2va/ref2va), and TTS (cosyvoice), with character/scene/color consistency anchoring. NOT for executing video editing itself, NOT for real-actor filming guidance, NOT for pure text writing without video generation intent.
+description: Use when the user wants to create AI-generated videos from an idea — 短视频/AI视频/做视频/视频制作/分镜/镜头脚本/故事板/图生视频/视频提示词/人物设定图/场景参考图/情景图/首帧/口型/视频配音/漫剧/微表情/情绪戏/2D转真人/动漫转真人/自拍风/UGC/vlog/韩系街拍/导演风格（王家卫/诺兰/韦斯安德森等）. NOT for executing video editing itself, NOT for real-actor filming guidance, NOT for pure text writing without video generation intent.
 ---
 
 # AI Video Maker（AI视频制作辅助）
@@ -23,7 +23,7 @@ description: Use when the user wants to create AI-generated videos from an idea 
 | references/realism.md | 写人物/场景/情景图提示词时（拍摄媒介句库、去AI味词汇表、构图多样性） |
 | references/examples.md | 需要对照完整示例时（治愈自然/人物剧情/科技概念 3 类） |
 | **references/knowledge-index.md** | **阶段1 定风格/分镜时先读此索引**——按需定位扩展知识（微表情库/导演风格/多视图/情绪方法论/UGC质感/2D转真人），命中场景才读对应文件，未命中不读 |
-| assets/templates.md | 创建项目文件时（01-06 标准模板） |
+| assets/templates.md | 创建项目文件时（01-06 标准模板；02 模板含"目标模型"节） |
 
 ## 模型确认（步骤0——先于一切生成）
 
@@ -43,9 +43,9 @@ description: Use when the user wants to create AI-generated videos from an idea 
 
 **GATE1（必须停下）**：在聊天中呈现方案摘要（含所选模型）+ 每角色锚定短语全文 + 风格圣经全文，等用户确认后才继续。锚定短语会逐字进入后续所有提示词，此处修改成本最低；确认后再改锚定 = 全部下游文件重写。
 
-**阶段2-4**：产出 `03_图片提示词.md`，三节：人物参考图（白底三视图）、场景参考图、情景参考图（每镜一张=视频首帧）。写之前必须 Read references/prompt-rules.md + references/realism.md + references/models.md。关键规则：情景图用多图参考（人物锚定图+场景锚定图）一次生成，绝不编辑已生成的图换场景；情景图必须捕捉"蓄力瞬间"（动作起点有势能不锁定方向，面朝方向留 2/3 空间）；**视频模型为 MiniMax-H3 且用 fl2va 时，情景图每镜生成起点图+终点图两张**（动作终点字段直接转化为终点图）。
+**阶段2-4**：产出 `03_图片提示词.md`，三节：人物参考图（白底三视图）、场景参考图、情景参考图（每镜一张=视频首帧）。写之前必须 Read references/prompt-rules.md + references/realism.md + references/models.md。关键规则：情景图用多图参考（人物锚定图+场景锚定图）一次生成，绝不编辑已生成的图换场景；情景图必须捕捉"蓄力瞬间"（动作起点有势能不锁定方向，面朝方向留 2/3 空间）；**画幅槽写进每条图片提示词末尾**（与 01 一致；B 轨首帧必须与目标画幅同比例，I2VA 会拉伸）；**视频模型为 MiniMax-H3 且用 fl2va 时，情景图每镜生成起点图+终点图两张**（动作终点字段直接转化为终点图，终点图独立新生成——起点图作构图参考输入，不编辑起点图；配方见 templates.md 03 模板终点图节）。
 
-**阶段5**：产出 `04_视频提示词.md`——**按 02 锚定表记录的视频模型选轨道**（两轨骨架与规则见 prompt-rules.md）：happyhorse 轨（中文，i2v 精简型 + r2v 四段式）或 H3 轨（英文三段式/六段式 + [Shot]/At/(S1)/<d> 标签体系 + ban list）。+ `05_语音台词表.md`（每角色绑定 cosyvoice 音色；H3 轨道可附加 Ref2VA 音色参考路线）。
+**阶段5**：产出 `04_视频提示词.md`——**按 02 锚定表"目标模型"节的视频模型选轨道**（两轨骨架与规则见 prompt-rules.md）：happyhorse 轨（中文，i2v 精简型 + r2v 四段式）或 H3 轨（英文三段式/六段式 + [Shot]/At/(S1)/<d> 标签体系 + ban list）。+ `05_语音台词表.md`（每角色绑定 cosyvoice 音色；H3 轨道可附加 Ref2VA 音色参考路线）。每镜登记采纳版本与 seed（平台支持时）——重抽择优时同 seed 微调提示词或换 seed 对比。
 
 **阶段6**：产出 `06_剪辑清单.md`（拼接顺序、每段头尾各裁 0.5s、转场建议、BGM 后期统一配、调色提示；H3 注意视频 24h 留存期到期前转存）。
 
@@ -58,13 +58,13 @@ description: Use when the user wants to create AI-generated videos from an idea 
 3. **新创意全流程**：新的一句话/一段创意描述 → 模型确认 → 从阶段1 跑起（经 GATE1）
 4. **阶段重做**：明确要求重做某文件 → 重产该文件并按失效传播规则标记下游
 
-**失效传播**：02 锚定表变更（含更换模型）→ 在 03/04/05 文件头部插入"⚠ 上游锚定已变更，本文件待重新生成"；重做01→02-06全失效；重做02→03-06；重做03→04-06；重做04→05-06；05/06 独立。
+**失效传播**：02 锚定表变更（含更换模型）→ 在 03/04/05 文件头部插入"⚠ 上游锚定已变更，本文件待重新生成"；重做01→02-06全失效；重做02→03-06；重做03→04-06；重做04→仅04（05 台词表数据源是 01 的台词，与 04 无关——仅当 04 采用 Ref2VA 音色参考路线时连带 05 的备选节）；05/06 独立。
+
+**效果不理想的回退阶梯**（某镜生成失败/质量差时按序尝试，不直接重写全方案）：①同 seed 重抽或微调提示词重试（强化该镜的动作终点与质感锚定）→ ②时长缩到 ≤6s 拆两镜（镜头 N 终点图=镜头 N+1 起点图，帧传递链）→ ③换更稳的运镜（运动运镜→固定机位）或降级到另一视频模型轨道 → ④带着失败样例问用户怎么取舍。
 
 **项目目录**：默认在当前工作目录下建 `<项目名>/`（项目名从创意生成，用户可指定）；同名已存在则进入模式1/2。
 
-## 硬规则（违反任何一条 = 输出不合规）
-
-1. **槽位不空**：图片提示词 10 槽位、视频提示词槽位按模型轨道（见 prompt-rules.md），任一为空必须按主题补默认值，不留白
+## 硬规则（违反任何一条 = 输出不合规）1. **槽位不空**：图片提示词 11 槽位（含画幅槽——写提示词末尾；B 轨必填）、视频提示词槽位按模型轨道（见 prompt-rules.md），任一为空必须按主题补默认值，不留白
 2. **单值**：速度/光线/景别每个维度只能一个值，矛盾=模型随机选边=不可控
 3. **反空话**：不能被摄影机/麦克风/测光表/秒表检测到的词（"电影感/史诗感/8K/氛围感"）改写成具体维度
 4. **动作必须有终点**：写完每镜自问"最后一帧长什么样"，答不出=重写
@@ -73,6 +73,7 @@ description: Use when the user wants to create AI-generated videos from an idea 
 7. **每镜 1 个运镜方向**：复合运镜拆段；高风险运镜（dolly zoom/360环绕/长距离跟拍）自动降级（见 cinematography.md 降级表）；运镜表述用所选模型的官方语法（happyhorse 中文平滑模板 / H3 英文自然句+幅度速度修饰）
 8. **时长容量**：5s=1 动作节拍，10s=1动作+1反应，15s≤3节拍；台词时长≤镜头时长（happyhorse 按 4字/秒×1.2 估时；H3 台词逐字保留由模型自动匹配语速，但台词量仍受节拍容量约束）
 9. **模型轨道隔离**：happyhorse 与 H3 的提示词语法/语言/结构/负面机制完全不同，任何一条提示词不得混用两模型的语法（[Shot N] 不进 happyhorse 提示词，中文运镜句不进 H3 提示词）
+10. **质量红线（A 轨长度）**：i2v 核心三要素（动作+运镜+音效）合计不注水；结构性附加槽（质感锚定/平滑运镜模板）加满后 100-160 字正常——但**外观/服装/背景描述绝不回填**，长度超标若因外观回流=删（见 prompt-rules.md 长度调和规则）
 
 ## 术语通俗化义务
 

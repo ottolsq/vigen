@@ -1,6 +1,6 @@
 # 完整示例（3 类）
 
-> 对照参考用。每示例展示：输入创意 → 01/02 关键内容 → 1-2 个镜头的完整 03/04 提示词。生成自己的方案时不必展开全部 6 文件，照结构走即可。
+> 对照参考用。每示例展示：输入创意 → 01/02 关键内容 → 1-2 个镜头的 03 情景图与 04 视频提示词（示例一二者齐全；示例二重点演示台词链路故 03 仅给蓄力描述；示例三重点演示风格圣经与运镜动机故 04 为主）。生成自己的方案时不必展开全部 6 文件，照结构走即可。
 
 ---
 
@@ -23,6 +23,7 @@ A candid photograph shot on 35mm film, natural imperfect framing, ambient light.
 medium shot, eye level, off-center composition，前景虚化的绿萝叶片占据画面左下角。
 光线：午后阴雨天，从左侧窗户透入的柔散冷灰光，室内一侧暖橙氛围灯。
 soft healing atmosphere, warm pastel tones, gentle diffused daylight, soft focus, airy and clean composition, cozy and calm mood
+Aspect ratio 16:9
 ```
 > 蓄力检查：半蜷=还有"缩紧"的势能；头朝右+右侧留白2/3=Lead Room；脸不被遮挡 ✓
 
@@ -52,7 +53,7 @@ soft healing atmosphere, warm pastel tones, gentle diffused daylight, soft focus
 - 风格圣经：`cinematic realism, shot on 35mm film, natural color grading with warm highlights and slightly desaturated shadows, visible film grain, shallow depth of field, realistic natural lighting`
 - 音色：A=`[林夏，普通话，疲惫沙哑的青年女声]`；B=`[店员，普通话，温和低沉的青年男声]`
 
-**03/04 台词镜头示例（峰值镜头 · 破防台词）**（首帧=林夏中近景，眼睛微红但没落泪，嘴唇微张欲言又止——蓄力瞬间）：
+**03/04 台词镜头示例（峰值镜头 · 破防台词）**（情景图蓄力描述：林夏中近景，眼睛微红但没落泪，嘴唇微张欲言又止——蓄力瞬间；构图 medium close-up，eye level，off-center，前景虚化的货架边缘。画幅 Aspect ratio 9:16）：
 ```
 保持人物与背景不变。
 林夏从嘴唇微张欲言又止，喉头轻轻滚动一下、眼眶缓缓湿润、嘴角先是勉强上扬再慢慢垮下，至一滴泪沿脸颊滑落、低头用手背快速抹掉。
@@ -76,6 +77,17 @@ soft healing atmosphere, warm pastel tones, gentle diffused daylight, soft focus
 - 场景锚定：`深灰色极简展厅，背景是柔和的渐变幕布，地面有微反光`；光线锚：`无时段，冷白主光从顶部45度，产品边缘轮廓光青蓝色`
 - 风格圣经：`futuristic tech concept style, cool blue and silver palette, clean studio environment with soft gradient background, product-hero lighting with rim light, high detail`
 
+**03 情景图示例（镜头1 · 悬浮定场）**（多图参考：音箱白底正面图+场景图）：
+```
+Use image 1 only for the speaker's identity and design. Use image 2 only for the scene environment and lighting.
+A product hero shot in a minimalist showroom, medium shot, slight low angle, off-center composition.
+{主体锚定逐字}，悬浮在展厅中央偏左，环状发光元件处于暗态（尚未点亮——留有点亮的势能），顶部呼吸灯极缓明灭。
+光线：冷白主光从顶部45度，产品边缘轮廓光青蓝色。
+前景：地面微反光；中景：音箱本体；背景：柔和渐变幕布。
+futuristic tech concept style, cool blue and silver palette, clean studio environment with soft gradient background, product-hero lighting with rim light, high detail
+Aspect ratio 16:9
+```
+
 **04 示例（镜头1 · 半弧环绕，生成 4s）**：
 ```
 保持音箱与背景不变。
@@ -85,3 +97,4 @@ soft healing atmosphere, warm pastel tones, gentle diffused daylight, soft focus
 冷峻金属质感，真实玻璃透明质感，自然运动模糊。
 画面严禁出现任何字幕/水印/logo。
 ```
+> 质感锚定弹性示例：无人物项目"自然皮肤纹理"按规则替换为对应材质（"真实玻璃透明质感"）——三项结构不变

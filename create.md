@@ -379,7 +379,33 @@ ai-video-maker/
 
 **改动文件**：SKILL.md（模型确认节+工作流+硬规则9）/ models.md（全文件重构）/ prompt-rules.md（骨架分轨+槽位+校验8）/ templates.md（04 双模板+06 转存节）/ research-notes.md（调研六落盘）
 
-### V1.6（2026-10-23，用户知识输入）：扩展知识库（按需取用架构）
+### V1.7（2026-10-24，全面体检修复）：12 项问题集中修复
+
+**背景**：对全库做工程体检（模板结构/规则矛盾/文档同步/触发覆盖），发现 12 项问题，一次性修复。
+
+**修复清单**：
+
+1. **templates.md 围栏结构性损坏（P0）**：03-06 模板外层 ` ```markdown ` 与内部 ` ``` ` 同名嵌套导致围栏错位、半文件内容被吞——全部外层改四反引号 ` ````markdown `；顺带补三个游离围栏、04 模板 A 质感锚定行缺闭合大括号
+2. **02 模板缺"目标模型"字段（P0）**：SKILL.md 要求模型记入 02 但模板无此节——02 模板新增"目标模型"表头节（生图/视频/语音+轨道备注），consistency.md 锚定表结构同步加该节，SKILL.md 阶段5 措辞改为"按 02 锚定表'目标模型'节选轨道"
+3. **README 全面滞后（P0）**：补 MiniMax-H3 双轨道、扩展知识库 7 文件目录树、硬规则 9→10 条、安装命令改白名单式拷贝（只拷 SKILL.md/references/assets，不带 .git/开发文档）、痛点表加"双轨道"与"扩展知识库"两行
+4. **A 轨 i2v 长度矛盾（P1）**：models.md 30-60 字 vs 7 槽模板 120-150 字——**长度调和规则**：30-60 字纪律只约束核心三要素（动作+运镜+音效），质感锚定/平滑运镜是结构性附加槽，加满后 100-160 字正常；红线=外观描述绝不回填。写进 prompt-rules.md + models.md + SKILL.md 硬规则 10
+5. **质感锚定"自然皮肤纹理"写死（P1）**：固化为"主体表面纹理"规则——人物=自然皮肤纹理，物体/动物=对应材质（毛发/玻璃/金属）。改 prompt-rules.md 两处 + consistency.md + templates.md 04 模板 A
+6. **图片 10 槽位缺画幅（P1）**：升级为 11 槽位，画幅槽写提示词末尾，B 轨（H3）必填（I2VA 拉伸不保宽高比）；校验规则新增第 9 条"画幅一致性"；examples.md 三例补画幅行；realism.md 实操要点联动
+7. **FL2VA"写两遍"规则 vs 模板写一遍（P1）**：templates.md B-2 模板补第二遍声明（"the entire video plays as one single continuous shot with no cuts"），prompt-rules.md/models.md 措辞同步
+8. **FL2VA 终点图配方缺失（P1）**：补完整配方——终点图独立新生成（起点图+角色锚定图+场景图作多图参考输入，只声明起点图供"机位/构图/光线"参考），绝不编辑起点图改姿势；写进 templates.md 03 模板终点图节 + prompt-rules.md + SKILL.md 阶段2-4
+9. **realism.md 章节跳号（P1）**：六→五重新编号，knowledge-index.md 引用同步
+10. **微表情库计数错误（P1）**：男主 40 条 4 组 → 45 条 5 组（9×5），expressions.md 目录 + knowledge-index.md 同步
+11. **ugc-realism 英文 ban list 混中文（P1）**："全程锐利 look" → "an always-sharp look"
+12. **失效传播链过激（P1）**："重做04→05-06"改为"重做04→仅04"（05 台词表数据源是 01，与 04 无关；仅 Ref2VA 音色参考路线时连带 05 备选节）
+
+**P2/P3 增强（同批）**：
+
+- **description 重写**：删掉"Covers the full pipeline…"工作流摘要（防 agent 照 description 走捷径不读正文），补 V1.6 触发词（漫剧/微表情/情绪戏/2D转真人/自拍风/UGC/vlog/韩系街拍/导演风格）
+- **SKILL.md 新增"效果不理想的回退阶梯"**：同 seed 重试→≤6s 拆镜（帧传递链）→换运镜/换轨道→问用户（源自调研六 H3 官方 fallback-policy）
+- **seed 管理落位**：04 模板 A/B 头部 + SKILL.md 阶段5——每镜登记采纳版本与 seed，重抽择优同 seed 微调或换 seed 对比
+- **examples.md 结构诚实化**：文件头声明三示例展示重点各异；示例三补完整 03 情景图（含蓄力描述与画幅行）；示例二补构图与画幅要素；示例三 04 加质感弹性注
+
+**改动文件**：SKILL.md / README.md / references/prompt-rules.md / references/models.md / references/consistency.md / references/realism.md / references/expressions.md / references/knowledge-index.md / references/ugc-realism.md / references/examples.md / assets/templates.md（全文件重写）/ tests/baseline-record.md（V1.7 回归记录）
 
 **背景**：用户提供《补充.md》实战资料（场景多视图、写真人像强化、2D转真人、十二宫格分镜、90条微表情词条、8位导演风格、情绪影像方法论、UGC自拍范式、韩系街拍），要求：①整理进 references 作为知识 ②内容不一定完全正确、可能适用多种情况，需甄别适配 ③**不能一开始全量读取**（浪费 token），要设计目录式按需取用。用户中途补充：负面提示词对 gpt-image 无效但**后续可能换支持负面词的生图模型，不能全部舍弃**。
 
@@ -400,3 +426,5 @@ ai-video-maker/
 - realism.md 并入"电影级写真人像全维度强化包"（第六节，核心文件级）
 
 **按需取用机制**：knowledge-index.md 路由表（7行场景→文件映射）+ 使用规则（触发才读/一次一读/融入锚定/表情入库）。典型项目只读 1-2 个扩展文件。
+
+### V1.6（2026-10-23，用户知识输入）：扩展知识库（按需取用架构）

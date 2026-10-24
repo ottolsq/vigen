@@ -21,7 +21,7 @@
 > 抖音网红美颜滤镜的真实手机前置视频质感，不是干净死板的高清成片。美颜柔和提亮肤色，但中间调与暗部仍保留细小随机颗粒和少量彩噪；拿起放下、怼脸、拨发时出现明确动态拖影和短暂失焦；对焦呼吸、滚动快门、曝光白平衡泵动、降噪涂抹、平台压缩块全部保留。五官可辨但不处处锐利。720p。
 
 原负面清单（保留备用，适配规则见 knowledge-index.md）：禁止文字水印、无噪点、全程锐利、HDR、影棚精修、稳定器平滑。
-- H3 轨道 → 并入 ban list：`Avoid text, watermarks, noise-free clean footage,全程锐利 look, HDR, studio polish, stabilizer-smooth motion.`（英文化）
+- H3 轨道 → 并入 ban list：`Avoid text, watermarks, noise-free clean footage, an always-sharp look, HDR, studio polish, stabilizer-smooth motion.`（英文化）
 - gpt-image → 转正向："720p 手机前置质感，保留细小颗粒与彩噪，动态拖影"（缺陷即正向描述）
 - happyhorse → 约束槽只留"画面严禁出现任何字幕/水印"，其余靠正向缺陷描述
 - **支持负面提示词的模型（即梦/SD 系等）→ 原清单直接可用**
