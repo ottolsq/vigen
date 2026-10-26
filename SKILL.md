@@ -27,6 +27,7 @@ description: Use when the user wants to create AI-generated videos from an idea 
 | assets/templates.md | 创建项目文件时（00-06 标准模板） |
 
 > ⚠ references/_archive-suspended-claims.md 是停用主张归档，**任何阶段都不要读取**，其内容不作为规则依据。
+> ⚠ references/learning-guide.md（学习指导文档：自身缺陷清单/使用边界/资料吸收台账）**不进日常项目执行链路**——只在①用户提供新学习资料 ②用户询问 skill 缺陷/边界/学习状态 时读取；届时按其第一节四步学习法（学习→提炼→总结→积累）处理并更新台账。
 
 ## GATE0：需求收集问卷（触发后第一步，先于一切生成）
 

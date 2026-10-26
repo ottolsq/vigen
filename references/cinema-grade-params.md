@@ -14,7 +14,7 @@ ARRI ALEXA LF，ARRIRAW 4.5K Open Gate，搭配 ARRI Signature Prime 定焦镜�
 
 - 何时用：真人电影感/顶级剧集项目的媒介句升级版（替代 realism.md 的通用媒介句）
 - 原理：具体到机身+录制格式+镜头组的写法给模型一个完整的"设备概念包"（语义绑定第三层——绑先验概念包）
-- 变体：纪录片感改 `ARRI ALEXA Mini，手持肩扛`；复古改 `ARRI ALEXA LF 搭配 Cooke S4/i 球面定焦`（末日/巨兽大片成品用法）
+- 变体：纪录片感改 `ARRI ALEXA Mini，手持肩扛`；复古改 `ARRI ALEXA LF 搭配 Cooke S4/i 球面定焦`（末日/巨兽大片成品用法）；**剧集情感戏/人像特写**改 `SonyVenice摄影机，85mm人像镜头，极浅景深`（other5 成品用法——配"背景大量散景光斑，温暖柔和色调，真实皮肤质感"）
 
 ### 2. 胶片色彩块（定"色彩科学怎么走"）
 
