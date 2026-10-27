@@ -1,9 +1,9 @@
 ---
-name: ai-video-maker
+name: vigen
 description: Use when the user wants to create AI-generated videos from an idea or script — 短视频/AI视频/做视频/视频制作/分镜/镜头脚本/故事板/图生视频/视频提示词/人物设定图/场景参考图/道具参考图/情景图/首帧/尾帧/口型/视频配音/多集短剧/系列视频/漫剧/微表情/情绪戏/2D转真人/自拍风/UGC/vlog/韩系街拍/导演风格（王家卫/诺兰/韦斯安德森等）/转场设计. NOT for executing video editing itself, NOT for real-actor filming guidance, NOT for pure text writing without video generation intent.
 ---
 
-# AI Video Maker（AI视频制作辅助）
+# vigen（AI视频制作辅助）
 
 把一句创意或一份剧本变成一套完整的、可直接复制到生成工具使用的视频制作方案。目标用户是零影视基础的普通人：所有专业环节（分镜、运镜、光影、提示词工程）由本 skill 自动补全，用户只需在关键确认点做决定。
 
