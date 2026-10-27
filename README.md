@@ -1,4 +1,4 @@
-# vigen — AI 视频制作辅助 Skill（ai-video-maker）
+# vigen — AI 视频制作辅助 Skill
 
 把一句创意或一份剧本变成一套完整的、可直接复制到生成工具使用的视频制作方案。面向零影视基础的用户：分镜、运镜、转场、光影、提示词工程全部自动补全，只需回答需求问卷并在锚定确认点（GATE1）做决定。
 
@@ -25,7 +25,10 @@ AI 视频制作的痛点不在"没有工具"，而在"不知道怎么指挥工�
 | 剧情被擅自删改 | 情节点清单逐点登记，分镜 100% 覆盖校验；矛盾模糊先问用户（GATE0 对齐义务） |
 | 生成的资产用不上浪费钱 | 资产引用矩阵先行：零引用资产不生成 |
 | 背景音效硬中断突兀 | 声音桥设计（段尾渐弱/延续音）+ 06 转场音频处理（J-cut/L-cut/交叉淡化） |
-| 生成失败不知道怎么救 | 回退阶梯：微调重试→拆镜→保底运镜→问用户 |
+| 生成失败不知道怎么救 | **结构判定前置的回退阶梯**：结构失败（节拍/机位/调度错）回上游重建，禁止坏结构上叠形容词；表面问题走外科手术微调（单变量+CHANGE ONLY/PRESERVE EXACTLY+八轴约束）→拆镜→保底运镜→问用户 |
+| 用户给参考图说"要这种感觉"没法接 | **风格提取（解梦卡）**：三层拆解（场景事实不迁移/视觉语法可迁移/条件项逐标）→压缩 3-5 条核心风格律→写进锚定表同等冻结（[styles.md](references/styles.md)） |
+| 多光源场景光线乱跳/特效状态跨镜漂移 | 多光源编号布光 L01/L02（七要素：来源+方向+色温K+强度%+硬软+动态+落点）+ VFX 状态量化账本（特效残留百分比逐镜记账+收束声明）（[cinema-grade-params.md](references/cinema-grade-params.md)） |
+| 每段视频场景长得不一样/凭空多出围观群众 | 场景母版四向锚 + 开场走位机制（从场景图认家具/走位句逐字进 SCENE CONTEXT/群演默认 0 显式声明）（[consistency.md](references/consistency.md)） |
 
 ## 工作流
 
@@ -68,18 +71,18 @@ GATE0 需求问卷+对齐
 ```
 ├── SKILL.md              # GATE0 问卷 + 工作流（含 GATE1.5 剧本门）+ 意图路由 + 17 条硬规则 + Module Map
 ├── references/
-│   ├── screenwriting-craft.md # 剧本创作（阶段1a 必读）：7 大漏洞自检 + GATE1.5 定稿规则 + 故事板四格拆分
-│   ├── prompt-rules.md   #   四大底层认知（语义绑定/先验壁垒/正向引导/时间戳）+ 图片骨架 + 视频骨架A/B + 生成路径判定 + 校验18条
-│   ├── models.md         #   模型能力档案（H3 官方 README 一手）+ 换模型指引
-│   ├── cinematography.md #   40 运镜（含物理参数级例句13条）/ 8 转场 / 运镜族归并 / 机位语义表 / 双方案表 / 节奏模板
-│   ├── realism.md        #   去AI味方法论 / 画面张力四法 / 摄影词汇表 / 构图多样性
-│   ├── styles.md         #   15 风格库 + 色彩基调（十六进制色板五栏+15风格推荐色板）
-│   ├── consistency.md    #   四层锚定 + 参考图六条硬标准 + 音色自提取 + 系列记忆机制 + 失效传播
+│   ├── screenwriting-craft.md # 剧本创作（阶段1a 必读）：7 大漏洞自检 + 钩子悬念纪律 + 知识揭示防泄漏 + 故事三层分离 + GATE1.5 定稿规则 + 故事板四格拆分
+│   ├── prompt-rules.md   #   四大底层认知（语义绑定/先验壁垒/正向引导/时间戳）+ 图片骨架（含派生视图技法/微编辑配方）+ 视频骨架A/B（出场人物/四件套/构图四维/VFX账本/声音白名单）+ 生成路径判定 + 校验22条
+│   ├── models.md         #   模型能力档案（H3 官方 README 一手）+ 换模型指引（核对纪律/原样先测）+ 已知差异备忘
+│   ├── cinematography.md #   40 运镜（含物理参数级例句13条/微幅二级调整判据）/ 8 转场 / 运镜族归并 / 机位语义表 / 双方案表 / 节奏模板
+│   ├── realism.md        #   去AI味方法论 / 画面张力四法 / 表面处理两档 / 朝代纪律 / 文字物理化配方 / 摄影词汇表 / 构图多样性
+│   ├── styles.md         #   15 风格库 + 色彩基调（十六进制色板五栏+15风格推荐色板）+ 风格提取解梦卡（用户参考图→动态风格圣经）
+│   ├── consistency.md    #   四层锚定 + 参考图六条硬标准 + 角色路由/迁移三档 + 场景母版/开场走位 + USER-LOCKED 三级链 + 音色自提取 + 系列记忆 + 失效传播
 │   ├── examples.md       #   4 类示例（治愈自然/人物剧情/科技概念/多镜头段落公式）
 │   ├── knowledge-index.md #  扩展知识库路由表（命中才读，token 纪律的守门文件）
 │   ├── action-combat.md   #  [扩展] 武打动作引擎（武器力学/攻防状态机/HARD LOCK）
-│   ├── cinema-grade-params.md # [扩展] 电影级参数块（ARRI/SonyVenice/Kodak色彩科学/K值布光）+ 国漫四视图配方
-│   ├── expressions.md / director-styles.md / extended-views.md / emotion-craft.md / ugc-realism.md / anime-to-real.md  # [扩展]
+│   ├── cinema-grade-params.md # [扩展] 电影级参数块（ARRI/SonyVenice/Kodak色彩科学/K值布光/多光源编号布光七要素）+ 国漫四视图配方
+│   ├── expressions.md / director-styles.md（8导演+强度三档+常见误读/近邻对比）/ extended-views.md / emotion-craft.md / ugc-realism.md / anime-to-real.md  # [扩展]
 │   ├── learning-guide.md #   学习指导文档（缺陷清单/使用边界/资料吸收台账）——不进日常执行链路
 │   └── _archive-suspended-claims.md  # 停用主张归档（不读不用）
 ├── assets/
@@ -93,12 +96,12 @@ GATE0 需求问卷+对齐
 ```bash
 # Claude Code 个人技能目录（只拷运行所需文件）
 cd skillsCreate
-mkdir -p ~/.claude/skills/ai-video-maker
-cp SKILL.md ~/.claude/skills/ai-video-maker/
-cp -r references assets ~/.claude/skills/ai-video-maker/
+mkdir -p ~/.claude/skills/vigen
+cp SKILL.md ~/.claude/skills/vigen/
+cp -r references assets ~/.claude/skills/vigen/
 ```
 
-安装后无需手动调用——对话中出现"帮我做一个短视频 / 分镜 / 视频提示词 / 多集短剧 / 王家卫感短片"等意图时自动触发；也可显式 `/ai-video-maker`。
+安装后无需手动调用——对话中出现"帮我做一个短视频 / 分镜 / 视频提示词 / 多集短剧 / 王家卫感短片"等意图时自动触发；也可显式 `/vigen`。
 
 ## 开发过程文档
 

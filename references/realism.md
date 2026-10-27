@@ -63,10 +63,10 @@
 ### 慎用词（触发AI感或无效）
 | ❌ 慎用 | ✅ 改用 |
 | --- | --- |
-| photorealistic / hyperrealistic | a photograph + 相机参数（触发"画得很像照片的绘画"风格——社区经验，风格偏好建议） |
-| 8K / ultra HD / masterpiece | 具体质感词（film grain / skin texture） |
+| photorealistic / hyperrealistic（英文单词） | a photograph + 相机参数。**触发词疑为英文单词本身而非概念**——中文提示词里"照片级真实感"大量成品验证无碍可用 `[待A/B验证]`（社区经验，风格偏好建议） |
+| 8K / ultra HD / masterpiece | 具体质感词（film grain / skin texture）。质量词堆砌分体裁：写实摄影类有害（"百语并列一画失"）；动漫贴纸类可容忍（见 knowledge-index 负面词适配） |
 | beautiful / stunning / amazing | 具体构图光线描述 |
-| 画面类否定词（"不要四仰八叉"） | **正向引导**：把概率推到想要的样子（"坐姿端正像学生上课端坐"）——负面词模型不收且反效果；字幕/音频类禁令除外（放 NO 节有效） |
+| 画面质量类否定词（"不要塑料感皮肤"） | **正向引导**：把概率推到想要的样子（"natural skin texture with visible pores"）。**效力分端裁决**：视频端画面类负面词无效且反效果（维持正向）；图片端版式/内容边界类负面句有效可保留（No text/watermark/borders、不要拼贴多宫格、无其他人物）——详见 knowledge-index 负面词适配规则 |
 | portrait（单独出现） | medium shot + off-center + 机位（单独 portrait 默认头像式构图） |
 | "暖色调/低饱和"倾向词 | 十六进制色号+颜色落在哪里（见 styles.md 色彩基调） |
 
