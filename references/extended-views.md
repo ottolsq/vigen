@@ -45,3 +45,17 @@
 3. 矩阵图本身存入 assets/ 供人工参考（**不直接作为视频参考图**——12 格拼贴会引入分割线干扰，与拼贴设定卡同理；实际生成情景图时用对应视图/锚定图重新单独生成）
 
 > 与"三层资产架构"的关系：十二宫格属于**人工参考层**（给用户看、辅助分镜决策），不属于视觉锚定层（不喂给视频模型）。
+
+## 三、六格分镜板（storyboard sheet——分镜可视化的人工参考层）
+
+一张 3×2 网格图把一段戏的 6 个关键镜画成故事板，每格四段式固定写法（画廊成品验证）：
+
+```
+3×2 grid storyboard. Each panel:
+Panel N — {景别}: {画面内容一句}. Info: "PANEL 1 · EXT. ALLEY · NIGHT · WIDE / static / 2s"
+```
+
+- 每格 Info 行含：**场景 slug（INT/EXT·地点·日夜）+ 景别 + 镜头运动（pan-L 45°/tilt-up 30°/crane-down）+ 时长 + SFX 注记**
+- 可加红铅笔箭头标注运镜方向（人工参考用，不喂模型）
+- 用途定位同十二宫格：**人工参考层**——GATE1 前给用户看分镜节奏、圈选镜头；不作为视频参考图（多格拼贴引入分割线干扰）
+- 与场景空间写法配套（建筑/大场景图）：`Viewpoint is slightly low and wide, emphasizing vertical scale and shadow` + 人物比例锚 `a few small human figures for scale, but keep the architecture dominant` + 图内尺度标注（`Nave Height 28.5 m`）+ K 值入句（`cove lighting at 3000K`）

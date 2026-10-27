@@ -98,8 +98,10 @@
 
 #### 0c. 按需补充锚（可选，每角色 ≤2 张）
 
-- 表情板：`expression studies sheet, same face: neutral, smiling, sad, angry, front view, plain white background`
+- 表情板：`expression studies sheet, same face: neutral, smiling, sad, angry, front view, plain white background`；**多格表情板规格**（大量面部特写项目）：格数枚举表情逐词（如 16 格：happy/shy/evil grin/wronged/disdainful/heart…）+ 一致性强调句 `face shape, hairstyle, and clothing must remain highly consistent across all panels`
 - 服装细节图：标志性服饰/配饰的单独特写（花纹复杂的服装）
+- 群像总览板（多配角项目，人工参考层）：2×5 十格每格一原型+底部名牌+`Keep all panels consistent in art direction`——**给人看不喂 AI**（同拼贴设定卡定位）
+- 美术开发页（人工参考层）：`loose graphite strokes, half-finished study with measurements, handwritten annotations, feel like a real art director's development sheet`——探索感/半成品感，自看不喂 AI
 
 #### 0d. 道具锚定图（条件必做——见道具判定规则）
 
@@ -365,6 +367,7 @@ NO
 - **长段落强化三件（借鉴成品风格5）**：①**一句话概述**——复杂调度段在 SCENE CONTEXT 后加一句全段动作链概述（"扣子抱伤员穿过折射空间，发现图标后撑成容器，同伴协作送入伤员，设备收拢，扣子回望坍塌"），先给模型全局再给细节；②**观看顺序显式化**——关键变化写清观众的视觉接收顺序（"先看到上口分开，再看到侧壁外翻，最后看见底部完全展开"）；③**核心动作严格顺序清单**——段末（NO 节前）列全段动作链先后顺序，防模型乱序执行
 - **空间关系硬约束**——多主体调度段写明不变式（"五名黑影始终留在容器外，三名伤员在容器内；无人进入后再退出"），防主体位置/数量漂移
 - **VFX 状态量化账本（变身/能量/魔法特效序列必写——防特效状态跨镜乱跳）**：特效是"有百分比的连续状态"，不是一次性事件——①段内建账本：特效强度逐镜标注残留百分比（"启动能量光只剩约 30% 的金色轮廓线 → 降至约 15%，只保留两道细窄金色弧线从胸口向头部上升 → 只剩约 10% 的轮廓光"）②每级用**可见形态描述**锚定（不是只写数字，写"只剩两道细窄弧线"）③环境残留也要记账（"地面留下极淡的金色星穹纹章"——特效在场景里留下的痕迹跨镜延续）④收束声明（"铺天盖地的变装特效已经完全收束，只留下最终定格"——防模型在收束后又自行加特效）
+- **JSON 结构化变体（可选——仅多粒子/流体/多素材悬浮类复杂特效镜头）**：散文骨架装不下大量并行元素时，可切换 JSON 分区骨架（ENVIRONMENT / CORE_ASSETS / PARTICLE_SYSTEMS / FLUID_DYNAMICS / RENDER_OUTPUT），画廊成品实证有效。注意：**剔除 `resolution: 8K` 类惰性字段**（尺寸由 API 参数控制，写进 JSON 是空话）；默认骨架仍是自然语言，JSON 是需要理由的选择（01 标注，同骨架 B 纪律）
 - **打斗/动作戏镜头块改用状态机七段（不写动作三段式——七段是它的扩展版，两套都写=重复干扰）**：`Start State → Intent → Attack → Response → Impact → Recovery → End State`，一行式装填模板与范例见 action-combat.md 第 7 节；HARD LOCK 清单进 NO 节。同段内的非打斗镜头（对白/反应/空镜）仍用动作三段式
 - 时长上限对照 models.md（happyhorse 3-15s / H3 4-15s）；**超过单条上限的剧本拆成多条连续段落**，段间用尾帧续接（SCENE CONTEXT 引用上一条 ENDING FRAME）
 - 台词容量：正常语速朗读时长 ≤ 所在镜头时长（中文初始估算约 4字/秒，首集生成后按实测校准）；超长台词拆多镜

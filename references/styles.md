@@ -68,6 +68,8 @@
 | 手绘童趣 | `#F5EBD8` 奶油纸 | `#E8A87C` 蜡笔橙 | `#7CA8D8` 蜡笔蓝 | `#D8C8B0` 浅褐 |
 
 > 自定义风格：按同样五栏配色板；导演风格（director-styles.md）以其标志色为准（王家卫=青绿阴影+洋红高光；诺兰=青蓝阴影+暖棕受光；韦斯·安德森=粉红/芥末黄/薄荷绿/天蓝）。
+> **命名色别名档**（草稿/沟通用）：与用户讨论色板时可用命名色（'Champagne Gold'/'Millennial Pink'/'Mustard Yellow'）快速对齐意向——**定稿仍必须转十六进制色号冻结**（命名色是倾向，色号才是锚点）。
+> **国风/水墨项目词条包**（画廊成品验证）：留白 `negative-space clouds` / 篆刻 `zhu-wen style seal` / 草书 `caoshu brushwork` / 气韵 `brush-energy visible in every stroke` / 画家指称 `in the tradition of 范寬 Fan Kuan / 馬遠 Ma Yuan`（先验概念包）/ 混合精度句 `gongbi-level architectural detail combined with loose ink atmosphere`（工笔细节+写意氛围分工）；Avoid 清单（支持负面词的模型用）：modern objects / anime faces / fake calligraphy clutter / overly saturated poster lighting
 
 ## 风格词条
 

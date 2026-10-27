@@ -608,3 +608,19 @@ ai-video-maker/
 **改动文件**：SKILL.md / references/prompt-rules.md / screenwriting-craft.md / consistency.md / cinematography.md / cinema-grade-params.md / styles.md / realism.md / director-styles.md / models.md / knowledge-index.md / learning-guide.md / assets/templates.md / create.md / README.md
 
 **验证**：批5 回归测试（子代理集成场景覆盖三批新机制），结果回填 tests/baseline-record.md。
+
+### V2.6（2026-10-27，GPT-Image2-Skill-main 消化 + V2.5 回归测试闭环）
+
+**背景**：①V2.5 批5 回归测试（"深夜地铁站摆渡人"场景）完成——四批新机制全部落地，暴露 6 个规则缺口（群演默认0 边界/文字意象解梦卡分支/风格圣经多世界变体/跨段世界切换组合拳/无台词镜头口径/画外音判定），按"skill 缺口才改"原则全部修复并回填 tests/baseline-record.md。②用户提供第五份资料 GPT-Image2-Skill-main（社区 gpt-image-2.5 skill：OpenAI Cookbook 逐字转录+163 条带产出图画廊+CLI 参数面+Sunburst 5 次全参数实测），双子代理分区消化（官方文档区+画廊区），合并约 20 项增量+4 冲突，用户确认后分三批实施。
+
+**批A models.md gpt-image-2.5 档案升级**：精确模型 ID（-flare/-sunburst，无裸别名，快照后缀）；两型号均生成+编辑（Sunburst 定位修正为"质量优先"非"编辑专用"）；quality 五档 low→max/auto；size 输出硬约束（16 倍数/最长边 3840/比 3:1/总像素区间/实验区）+常用档+快捷映射；n=1-10/透明背景 png-webp+alpha 验收/output_compression/moderation/端点；input_fidelity 官方口径变更（Image 2 必须省略）；迁移决策协议（先 Flare 后 Sunburst，先立质量再优化延迟）；Sunburst 实测三条（模型自加未批准文案=验收必查/版式遵循是部分的/models.list 查不到≠不可用）。
+
+**批B 提示词技法**：官方推荐结构顺序（预期用途声明槽/背景→主体→细节→约束/版式敏感任务画幅前置软指引/干净基础+单变量迭代观）；场景密度法则（5-12 具体名词+2-4 材质光约束，宽幅夜景雨戏额外补尺度氛围色彩——官方"表面真实换氛围"警告）；文字渲染三招（引号或全大写/排版三要素/生僻词逐字母拼写）+人物姿态官方句式四条+假商标治理；编辑端点行为五条（mask 只作用第一张/保持不是像素锁/输入角色化顺序稳定/无会话记忆重传批准输出/保留三连句式）；解梦卡防误判层（媒介边界判定+负向排除/证据权重排序/风格冲突对检查/插画措辞配比/IP 转译/注入防御）；三眼测试（海报验收）+模型自加文案排查；叙事化文字缺陷（"HOTE_ 的 L 闪烁熄灭"式有故事瑕疵）。
+
+**批C 画廊配方**：媒介句库三新档（屏摄"not a screenshot"+物理缺陷清单/VHS 模拟信号/360 全景环境球）；水墨词条包（留白/篆刻/草书/气韵/范宽马远指称/工笔+写意混合精度句）；命名色别名档（草稿沟通用，定稿仍转十六进制）；风格身份句式（"in the lineage of" 比 "in the style of" 稳）；表情板 16 格枚举规格+群像总览板+美术开发页（后两者人工参考层不喂 AI）；海报文案层级清单+漫画页留白气球策略+剪影内嵌世界观；JSON 结构化变体（仅多粒子/流体复杂特效，剔除惰性 8K 字段，01 标注理由）；六格分镜板（extended-views 新三节，人工参考层）；examples 诚实呈现纪律（Visual QA 偏差自述）；负面词边界补注（身份划界/防串染类实证有效；photorealistic 官方反证登记，A/B 须分 Image 2/2.5 代际）。
+
+**冲突裁决（用户确认）**：①photorealistic 维持待 A/B+登记官方反证（代际分组）②画幅"位置不限"与 craft 前置主张兼容，加软指引 ③单图全家桶设定板收编为汇报/展示层，不替代三层资产生产标准 ④JSON 骨架仅作可选变体不进默认。
+
+**改动文件**：references/models.md（批A）/ prompt-rules.md / styles.md / realism.md（批B）/ prompt-rules.md / styles.md / director-styles.md / realism.md / extended-views.md / examples.md / knowledge-index.md（批C）/ learning-guide.md（台账+版本轨迹）/ create.md；回归测试修复涉及 consistency.md / styles.md / prompt-rules.md / SKILL.md / templates.md / tests/baseline-record.md。
+
+**验证**：V2.5 回归测试已闭环（6 缺口修复+记录回填）；V2.6 改动以参考档与配方扩充为主（无流程结构变更），不另跑全量回归——图片端新配方（屏摄档/三眼测试/编辑五条）待用户真实项目首用时按实测反馈迭代。

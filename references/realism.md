@@ -14,6 +14,9 @@
 | 夜景/派对 | shot on a compact point-and-shoot camera with direct flash, deep shadow falloff, spontaneous energy |
 | 怀旧年代 | a candid disposable-camera snapshot, visible grain, slightly faded colors |
 | 电影感叙事 | shot on a medium-format analogue camera using colour film, 85mm f/4, realistic, authentic, imperfect, and natural |
+| **屏摄（拍屏幕不是截屏）** | Create a raw smartphone photo of a {设备} screen, **not a screenshot** + 物理缺陷清单（RGB subpixel grid / moiré bands / micro dust / fingerprints / handheld noise / perspective skew）+ 前后台分层（Background app: X. Foreground: Y）+ 末尾锁 `no screenshot, no flat UI, no perfect clean glass` |
+| 复古模拟信号 | VHS color bleed, surveillance noise, motion blur, authentic analog-store lighting |
+| 360 全景（环境球/背景板资产） | 360 equirectangular panorama. Strict 2:1. No distortion at the seams — the left and right edges must wrap seamlessly |
 
 通用公式：**相机/胶片媒介 + 镜头参数 + 光线性质 + "imperfect/natural" 修饰**。
 
@@ -62,12 +65,16 @@
 
 **三眼测试（海报/版式类图的验收框架）**：一眼认剪影与主题（3 秒内知道这是什么）→ 二眼读叙事与承诺（主标题/slogan/核心信息层级清楚）→ 三眼近看材质、小字、背景（细节经得起放大）。验收时按三眼顺序扫；任一眼卡住=对应层级返工。**加一条实测排查：模型自加的文字/价格/参数/假品牌逐项对照白名单清除**（Sunburst 实测会自加未批准文案）。
 
+**海报文案层级清单**（多层级文字版面逐字写全，别让模型编）：主标题/副标/slogan/价格/活动条款/推荐语/fine print（"图片仅供参考"）逐条列出 + `Pay special attention to small text, numbers, prices, info modules`；电影海报 credit block 分区（PRODUCERS…/DIRECTED BY…/A … RELEASE）与杂志封面 masthead/date strip/cover lines/barcode 分区同理——中文版面加锁 `All text in Simplified Chinese, no garbled characters, no English, no pinyin`。
+**漫画页文字策略**（漫剧项目）：对白易翻车时留白气球——`Dialogue balloons intentionally blank; only the two sound effects are visible`（拟声词"バッ"替代对白，对白后期字幕/配音承担）；大字填负空间（水墨大字"決"作构图元素）。
+**剪影内嵌世界观**（框中框变体，海报/概念图）：`The outer silhouette is a side profile; inside that silhouette a complete world naturally grows: observatories, floating stairways…` + 防拼贴句 `narrative silhouette composition rather than a collage`。
+
 **叙事化文字缺陷（生活痕迹的升级版——瑕疵要有故事）**：残缺文字写成剧情而非随机损坏——`neon sign "HOTE_" (the L flickered out)`（哪个字母坏了、为什么坏）；旧物带时间戳叙事（"08/13/96 04:44 AM"）。比"略微破损"更可控：模型知道该画成什么样。
 
 ### 慎用词（触发AI感或无效）
 | ❌ 慎用 | ✅ 改用 |
 | --- | --- |
-| photorealistic / hyperrealistic（英文单词） | a photograph + 相机参数。**触发词疑为英文单词本身而非概念**——中文提示词里"照片级真实感"大量成品验证无碍可用 `[待A/B验证]`（社区经验，风格偏好建议） |
+| photorealistic / hyperrealistic（英文单词） | a photograph + 相机参数。社区观察：触发"画得很像照片的绘画"风格；**但官方 Cookbook（Image 2 时代）明确推荐直用该词**（"strongly engage the model's photorealistic mode"）——两说相抵，A/B 验证须分 Image 2 与 2.5 各跑一组 `[待A/B验证]`；中文提示词"照片级真实感"大量成品验证无碍可用 |
 | 8K / ultra HD / masterpiece | 具体质感词（film grain / skin texture）。质量词堆砌分体裁：写实摄影类有害（"百语并列一画失"）；动漫贴纸类可容忍（见 knowledge-index 负面词适配） |
 | beautiful / stunning / amazing | 具体构图光线描述 |
 | 画面质量类否定词（"不要塑料感皮肤"） | **正向引导**：把概率推到想要的样子（"natural skin texture with visible pores"）。**效力分端裁决**：视频端画面类负面词无效且反效果（维持正向）；图片端版式/内容边界类负面句有效可保留（No text/watermark/borders、不要拼贴多宫格、无其他人物）——详见 knowledge-index 负面词适配规则 |
