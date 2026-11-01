@@ -24,7 +24,7 @@ AI 视频制作的痛点不在"没有工具"，而在"不知道怎么指挥工�
 | 剧情被擅自删改 | 情节点清单逐点登记，100% 覆盖校验 → [screenwriting-craft.md](references/screenwriting-craft.md) |
 | 生成资产浪费钱 | 资产引用矩阵先行，零引用不生成 → [prompt-rules.md](references/prompt-rules.md) |
 | 生成失败不知道怎么救 | 结构判定前置的回退阶梯 → [SKILL.md](SKILL.md) |
-| 提示词被内容审核拦截 | 高危题材降敏改写 + 二分法定位触发词 → [content-safety.md](references/content-safety.md) |
+| 提示词被内容审核拦截 | 反应式降级：已登记模式前置复用 + 拦截后降级阶梯（措辞→构图→拆独角→二分定位）→ [content-safety.md](references/content-safety.md) |
 | 中途要加镜头/改情节 | 活剧本修订（局部重排 + 稳定镜号），不重走全流程 → [SKILL.md](SKILL.md) |
 
 ## 工作流
@@ -64,7 +64,7 @@ GATE0 需求问卷+对齐
 │   ├── realism.md        # 去AI味 + 张力四法 + 表面两档与塑形约束 + 朝代纪律 + 文字物理化
 │   ├── styles.md         # 15 风格库 + 色彩基调色板 + 风格提取解梦卡
 │   ├── consistency.md    # 四层锚定 + 参考图六条/头身分离 + 角色路由/基准参考法 + 最小参考集 + 音色自提取 + 系列记忆 + 失效传播
-│   ├── content-safety.md # 内容安全降敏（高危题材项目必读）：降敏对照表 + 显式否定旧设定 + 二分法定位 + 失败分类对策
+│   ├── content-safety.md # 内容安全反应式降级（拦截后必读；写高危题材前只查已登记模式）：措辞级解法库 + 构图级模式表 + 降级阶梯 + 显式否定旧设定 + 失败分类对策
 │   ├── knowledge-index.md# 扩展知识库路由表（命中才读，token 纪律守门文件）+ 负面词效力分端裁决
 │   ├── examples.md       # 完整示例
 │   ├── action-combat.md  # [扩展] 武打动作引擎
@@ -117,4 +117,4 @@ cp -r references assets ~/.claude/skills/vigen/
 
 - 只产提示词与项目文件，不调用生成 API、不做剪辑执行
 - 不做真人拍摄指导；剧本必须经 GATE1.5 用户定稿（skill 自检是辅助不是替代）
-- 内容安全降敏是措辞层（剧情可保留、措辞必须换），不保证通过所有平台审核
+- 内容安全走**反应式降级**（V2.9）：未登记模式不预防性降敏；被拦后按措辞级/构图级降级，解法登记进已验证模式库（剧情可保留、措辞与构图可调），不保证通过所有平台审核
