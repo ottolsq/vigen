@@ -75,7 +75,7 @@
 
 ### 1. 电影写实（默认推荐·通用）
 - 圣经：`cinematic realism, shot on 35mm film, natural color grading with warm highlights and slightly desaturated shadows, visible film grain, shallow depth of field, realistic natural lighting`
-- 适用：剧情类、纪实感、多数主题的保底选择
+- 适用：剧情类、纪实感、多数主题的通用默认
 - 大白话：像真电影一样，颜色不艳、有胶片颗粒、光像真的
 
 ### 2. 治愈柔和
