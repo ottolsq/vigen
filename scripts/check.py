@@ -208,8 +208,207 @@ def gate_k1(project: Project, partial: bool) -> List[Finding]:
     return findings
 
 
+# ---------------------------------------------------------------- K2 时长
+
+_HEX_RE = re.compile(r"#[0-9A-Fa-f]{6}")
+_DURATION_RE = re.compile(r"(\d+(?:\.\d+)?)s")
+
+# 02 目标模型 → 视频上限（秒）；未识别模型跳过上限检查（宁松勿滥）
+_MODEL_CAP = {
+    "happyhorse": 15.0,
+    "h3": 15.0,
+    "minimax": 15.0,
+    "seedance": 15.0,
+}
+
+
+def _video_cap(project: Project) -> Optional[float]:
+    """从 02 目标模型表的'视频'行解析时长上限；解析不出返回 None。"""
+    lines = project.doc("02")
+    if lines is None:
+        return None
+    for ln in lines:
+        if not ln.startswith("|"):
+            continue
+        cells = [c.strip() for c in ln.split("|")[1:-1]]
+        if len(cells) >= 2 and cells[0] == "视频":
+            m = _DURATION_RE.search(cells[2] if len(cells) > 2 else cells[1])
+            if m:
+                return float(m.group(1))
+            low = (cells[1] + (cells[2] if len(cells) > 2 else "")).lower()
+            for key, cap in _MODEL_CAP.items():
+                if key in low:
+                    return cap
+            return None
+    return None
+
+
+def _storyboard_rows(project: Project) -> List[Tuple[int, List[str]]]:
+    """01 分镜总览表数据行：(行号, 单元格)。表头含'镜号'才解析。"""
+    out = []
+    for i, ln in project.section("01", "分镜总览表"):
+        if not ln.startswith("|"):
+            continue
+        cells = [c.strip() for c in ln.split("|")[1:-1]
+                 if c.strip() not in ("", "---")]
+        if not cells:
+            continue
+        if cells[0] == "镜号":
+            continue
+        if set(cells[0]) <= {"-", " ", ":"}:
+            continue
+        out.append((i, cells))
+    return out
+
+
+def gate_k2(project: Project, partial: bool) -> List[Finding]:
+    """K2 时长：每镜生成时长 ≤ 模型上限；05 朗读时长 ≤ 所在镜头时长。"""
+    findings: List[Finding] = []
+    cap = _video_cap(project)
+
+    if project.doc("01") is not None and cap is not None:
+        for line_no, cells in _storyboard_rows(project):
+            if len(cells) < 3:
+                continue
+            m = _DURATION_RE.search(cells[2])  # 生成时长列
+            if not m:
+                continue
+            dur = float(m.group(1))
+            if dur > cap:
+                findings.append(Finding(
+                    "K2", DOC_FILES["01"], line_no,
+                    "生成时长 %gs 超模型上限 %gs（happyhorse 3-15s / H3 4-15s——超限须拆条+尾帧续接）"
+                    % (dur, cap)))
+
+    if project.doc("05") is not None and project.doc("01") is not None:
+        for line_no, text in _dialogue_rows_05(project):
+            pass  # 朗读时长校验在下方按列做
+    # 05 逐行按表解析（朗读时长列 vs 所在镜头时长列）
+    if project.doc("05") is not None:
+        lines = project.doc("05")
+        col_read = col_shot = -1
+        for i, ln in enumerate(lines, start=1):
+            if not ln.startswith("|"):
+                col_read = col_shot = -1
+                continue
+            cells = [c.strip() for c in ln.split("|")[1:-1]]
+            if "朗读时长" in cells and "所在镜头时长" in cells:
+                col_read = cells.index("朗读时长")
+                col_shot = cells.index("所在镜头时长")
+                continue
+            if col_read >= 0 and len(cells) > max(col_read, col_shot):
+                if set(cells[0]) <= {"-", " ", ":"} or cells[0].startswith("{"):
+                    continue
+                try:
+                    rd = float(_DURATION_RE.search(cells[col_read]).group(1))
+                    sh = float(_DURATION_RE.search(cells[col_shot]).group(1))
+                except (AttributeError, ValueError):
+                    continue
+                if rd > sh:
+                    findings.append(Finding(
+                        "K2", DOC_FILES["05"], i,
+                        "台词朗读超镜头时长：朗读 %gs > 镜头 %gs（台词时长 ≥ 镜头时长须延长时间码或拆多镜——A3）"
+                        % (rd, sh)))
+    return findings
+
+
+# ---------------------------------------------------------------- K3 锚定逐字
+
+_ANCHOR_PHRASE_RE = re.compile(r"^\| 锚定短语（中文） \| (.+?) \|$")
+
+
+def _character_anchors(project: Project) -> List[Tuple[str, str]]:
+    """02 角色锚定表：返回 (角色名, 中文锚定短语)。"""
+    out = []
+    lines = project.doc("02")
+    if lines is None:
+        return out
+    current = None
+    for ln in lines:
+        if ln.startswith("### ") and not ln.startswith("### "):
+            pass
+        if ln.startswith("### ") and len(ln.strip()) > 4:
+            name = ln.strip()[4:].strip()
+            if name and "锚定表" not in name:
+                current = name
+        m = _ANCHOR_PHRASE_RE.match(ln.strip())
+        if m and current:
+            out.append((current, m.group(1).strip()))
+            current = None
+    return out
+
+
+def _palette_hexes(project: Project) -> List[str]:
+    """02 色彩基调表登记的全部色号。"""
+    out = []
+    for _, ln in project.section("02", "色彩基调"):
+        for m in _HEX_RE.finditer(ln):
+            if m.group(0) not in out:
+                out.append(m.group(0))
+    return out
+
+
+def gate_k3(project: Project, partial: bool) -> List[Finding]:
+    """K3 锚定逐字：02 色号在 04 每段 FORMAT 节逐字出现；
+    04 出现的角色若无 REF 图绑定则须逐字含其锚定短语（A1 豁免：视频端有 REF 承载时由图锁定）。"""
+    if project.doc("02") is None or project.doc("04") is None:
+        return []
+    findings: List[Finding] = []
+    lines = project.doc("04")
+
+    # 色号：每个段落的 FORMAT 行须含全部 02 登记色号（段落级，非每行）
+    hexes = _palette_hexes(project)
+    if hexes:
+        seg_start = None
+        seg_format: List[int] = []
+        for i, ln in enumerate(lines, start=1):
+            if ln.startswith("## 段落"):
+                if seg_start is not None and seg_format:
+                    seg_text = "\n".join(lines[n - 1] for n in seg_format)
+                    for hx in hexes:
+                        if hx not in seg_text:
+                            findings.append(Finding(
+                                "K3", DOC_FILES["04"], seg_format[0],
+                                "色彩基调色号缺失：%s 未逐字出现（02 色板登记项，FORMAT 色调行须逐字含全部色号——A1）" % hx))
+                seg_start = i
+                seg_format = []
+            elif seg_start is not None and ln.lstrip().startswith("色调："):
+                seg_format.append(i)
+        if seg_start is not None and seg_format:
+            seg_text = "\n".join(lines[n - 1] for n in seg_format)
+            for hx in hexes:
+                if hx not in seg_text:
+                    findings.append(Finding(
+                        "K3", DOC_FILES["04"], seg_format[0],
+                        "色彩基调色号缺失：%s 未逐字出现（02 色板登记项，FORMAT 色调行须逐字含全部色号——A1）" % hx))
+
+    # 角色锚定：04 全文出现角色名但该角色无 @REF 绑定 → 锚定短语须逐字出现
+    anchors = _character_anchors(project)
+    doc_text = "\n".join(lines)
+    bound_names = set()
+    for name, _ in anchors:
+        # 绑定=ACTIVE REFERENCES 的 "@ REF-..." 行提及该角色（参考素材汇总行不算绑定）
+        if re.search(r"@\s*REF-[A-Z0-9-]+[^\n]*%s" % re.escape(name), doc_text):
+            bound_names.add(name)
+    for name, phrase in anchors:
+        if name in bound_names:
+            continue
+        if name not in doc_text:
+            continue
+        if phrase not in doc_text:
+            line_no = next((i for i, ln in enumerate(lines, start=1)
+                            if name in ln), 0)
+            findings.append(Finding(
+                "K3", DOC_FILES["04"], line_no,
+                "角色「%s」锚定短语缺失：该角色无 REF 图绑定，锚定短语须逐字出现（02 登记：%s…——A1，无图承载时文字必须锁）"
+                % (name, phrase[:24])))
+    return findings
+
+
 GATES: List[Tuple[str, Callable[[Project, bool], List[Finding]]]] = [
     ("K1", gate_k1),
+    ("K2", gate_k2),
+    ("K3", gate_k3),
 ]
 
 
