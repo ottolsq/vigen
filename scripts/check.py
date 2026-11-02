@@ -19,6 +19,7 @@ enforce 的条款（与 vigen_md 解析层配套）：
   K8  骨架槽位（11 节精确匹配 + 骨架 B 理由）→ prompt-rules 第二节（「槽位单值」见台账 V3.1 延后）
   K9  情节点覆盖（双向）  → 硬规则7
   K10 PLAN/REF 闭环（禁模糊占位；REF 须在 03 登记）→ E2 / CT5（挂图清单一致性见台账 V3.1 延后）
+  K11 设定间算术冲突（段内时长合计 vs 标题生成；平均镜长 vs 模型原生下限）→ 各设定单看合法的组合矛盾
 
 用法（CT6）：
     python check.py <项目目录> [--partial] [--gate K5[,K6]]
@@ -70,6 +71,8 @@ from vigen_md import (  # noqa: F401 — Project/Finding 供测试与外部使�
     dialogue_quotes,
     dialogue_set_01,
     extract_dialogue_cell,
+    model_native_min,
+    time_range_seconds,
     is_dialogue_line,
     is_segment_heading,
     iter_tables,
@@ -677,10 +680,61 @@ def gate_k10(project: Project, partial: bool) -> List[Finding]:
     return findings
 
 
+
+# ------------------------------------------------------------------ K11 算术冲突
+
+def gate_k11(project: Project, partial: bool) -> List[Finding]:
+    """K11 设定间算术冲突（profile_notes 式）：各自合法、合起来做不到的设定。
+
+    ① 段内镜头时长合计 vs 标题生成时长（容差 1s：头尾各裁 0.5s 的成片/生成差）
+    ② 平均生成时长 vs 模型原生下限（低于下限时多数镜头必须靠多镜容器承载）
+    """
+    findings: List[Finding] = []
+    lines = project.doc("04")
+    if lines is None:
+        return []
+    segs = blocks(lines, only_segments=True)
+    if not segs:
+        return [_warn("K11", "04", "未找到段落块，K11 未执行")]
+    for block in segs:
+        head_no, _first = _heading_seconds(block)
+        # 标题可能一行声明多段（如「段1a（生成 8s）与 段1b（生成 7s）」）→ 取合计
+        secs_list = [float(x) for x in re.findall(r"生成\s*(\d+(?:\.\d+)?)\s*s", block[0][1])]
+        secs = sum(secs_list) if secs_list else None
+        if secs is None:
+            continue
+        total, found = 0.0, 0
+        for _no, text in block:
+            rng = time_range_seconds(text)
+            if rng:
+                total += rng[1] - rng[0]
+                found += 1
+        if found and abs(total - secs) > 1.0:
+            findings.append(Finding(
+                "K11", DOC_FILES["04"], head_no,
+                "段内镜头时长合计 %.1fs 与标题「生成 %gs」不符（容差 1s——改时长须同步标题与 01 分镜表）"
+                % (total, secs)))
+
+    minv = model_native_min(project)
+    rows = table_rows(project.doc("01"), ("镜号", "生成时长"), aliases=STORY_ALIASES)
+    if minv and rows:
+        durs = []
+        for row in rows:
+            m = DURATION_RE.search(cell(row, "生成时长"))
+            if m:
+                durs.append(float(m.group(1)))
+        if durs and sum(durs) / len(durs) < minv:
+            findings.append(Finding(
+                "K11", DOC_FILES["01"], 0,
+                "平均生成时长 %.1fs 低于模型原生下限 %gs：多数镜头须由多镜容器（骨架 A）承载，"
+                "否则模型会把每镜自行拉长到下限" % (sum(durs) / len(durs), minv)))
+    return findings
+
+
 GATES: List[Tuple[str, GateFn]] = [
     ("K1", gate_k1), ("K2", gate_k2), ("K3", gate_k3), ("K4", gate_k4),
     ("K5", gate_k5), ("K6", gate_k6), ("K7", gate_k7), ("K8", gate_k8),
-    ("K9", gate_k9), ("K10", gate_k10),
+    ("K9", gate_k9), ("K10", gate_k10), ("K11", gate_k11),
 ]
 
 REQUIRED_FOR_FULL = ("01", "02", "03", "04", "05")

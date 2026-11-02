@@ -722,3 +722,13 @@ ai-video-maker/
 **改动文件**：SKILL.md / README.md / references/{screenwriting-craft, prompt-rules, cinematography, action-combat, consistency, styles, director-styles, knowledge-index, learning-guide}.md / assets/templates.md / **scripts/check.py（新增）** / **tests/（新增 test_check.py + fixtures×10 + baseline-checkpy-record.md）** / docs/{specs, plans}（新增）
 
 **验证**：26/26 单测通过；两真实项目试跑（瓦檐与竹林/一起海岛度假）K1 误拦 35→0、剩余 finding 全为真违规或脏数据；grep 全库"双方案/最稳"零残留；跨文件指针（峰值与强调手段/功能决策表/交手账/0.7/A12）齐全。**效果验证待下一个真实项目实测**（重点观察：决策表+条件门对"运镜单调"的实效、交手账产出的打斗密度、慢镜是否只剩胜负手、check.py 在新项目的一次通过率、停点收缩后的批次节奏）。
+
+### V3.1（2026-11-02，评审后补：算术冲突门 + 交付打包）
+
+**驱动**：V3.0 独立评审（5 Critical / 19 Important）修复后，用户裁定补两项效率机制。
+
+- **K11 设定间算术冲突门**（check.py）：①段内镜头时长合计 vs 标题「生成 Xs」（容差 1s；标题一行声明多段时按合计）——抓「标题说 9s、镜头块累加 14s」这类各设定单看合法、合起来做不到的矛盾；②平均生成时长 vs 模型原生下限（happyhorse 3s / H3·MiniMax 4s）——低于下限时提示须由多镜容器（骨架 A）承载。真实项目实测：瓦檐与竹林报出 6 段标题/镜头块时长不符（真冲突）。
+- **scripts/export.py 交付打包**：当前状态快照 → 项目外目录，附 `manifest.json`（逐文件 sha256+大小）与 `checksums.sha256`；排除 `输入/`、`交付/`、`.short-drama/`；支持 `--episode` / `--no-media` / `--overwrite`；`--out` 必须在项目之外；`asserts_approval` 恒 false。
+- 测试：44 → 48（K11 三条 + export 四条）。
+
+**改动文件**：scripts/{check.py, vigen_md.py, export.py} / tests/{test_check.py, test_export.py, fixtures/(bad_arith, bad_avgshot)} / SKILL.md / README.md / create.md

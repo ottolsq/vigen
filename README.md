@@ -104,6 +104,7 @@ cp -r references assets scripts ~/.claude/skills/vigen/
 
 > **脚本调用路径**：装好后 check.py 在 `~/.claude/skills/vigen/scripts/check.py`。你的项目目录里没有 `scripts/`，调用时必须用技能目录的绝对路径（或先解析技能根目录），不要写 `python scripts/check.py`。
 > 校验：`python ~/.claude/skills/vigen/scripts/check.py <项目目录> --partial`
+> 交付：`python ~/.claude/skills/vigen/scripts/export.py <项目目录> --out <项目外目录>`（快照 + manifest + checksums，不声称审批）
 
 安装后无需手动调用——对话中出现"帮我做一个短视频 / 分镜 / 视频提示词 / 多集短剧 / 王家卫感短片"等意图时自动触发；也可显式 `/vigen`。
 

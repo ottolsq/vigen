@@ -246,6 +246,7 @@ GATE1 通过（02 锚定表冻结落盘）后，镜头级内容相互独立，**
 - **图片第一段整套交用户验收**（画风定调，一次）——画风/一致性/构图对了才铺量；后续批次不再逐段等验收
 - 校验交给 `python "{技能目录}/scripts/check.py" <项目目录> --partial`（硬规则 15），agent 只在批次汇报里报结果；不逐条提示词重复自检
 - 聊天中只给摘要与需要用户决策的选项，不重复文件内容
+- **交付打包**：用户要「导出/交付」时跑 `python "{技能目录}/scripts/export.py" <项目目录> --out <项目外目录> [--episode EP001] [--no-media]`——当前状态快照 + `manifest.json` + `checksums.sha256`，排除 `输入/`、`交付/`、`.short-drama/`，**不声称任何审批**（`asserts_approval` 恒为 false）
 - 内容安全台词被拦 → 停（台词是冻结字段，报用户选备选）；付费/外部生成不涉及（skill 不调 API）
 
 **E2 · PLAN 挂图不阻塞（人机并行）** [drama-skills: short-drama/SKILL.md#L52-55]：

@@ -177,6 +177,36 @@ def table_rows(lines: Optional[List[str]], required: Tuple[str, ...],
 _SEGMENT_HEAD = re.compile(r"^##\s*(段落|段\d|段\s|镜头\s*S?\d)")
 _TIME_RANGE = re.compile(
     r"^\s*\d+(?:\.\d+)?\s*s?\s*[–\-—~～至]\s*\d+(?:\.\d+)?\s*s?\s*[｜|]")
+_TIME_RANGE_NUM = re.compile(
+    r"^\s*(\d+(?:\.\d+)?)\s*s?\s*[–\-—~～至]\s*(\d+(?:\.\d+)?)\s*s?")
+
+
+def time_range_seconds(text: str):
+    """'0.0s–4.0s｜镜头1' → (0.0, 4.0)；不是时间码首行返回 None。"""
+    m = _TIME_RANGE_NUM.match(text)
+    if not m:
+        return None
+    return float(m.group(1)), float(m.group(2))
+
+
+def model_native_min(project: Project) -> Optional[float]:
+    """02 目标模型「视频」行里区间写法的下限（3-15s → 3.0；4s-15s → 4.0）。"""
+    rows = table_rows(project.doc("02"), ("用途", "模型"))
+    for row in rows or []:
+        if "视频" not in row.cells.get("用途", ""):
+            continue
+        cell = " ".join(row.cells.values())
+        m = re.search(r"(\d+(?:\.\d+)?)\s*s?\s*[-–~]\s*(\d+(?:\.\d+)?)\s*s", cell)
+        if m:
+            return float(m.group(1))
+        nums = [float(x) for x in DURATION_RE.findall(cell)]
+        if len(nums) >= 2:
+            return min(nums)
+        low = cell.lower()
+        for key, lowv in MODEL_MIN.items():
+            if key in low:
+                return lowv
+    return None
 _SHOT_HEAD = re.compile(r"^##\s*镜头\s*S?\d")
 _GEN_SECONDS = re.compile(r"生成\s*(\d+(?:\.\d+)?)\s*s")
 
@@ -430,4 +460,10 @@ MODEL_CAP = {
     "h3": 15.0,
     "minimax": 15.0,
     "seedance": 15.0,
+}
+# 模型原生最短时长（models.md：happyhorse 3-15s / H3·MiniMax 4-15s）
+MODEL_MIN = {
+    "happyhorse": 3.0,
+    "h3": 4.0,
+    "minimax": 4.0,
 }

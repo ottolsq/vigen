@@ -243,5 +243,19 @@ class TestParsers(unittest.TestCase):
         self.assertEqual(self.md.cell(rows[0], "备注"), "4s-15s")
 
 
+
+class TestK11(unittest.TestCase):
+    def test_good(self):
+        self.assertEqual(check.gate_k11(check.Project(FIXTURES / "good_project"), False), [])
+
+    def test_heading_vs_blocks_mismatch(self):
+        f = check.gate_k11(check.Project(FIXTURES / "bad_arith"), False)
+        self.assertTrue(any("段内镜头时长合计" in x.message and "生成 9s" in x.message for x in f))
+
+    def test_average_below_model_minimum(self):
+        f = check.gate_k11(check.Project(FIXTURES / "bad_avgshot"), False)
+        self.assertTrue(any("平均生成时长" in x.message and "原生下限" in x.message for x in f))
+
+
 if __name__ == "__main__":
     unittest.main()
