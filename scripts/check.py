@@ -537,11 +537,226 @@ def gate_k9(project: Project, partial: bool) -> List[Finding]:
     return findings
 
 
+# ---------------------------------------------------------------- K5 强调手段配额
+
+EMPHASIS_WORDS = ("慢动作", "慢镜", "Time Ramp", "定格", "闪白", "短促推近", "冲击重复")
+# 峰值来源（CT2）
+_PEAK_RE = re.compile(r"←峰值：(情节点\d+|交手账R\d+)")
+
+
+def _segments_04(project: Project) -> List[Tuple[int, List[str]]]:
+    """04 按 '## 段落' 分块：返回 (段落起始行号, 块内行列表)。"""
+    lines = project.doc("04")
+    if lines is None:
+        return []
+    out: List[Tuple[int, List[str]]] = []
+    start = None
+    buf: List[str] = []
+    for i, ln in enumerate(lines, start=1):
+        if ln.startswith("## 段落"):
+            if start is not None:
+                out.append((start, buf))
+            start = i
+            buf = []
+        elif start is not None:
+            buf.append(ln)
+    if start is not None:
+        out.append((start, buf))
+    return out
+
+
+def _combat_rounds(project: Project) -> set:
+    """01 打斗交手账小节登记的回合号集合（纯数字：'1'、'2'…）。"""
+    return {m.group(1)
+            for _, ln in project.section("01", "打斗交手账")
+            for m in re.finditer(r"R(\d+)", ln)}
+
+
+def gate_k5(project: Project, partial: bool) -> List[Finding]:
+    """K5 强调手段配额：每段慢镜类 ≤2 处；每处强调手段须有 CT2 峰值标注
+    且来源可解析（情节点N 含【峰】/ 交手账RN 存在）。"""
+    if project.doc("04") is None:
+        return []
+    findings: List[Finding] = []
+    rounds = _combat_rounds(project)
+    # 情节点【峰】编号集合（表内 # 列序号）
+    plot_peak_ids = set()
+    rows = _plot_rows(project)
+    for idx, (line_no, text, _, _) in enumerate(rows, start=1):
+        if "【峰】" in text:
+            plot_peak_ids.add(str(idx))
+
+    for seg_line, seg in _segments_04(project):
+        # 配额（慢镜类计数）
+        slow_hits = 0
+        for off, ln in enumerate(seg):
+            for w in EMPHASIS_WORDS:
+                if w in ln:
+                    slow_hits += 1
+                    # 标注检查：同行须有 ←峰值：
+                    pm = _PEAK_RE.search(ln)
+                    if not pm:
+                        findings.append(Finding(
+                            "K5", DOC_FILES["04"], seg_line + off,
+                            "强调手段无峰值标注：「%s」处须标注 ←峰值：情节点N/交手账RN"
+                            "（强调手段只花在已点名峰值上——峰值稀缺品）" % w))
+                    else:
+                        src = pm.group(1)
+                        if src.startswith("交手账R"):
+                            if src[len("交手账R"):] not in rounds:
+                                findings.append(Finding(
+                                    "K5", DOC_FILES["04"], seg_line + off,
+                                    "峰值来源无法解析：%s（01 打斗交手账无此回合号）" % src))
+                        elif src.startswith("情节点"):
+                            if src[len("情节点"):] not in plot_peak_ids:
+                                findings.append(Finding(
+                                    "K5", DOC_FILES["04"], seg_line + off,
+                                    "峰值来源无法解析：%s（01 情节点清单该行无【峰】标记）" % src))
+        if slow_hits > 2:
+            findings.append(Finding(
+                "K5", DOC_FILES["04"], seg_line,
+                "慢镜超配额：本段 %d 处 > 2（配额是上限不是任务；处处慢镜就没有哪一下是冲击）" % slow_hits))
+    return findings
+
+
+# ---------------------------------------------------------------- K6 运镜条件门
+
+CT1_RE = re.compile(
+    r"^(reveal|pressure|alignment|relationship|transition)\(R[1-7]\)：\S")
+# 剧情特征 → 必现运镜族（A12）
+_CHASE_WORDS = re.compile(r"奔跑|追逐|追|逃")
+_REVEAL_WORDS = re.compile(r"揭示|发现|看见|真相|认出")
+_FOLLOW_FAMILY = re.compile(r"跟拍|横移|跟随")
+_REVEAL_FAMILY = re.compile(r"摇|后拉|拉远|俯仰")
+
+
+def _motive_cells(project: Project) -> List[Tuple[int, str]]:
+    """01 分镜表运镜动机列：(行号, 单元格文本)。"""
+    out = []
+    lines = project.doc("01")
+    if lines is None:
+        return out
+    col = -1
+    for i, ln in enumerate(lines, start=1):
+        if not ln.startswith("|"):
+            col = -1
+            continue
+        cells = [c.strip() for c in ln.split("|")[1:-1]]
+        if "运镜动机" in " ".join(cells):
+            for idx, c in enumerate(cells):
+                if "运镜动机" in c:
+                    col = idx
+                    break
+            continue
+        if col >= 0 and len(cells) > col:
+            if set(cells[0]) <= {"-", " ", ":"} or cells[0].startswith("{"):
+                continue
+            out.append((i, cells[col] if len(cells) > col else ""))
+    return out
+
+
+def gate_k6(project: Project, partial: bool) -> List[Finding]:
+    """K6 运镜条件门：剧情特征→必现运镜族；动机列 CT1 格式。"""
+    if project.doc("01") is None:
+        return []
+    findings: List[Finding] = []
+    plot_text = "\n".join(ln for _, ln in project.section("01", "情节点清单"))
+    rows = _storyboard_rows(project)
+    cam_text = "\n".join(cells[4] if len(cells) > 4 else ""
+                         for _, cells in rows)  # 运镜列
+
+    if _CHASE_WORDS.search(plot_text) and not _FOLLOW_FAMILY.search(cam_text):
+        hitline = next((ln for _, ln in project.section("01", "情节点清单")
+                        if _CHASE_WORDS.search(ln)), "")
+        findings.append(Finding(
+            "K6", DOC_FILES["01"], 0,
+            "剧情含奔跑/追逐/逃（%s）但分镜运镜列无跟拍族（跟拍/横移/跟随 ≥1 且指认镜号——A12）"
+            % hitline.strip()[:24]))
+    if _REVEAL_WORDS.search(plot_text) and not _REVEAL_FAMILY.search(cam_text):
+        hitline = next((ln for _, ln in project.section("01", "情节点清单")
+                        if _REVEAL_WORDS.search(ln)), "")
+        findings.append(Finding(
+            "K6", DOC_FILES["01"], 0,
+            "剧情含信息揭示/发现/真相（%s）但分镜运镜列无摇/后拉/俯仰族（信息揭示须停在新信息上——A12）"
+            % hitline.strip()[:24]))
+    if "【峰】" in plot_text:
+        doc04 = "\n".join(project.doc("04") or [])
+        if not any(w in doc04 for w in EMPHASIS_WORDS):
+            findings.append(Finding(
+                "K6", DOC_FILES["01"], 0,
+                "情节点含【峰】但 04 无任何强调手段（峰值须配手段——慢镜/冲击重复/短促推近等）"))
+
+    for line_no, motive in _motive_cells(project):
+        if not motive:
+            continue
+        if not CT1_RE.match(motive):
+            findings.append(Finding(
+                "K6", DOC_FILES["01"], line_no,
+                "运镜动机列不合CT1（需 五类词(R行号)：一句展开，如 pressure(R3)：台词正压到她身上）：%s" % motive[:30]))
+        elif "固定" in motive and "(R7)" not in motive:
+            findings.append(Finding(
+                "K6", DOC_FILES["01"], line_no,
+                "固定机位未报决策表行号（固定=最后一行，必须带 (R7)+理由）：%s" % motive[:30]))
+    return findings
+
+
+# ---------------------------------------------------------------- K7 环境动态层
+
+ENV_MOTION_WORDS = ("风", "尘", "雾", "光斑", "涟漪", "火焰", "衣摆", "树叶",
+                    "微振", "机体振动", "水面", "烟", "雪", "雨", "飘", "摇")
+_SHOT_BLOCK_RE = re.compile(r"\d+(?:\.\d+)?s[–-]\d+(?:\.\d+)?s[｜|]镜头")
+
+
+def _shot_blocks_04(project: Project) -> List[Tuple[int, str]]:
+    """04 的镜头块：以 '0.0s–4.0s｜镜头N' 行为界，返回 (块首行号, 块文本)。"""
+    lines = project.doc("04")
+    if lines is None:
+        return []
+    out: List[Tuple[int, str]] = []
+    start = None
+    buf: List[str] = []
+    for i, ln in enumerate(lines, start=1):
+        if _SHOT_BLOCK_RE.search(ln):
+            if start is not None:
+                out.append((start, "\n".join(buf)))
+            start = i
+            buf = [ln]
+        elif start is not None:
+            if ln.strip() == "```" or ln.startswith("ENDING FRAME"):
+                out.append((start, "\n".join(buf)))
+                start = None
+                buf = []
+            else:
+                buf.append(ln)
+    if start is not None:
+        out.append((start, "\n".join(buf)))
+    return out
+
+
+def gate_k7(project: Project, partial: bool) -> List[Finding]:
+    """K7 环境动态层：04 每个镜头块须含 ≥1 环境运动元素（B13）。"""
+    if project.doc("04") is None:
+        return []
+    findings: List[Finding] = []
+    for line_no, block in _shot_blocks_04(project):
+        if not any(w in block for w in ENV_MOTION_WORDS):
+            m = re.search(r"镜头(S?\d+[a-z]?)", block.splitlines()[0])
+            sid = m.group(1) if m else "?"
+            findings.append(Finding(
+                "K7", DOC_FILES["04"], line_no,
+                "镜头%s 无环境动态层元素（每镜 ≥1 环境运动：风/雨/尘/雾/衣摆/微振——固定≠静止，"
+                "画面不能像影棚照片）" % sid))
+    return findings
+
+
 GATES: List[Tuple[str, Callable[[Project, bool], List[Finding]]]] = [
     ("K1", gate_k1),
     ("K2", gate_k2),
     ("K3", gate_k3),
     ("K4", gate_k4),
+    ("K5", gate_k5),
+    ("K6", gate_k6),
+    ("K7", gate_k7),
     ("K9", gate_k9),
 ]
 

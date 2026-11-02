@@ -82,5 +82,42 @@ class TestK9(unittest.TestCase):
         self.assertTrue(any(x.gate == "K9" and "情节点" in x.message and "未覆盖" in x.message for x in f))
 
 
+class TestK5(unittest.TestCase):
+    def test_good(self):
+        self.assertEqual(check.gate_k5(check.Project(FIXTURES / "good_project"), False), [])
+
+    def test_over_quota_and_unannotated(self):
+        f = check.gate_k5(check.Project(FIXTURES / "bad_peak"), False)
+        self.assertTrue(any("慢镜超配额" in x.message for x in f))          # 3处>2
+        self.assertTrue(any("强调手段无峰值标注" in x.message for x in f))  # 缺 ←峰值：
+
+    def test_annotation_must_resolve(self):
+        # bad_peak 中一处标注 ←峰值：交手账R9 但 01 交手账只有 R1-R2
+        f = check.gate_k5(check.Project(FIXTURES / "bad_peak"), False)
+        self.assertTrue(any("峰值来源无法解析" in x.message for x in f))
+
+
+class TestK6(unittest.TestCase):
+    def test_good(self):
+        self.assertEqual(check.gate_k6(check.Project(FIXTURES / "good_project"), False), [])
+
+    def test_chase_without_follow(self):
+        f = check.gate_k6(check.Project(FIXTURES / "bad_camera"), False)
+        self.assertTrue(any("追逐" in x.message and "跟拍族" in x.message for x in f))
+
+    def test_motive_column_format(self):
+        f = check.gate_k6(check.Project(FIXTURES / "bad_camera"), False)
+        self.assertTrue(any("运镜动机列不合CT1" in x.message for x in f))
+
+
+class TestK7(unittest.TestCase):
+    def test_good(self):
+        self.assertEqual(check.gate_k7(check.Project(FIXTURES / "good_project"), False), [])
+
+    def test_segment_without_env_motion(self):
+        f = check.gate_k7(check.Project(FIXTURES / "bad_env"), False)
+        self.assertTrue(any(x.gate == "K7" and "环境动态" in x.message for x in f))
+
+
 if __name__ == "__main__":
     unittest.main()
