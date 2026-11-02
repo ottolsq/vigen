@@ -144,5 +144,104 @@ class TestPartial(unittest.TestCase):
         self.assertEqual(rc, 0)   # 只有01+02：K1/K2(05)/K5-K8(04)/K10 全部静默跳过
 
 
+
+class TestRegressions(unittest.TestCase):
+    """V3.0 评审的假阴性方向（每个 Critical 一条复现测试）。"""
+
+    def test_k1_dialogue_on_performance_line(self):
+        # C4：表演注与台词同行时，台词被改仍必须报（旧实现整行被黑名单跳过）
+        f = check.gate_k1(check.Project(FIXTURES / "bad_dialogue_in_perf"), False)
+        self.assertTrue(any("台词与01定稿不一致" in x.message and "钥匙归别人管" in x.message
+                            for x in f))
+
+    def test_k5_segment_heading_variant(self):
+        # C2：段落标题是「## 段1a」时 K5 仍须执行（旧实现按 '## 段落' 切块 → 空转）
+        f = check.gate_k5(check.Project(FIXTURES / "bad_seg_heading"), False)
+        self.assertTrue(any("强调手段无峰值标注" in x.message for x in f))
+
+    def test_k6_fixed_with_wrong_row(self):
+        # I7：运镜列写固定、动机报 R3（非 R7）必须报
+        f = check.gate_k6(check.Project(FIXTURES / "bad_fixed_motive"), False)
+        self.assertTrue(any("运镜列写固定" in x.message for x in f))
+
+    def test_k9_missing_status_column_no_crash(self):
+        # C1：情节点表无「状态」列时报 Finding，不得抛异常
+        f = check.gate_k9(check.Project(FIXTURES / "bad_plot_nostatus"), False)
+        self.assertTrue(any("缺「状态」列" in x.message for x in f))
+
+    def test_k10_same_plan_id_twice_allowed(self):
+        # I12：E2 的正常形态是同一张缺图挂一个 PLAN、多段共用
+        f = check.gate_k10(check.Project(FIXTURES / "bad_plan_dup"), False)
+        self.assertFalse(any("PLAN-SCENE-A" in x.message for x in f))
+
+    def test_k4_body_text_is_not_shot_reference(self):
+        # I8：正文「高速甩镜360度」不是镜号引用
+        f = check.gate_k4(check.Project(FIXTURES / "bad_shot_text"), False)
+        self.assertFalse(any("镜360" in x.message for x in f))
+
+
+class TestCLI(unittest.TestCase):
+    def test_unknown_gate_returns_usage_error(self):
+        # C5：写错门名不得静默返回「全部通过」
+        self.assertEqual(check.main(["x", str(FIXTURES / "bad_dialogue"), "--gate", "K05"]), 2)
+        self.assertEqual(check.main(["x", str(FIXTURES / "bad_dialogue"), "--gate", "bogus"]), 2)
+
+    def test_gate_filter_runs_only_selected(self):
+        rc = check.main(["x", str(FIXTURES / "bad_dialogue"), "--gate", "K1", "--partial"])
+        self.assertEqual(rc, 1)
+        rc = check.main(["x", str(FIXTURES / "bad_dialogue"), "--gate", "K5", "--partial"])
+        self.assertEqual(rc, 0)
+
+    def test_full_stricter_than_partial(self):
+        # I1：全量要求 01-05 齐备，partial 只查已有文档
+        proj = str(FIXTURES / "partial_project")
+        self.assertEqual(check.main(["x", proj, "--partial"]), 0)
+        self.assertEqual(check.main(["x", proj]), 1)
+
+
+class TestParsers(unittest.TestCase):
+    """解析层单元测试（C2/I3/I4/I5/I9 的根因）。"""
+
+    def setUp(self):
+        import vigen_md
+        self.md = vigen_md
+
+    def test_blocks_split_on_any_level2_heading(self):
+        lines = ["# t", "## 段1a（生成 8s）", "a", "## 镜头2（生成 5s）", "b"]
+        got = self.md.blocks(lines)
+        self.assertEqual([g[0][1] for g in got], ["## 段1a（生成 8s）", "## 镜头2（生成 5s）"])
+
+    def test_shot_blocks_timecode_variants(self):
+        for sep in ("–", "-", "—", "~"):
+            lines = ["## 段1", "0.0s%s4.0s｜镜头1｜a" % sep, "body"]
+            self.assertEqual(len(self.md.shot_blocks(lines)), 1, sep)
+
+    def test_shot_blocks_skeleton_b_heading(self):
+        lines = ["## 镜头1（0:00-0:04，生成 5s）", "body"]
+        self.assertEqual(len(self.md.shot_blocks(lines)), 1)
+
+    def test_table_rows_preserve_empty_cells_and_alias(self):
+        lines = ["| 镜号 | 生成时长 | 运镜动机（CT1） |", "| --- | --- | --- |",
+                 "| 1 |  | pressure(R3)：x |"]
+        rows = self.md.table_rows(lines, ("镜号", "生成时长"))
+        self.assertIsNotNone(rows)
+        self.assertEqual(self.md.cell(rows[0], "生成时长"), "")
+        self.assertEqual(self.md.cell(rows[0], "运镜动机", "动机"), "pressure(R3)：x")
+
+    def test_dialogue_quote_structural_cue(self):
+        lines = ["画面：他开口（语气：低）：\"台词A。\" 表演：核心是\"不是台词\"",
+                 "镜头语言：从\"观察\"转成\"咬合\""]
+        got = [t for _, t in self.md.dialogue_quotes(lines)]
+        self.assertIn("台词A。", got)
+        self.assertNotIn("不是台词", got)
+        self.assertNotIn("观察", got)
+
+    def test_cap_takes_range_upper_bound(self):
+        # I4：3s-15s 应解析为 15，而不是 3
+        lines = ["| 用途 | 模型 | 备注 |", "| --- | --- | --- |", "| 视频 | happyhorse | 4s-15s |"]
+        rows = self.md.table_rows(lines, ("用途", "模型"))
+        self.assertEqual(self.md.cell(rows[0], "备注"), "4s-15s")
+
+
 if __name__ == "__main__":
     unittest.main()

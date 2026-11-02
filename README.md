@@ -19,7 +19,7 @@ AI 视频制作的痛点不在"没有工具"，而在"不知道怎么指挥工�
 | 动作违反物理常识 | 动作三段式 + ENDING FRAME + 秒级时序 → [prompt-rules.md](references/prompt-rules.md) |
 | 跨片段音色漂移 | 按模型选语音路线（happyhorse 自带语音 / H3 音色自提取 / cosyvoice 对轨）+ 发声描述公式 → [consistency.md](references/consistency.md) |
 | 一段视频只有一个镜头 | 骨架 A 多镜头段落公式为默认 → [prompt-rules.md](references/prompt-rules.md) |
-| 运镜单一、转场呆板 | 40 运镜 + 8 转场 + 高风险运镜双方案制 → [cinematography.md](references/cinematography.md) |
+| 运镜单一、转场呆板 | 运镜功能决策表 R1-R7 + 40 运镜 + 8 转场 + 峰值与强调手段（稀缺品）→ [cinematography.md](references/cinematography.md) |
 | 长剧遗忘细节 | 00_剧情状态.md 每集强制更新 + 尾帧续接 → [consistency.md](references/consistency.md) |
 | 剧情被擅自删改 | 情节点清单逐点登记，100% 覆盖校验 → [screenwriting-craft.md](references/screenwriting-craft.md) |
 | 生成资产浪费钱 | 资产引用矩阵先行，零引用不生成 → [prompt-rules.md](references/prompt-rules.md) |
@@ -96,11 +96,14 @@ GATE0 需求问卷+对齐
 
 ```bash
 # Claude Code 个人技能目录（只拷运行所需文件）
-cd skillsCreate
+cd vigen
 mkdir -p ~/.claude/skills/vigen
 cp SKILL.md ~/.claude/skills/vigen/
 cp -r references assets scripts ~/.claude/skills/vigen/
 ```
+
+> **脚本调用路径**：装好后 check.py 在 `~/.claude/skills/vigen/scripts/check.py`。你的项目目录里没有 `scripts/`，调用时必须用技能目录的绝对路径（或先解析技能根目录），不要写 `python scripts/check.py`。
+> 校验：`python ~/.claude/skills/vigen/scripts/check.py <项目目录> --partial`
 
 安装后无需手动调用——对话中出现"帮我做一个短视频 / 分镜 / 视频提示词 / 多集短剧 / 王家卫感短片"等意图时自动触发；也可显式 `/vigen`。
 
