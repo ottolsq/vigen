@@ -679,7 +679,7 @@ def gate_k6(project: Project, partial: bool) -> List[Finding]:
             "K6", DOC_FILES["01"], 0,
             "剧情含信息揭示/发现/真相（%s）但分镜运镜列无摇/后拉/俯仰族（信息揭示须停在新信息上——A12）"
             % hitline.strip()[:24]))
-    if "【峰】" in plot_text:
+    if "【峰】" in plot_text and project.doc("04") is not None:
         doc04 = "\n".join(project.doc("04") or [])
         if not any(w in doc04 for w in EMPHASIS_WORDS):
             findings.append(Finding(
@@ -749,6 +749,89 @@ def gate_k7(project: Project, partial: bool) -> List[Finding]:
     return findings
 
 
+# ---------------------------------------------------------------- K8 骨架槽位
+
+SKELETON_A_SECTIONS = ("SCENE CONTEXT", "ACTIVE REFERENCES", "CONTINUITY RULE",
+                       "FORMAT", "CAMERA / EDITING", "ENDING FRAME",
+                       "PERFORMANCE LOCK", "FACE LOCK", "AUDIO", "LIGHTING", "NO")
+
+
+def gate_k8(project: Project, partial: bool) -> List[Finding]:
+    """K8 骨架槽位：04 每个骨架 A code block 须含全部必备节；骨架 B 须在 01 有理由标注。"""
+    lines = project.doc("04")
+    if lines is None:
+        return []
+    findings: List[Finding] = []
+    # 找 code block（``` 围栏），块内含 SCENE CONTEXT 即视为骨架 A
+    in_block = False
+    block_start = 0
+    block: List[str] = []
+    for i, ln in enumerate(lines, start=1):
+        if ln.strip() == "```" and not in_block:
+            in_block = True
+            block_start = i
+            block = []
+            continue
+        if ln.strip() == "```" and in_block:
+            in_block = False
+            if any(s in b for b in block for s in ("SCENE CONTEXT",)):
+                text = "\n".join(block)
+                for sec in SKELETON_A_SECTIONS:
+                    if sec not in text:
+                        findings.append(Finding(
+                            "K8", DOC_FILES["04"], block_start,
+                            "骨架A缺节：%s（骨架 A 必备 11 节——prompt-rules 骨架槽位清单）" % sec))
+            continue
+        if in_block:
+            block.append(ln)
+
+    # 骨架 B 须在 01 标注理由
+    if re.search(r"## 镜头\d+", "\n".join(lines)):
+        note01 = "\n".join(ln for _, ln in project.section("01", "分镜总览表"))
+        if "骨架 B" not in note01 and "骨架B" not in note01:
+            findings.append(Finding(
+                "K8", DOC_FILES["04"], 0,
+                "04 含骨架 B 单镜块但 01 分镜表未标注骨架 B 理由（fl2va/一镜到底张力——特例须写明）"))
+    return findings
+
+
+# ---------------------------------------------------------------- K10 PLAN/REF 闭环
+
+_PLANREF_RE = re.compile(r"\b(PLAN|REF)-([A-Z0-9-]+)")
+
+
+def gate_k10(project: Project, partial: bool) -> List[Finding]:
+    """K10 PLAN/REF 闭环：04 无"待补参考图"式模糊字样；REF-id 须在 03 可解析；
+    PLAN-id 唯一。"""
+    lines = project.doc("04")
+    if lines is None:
+        return []
+    findings: List[Finding] = []
+    doc03 = "\n".join(project.doc("03") or [])
+
+    seen_plans: set = set()
+    for i, ln in enumerate(lines, start=1):
+        if "待补参考图" in ln:
+            findings.append(Finding(
+                "K10", DOC_FILES["04"], i,
+                "模糊占位字样「待补参考图」：缺图须写 PLAN-<ID> 占位（CT5），禁止模糊字样"))
+        for m in _PLANREF_RE.finditer(ln):
+            kind, oid = m.group(1), m.group(2)
+            full = "%s-%s" % (kind, oid)
+            if kind == "REF":
+                if full not in doc03:
+                    findings.append(Finding(
+                        "K10", DOC_FILES["04"], i,
+                        "REF-%s 在03中无法解析（03 资产引用矩阵须登记同一 REF-id——K10 闭环）" % oid))
+            else:  # PLAN
+                if full in seen_plans:
+                    findings.append(Finding(
+                        "K10", DOC_FILES["04"], i,
+                        "PLAN-%s 重复登记（挂图占位 ID 须唯一）" % oid))
+                seen_plans.add(full)
+    return findings
+
+
 GATES: List[Tuple[str, Callable[[Project, bool], List[Finding]]]] = [
     ("K1", gate_k1),
     ("K2", gate_k2),
@@ -757,7 +840,9 @@ GATES: List[Tuple[str, Callable[[Project, bool], List[Finding]]]] = [
     ("K5", gate_k5),
     ("K6", gate_k6),
     ("K7", gate_k7),
+    ("K8", gate_k8),
     ("K9", gate_k9),
+    ("K10", gate_k10),
 ]
 
 

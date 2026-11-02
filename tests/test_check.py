@@ -119,5 +119,30 @@ class TestK7(unittest.TestCase):
         self.assertTrue(any(x.gate == "K7" and "环境动态" in x.message for x in f))
 
 
+class TestK8(unittest.TestCase):
+    def test_good(self):
+        self.assertEqual(check.gate_k8(check.Project(FIXTURES / "good_project"), False), [])
+
+    def test_missing_section(self):
+        f = check.gate_k8(check.Project(FIXTURES / "bad_skeleton"), False)
+        self.assertTrue(any("FACE LOCK" in x.message and "缺节" in x.message for x in f))
+
+
+class TestK10(unittest.TestCase):
+    def test_good(self):
+        self.assertEqual(check.gate_k10(check.Project(FIXTURES / "good_project"), False), [])
+
+    def test_pending_text_and_dangling_ref(self):
+        f = check.gate_k10(check.Project(FIXTURES / "bad_plan"), False)
+        self.assertTrue(any("待补参考图" in x.message for x in f))
+        self.assertTrue(any("REF-X9" in x.message and "03中无法解析" in x.message for x in f))
+
+
+class TestPartial(unittest.TestCase):
+    def test_partial_skips_missing_docs(self):
+        rc = check.main(["x", str(FIXTURES / "partial_project"), "--partial"])
+        self.assertEqual(rc, 0)   # 只有01+02：K1/K2(05)/K5-K8(04)/K10 全部静默跳过
+
+
 if __name__ == "__main__":
     unittest.main()
