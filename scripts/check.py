@@ -102,7 +102,7 @@ class Project:
 # ---------------------------------------------------------------- K1 台词逐字
 
 # 01 分场剧本节的说话人行：名字（≤12 非空白字符）+ 全角冒号 + 内容
-_DIALOGUE_LINE_RE = re.compile(r"^(\S{1,12})：(.+)$")
+_DIALOGUE_LINE_RE = re.compile(r"^(\S{1,30})：(.*)$")
 # SCR-18 防误判：以这些词开头的"名字"是动作段/结构行，不是说话人
 _ACTION_PREFIXES = ("第", "格", "镜", "段", "场景状态", "场景", "镜头")
 # 04 台词：三种引号内的文本
@@ -115,6 +115,8 @@ def _is_dialogue_line(line: str) -> bool:
     if not m:
         return False
     speaker = m.group(1)
+    if speaker.startswith("（"):   # 舞台指示/画外说明（（空间：…）等，试跑实测）
+        return False
     for pre in _ACTION_PREFIXES:
         if speaker.startswith(pre):
             return False
@@ -127,12 +129,28 @@ def _clean_dialogue(text: str) -> str:
 
 
 def _dialogue_set_01(project: Project) -> set:
-    """01 分场剧本节的台词集合（去首尾空白）。"""
+    """01 分场剧本节的台词集合（去首尾空白）。
+    支持两种格式：单行式「名字：台词」；两行式「名字（描述）：」换行「"台词"」（试跑实测变体）。"""
     out = set()
+    prev_is_speaker = False
     for _, ln in project.section("01", "分场剧本"):
+        s = ln.strip()
         if _is_dialogue_line(ln):
-            content = _DIALOGUE_LINE_RE.match(ln.strip()).group(2)
-            out.add(_clean_dialogue(content))
+            content = _DIALOGUE_LINE_RE.match(s).group(2)
+            # 单行式：冒号后有内容；两行式：冒号后为空，台词在下一（若干）行
+            if content.strip():
+                out.add(_clean_dialogue(content))
+                prev_is_speaker = False
+            else:
+                prev_is_speaker = True
+            continue
+        if not s:          # 空行不重置两行式状态（说话人行与台词行间常隔空行）
+            continue
+        if prev_is_speaker and s[0] in "\"“「" and s[-1] in "\"”」":
+            out.add(_clean_dialogue(s[1:-1]))
+            prev_is_speaker = False
+            continue
+        prev_is_speaker = False
     return out
 
 
@@ -174,6 +192,15 @@ def _dialogue_rows_05(project: Project) -> List[Tuple[int, str]]:
     return out
 
 
+# 04 行级排除：这些技术上下文里的引号是说明文本不是台词（试跑实测误拦模式）
+_NON_DIALOGUE_CTX = re.compile(
+    r"镜头语言|动机[：:]|自检|改为|约束|删掉|删去|新增|落点[：:]|骨架|参考图|"
+    r"V[0-9]+ ?：|原版|实测|换算|写法|槽位|画面文字|标题|声音补充|语气词|"
+    r"口型|→|表演[：:]|情绪从|演法[：:]|PERFORMANCE LOCK|张力|象征|"
+    r"落地后|声景|AUDIO|\[x\]|勾选|尾注|拆条理由|@\{\{ref|出场人物|"
+    r"从.+到.|收着演|不接话|全程收")
+
+
 def gate_k1(project: Project, partial: bool) -> List[Finding]:
     """K1 台词逐字：04/05 每句台词必须逐字存在于 01 定稿台词集合。"""
     if project.doc("01") is None:
@@ -191,6 +218,8 @@ def gate_k1(project: Project, partial: bool) -> List[Finding]:
             # 引号内容不一定是台词（可能是提示词短语）——只有整行含
             # 说话/语气语境词才算台词候选，宁松勿滥
             row = project.doc("04")[line_no - 1]
+            if _NON_DIALOGUE_CTX.search(row):
+                continue
             if not re.search(r"：\"|：\"|说|语气|情绪|画外音|（", row):
                 continue
             findings.append(Finding(
@@ -200,6 +229,8 @@ def gate_k1(project: Project, partial: bool) -> List[Finding]:
     if project.doc("05") is not None:
         for line_no, text in _dialogue_rows_05(project):
             t = _clean_dialogue(text)
+            if len(t) >= 2 and t[0] in '"“【' and t[-1] in '"”】':
+                t = _clean_dialogue(t[1:-1])
             if not t or t in base:
                 continue
             findings.append(Finding(
