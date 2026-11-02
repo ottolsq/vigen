@@ -20,6 +20,7 @@ enforce 的条款（与 vigen_md 解析层配套）：
   K9  情节点覆盖（双向）  → 硬规则7
   K10 PLAN/REF 闭环（禁模糊占位；REF 须在 03 登记）→ E2 / CT5（挂图清单一致性见台账 V3.1 延后）
   K11 设定间算术冲突（段内时长合计 vs 标题生成；平均镜长 vs 模型原生下限）→ 各设定单看合法的组合矛盾
+  K12 指代与部位（人物禁代词/部位带主人与左右）→ prompt-rules「指代与部位纪律」/ A13
 
 用法（CT6）：
     python check.py <项目目录> [--partial] [--gate K5[,K6]]
@@ -731,10 +732,80 @@ def gate_k11(project: Project, partial: bool) -> List[Finding]:
     return findings
 
 
+
+# ------------------------------------------------------------------ K12 指代与部位
+
+# 人物代词（"其他/其它/他人" 由 lookbehind/lookahead 排掉）
+_PRONOUN_RE = re.compile(r"(?<!其)(对方|那个人|两人|二人|双方|他|她|它)(?!人)")
+_HUMAN_ACTION = set("说看走站坐抬转拿握伸退冲停笑低靠盯望递接推拉蹲跪扑抓挥砍刺劈跳跑")
+_BODY_RE = re.compile(r"(左手|右手|左臂|右臂|左肩|右肩|左腿|右腿|左脚|右脚|左腰侧|右腰侧|左脸颊|右脸颊)(?!边)")
+_BODY_SPATIAL = ("左手", "右手", "左臂", "右臂", "左肩", "右肩", "左腿", "右腿", "左脚", "右脚")
+
+
+def _prompt_lines(project: Project, key: str) -> List[Tuple[int, str]]:
+    """03/04 的 code block 正文行（跳过围栏、空行与骨架小节标签）。"""
+    lines = project.doc(key)
+    if lines is None:
+        return []
+    out: List[Tuple[int, str]] = []
+    in_block = False
+    for i, ln in enumerate(lines, start=1):
+        if ln.strip() == "```":
+            in_block = not in_block
+            continue
+        if not in_block:
+            continue
+        s = ln.strip()
+        if not s or s in SKELETON_A_SECTIONS:
+            continue
+        out.append((i, ln))
+    return out
+
+
+def gate_k12(project: Project, partial: bool) -> List[Finding]:
+    """K12 指代与部位：人物写角色名（禁代词）；身体部位带主人与左右。"""
+    findings: List[Finding] = []
+    names = character_names(project)
+    total_units = 0
+    for key in ("03", "04"):
+        if project.doc(key) is None:
+            continue
+        units = 0
+        for line_no, ln in _prompt_lines(project, key):
+            units += 1
+            text = QUOTE_RE.sub("", ln)          # 台词引号内的人称代词不受限
+            line_names = sorted(n for n in names if n in text)
+            for m in _PRONOUN_RE.finditer(text):
+                tok = m.group(1)
+                if tok == "它":
+                    nxt = text[m.end():m.end() + 1]
+                    if not (nxt and nxt in _HUMAN_ACTION):
+                        continue                 # 「它」指物（它映着/它连接）不判
+                findings.append(Finding(
+                    "K12", DOC_FILES[key], line_no,
+                    "人物指代用了「%s」——改为角色名（本行角色：%s；台词引号内不受限）"
+                    % (tok, "/".join(line_names) or "见 02 锚定表")))
+            for m in _BODY_RE.finditer(text):
+                part = m.group(1)
+                back = text[max(0, m.start() - 14):m.start()]
+                owned = any(back.endswith(n) or back.endswith(n + "的") for n in names)
+                if not owned and "自己的" in back:
+                    owned = len(line_names) <= 1     # 「自己的」需本行只有一个角色
+                if not owned:
+                    findings.append(Finding(
+                        "K12", DOC_FILES[key], line_no,
+                        "部位「%s」未带主人与左右归属——写「<角色名>的%s」并写明位置/朝向/持握"
+                        % (part, part)))
+        total_units += units
+    if total_units == 0 and (project.doc("03") is not None or project.doc("04") is not None):
+        findings.append(_warn("K12", "04", "未找到可检查的提示词正文（03/04 无 code block），K12 未执行"))
+    return findings
+
+
 GATES: List[Tuple[str, GateFn]] = [
     ("K1", gate_k1), ("K2", gate_k2), ("K3", gate_k3), ("K4", gate_k4),
     ("K5", gate_k5), ("K6", gate_k6), ("K7", gate_k7), ("K8", gate_k8),
-    ("K9", gate_k9), ("K10", gate_k10), ("K11", gate_k11),
+    ("K9", gate_k9), ("K10", gate_k10), ("K11", gate_k11), ("K12", gate_k12),
 ]
 
 REQUIRED_FOR_FULL = ("01", "02", "03", "04", "05")

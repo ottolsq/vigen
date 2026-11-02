@@ -732,3 +732,15 @@ ai-video-maker/
 - 测试：44 → 48（K11 三条 + export 四条）。
 
 **改动文件**：scripts/{check.py, vigen_md.py, export.py} / tests/{test_check.py, test_export.py, fixtures/(bad_arith, bad_avgshot)} / SKILL.md / README.md / create.md
+
+### V3.2（2026-11-02，用户反馈：提示词里人物必须称名、部位必须带主人与左右）
+
+**问题**：图/视频模型不追踪实体身份——提示词里写"他/对方/左手"，模型按最近名词绑定，两人一交叉就互换；左右手/腿不写主人会被随机分配。
+
+- **prompt-rules 新增「指代与部位纪律」节**（图片与视频提示词通用，唯一的家）：人物一律写角色名（禁 他/她/它/对方/那个人/两人/二人/双方；`其他/其它/他人` 除外；台词引号内不受限）；身体部位写「<角色名>的<左/右><部位>」并写明位置/朝向/持握；左右以人物自己身体为准，画面方位用场景锚点（画左/画右随机位翻转）。附弱/强对照例句。
+- **校验 A13** 引用该节；templates 校验清单 A1-A12 → A1-A13。
+- **check.py K12**：扫描 03/04 的 code block 正文（剥离台词引号），报「人物指代用了代词」与「部位未带主人」；`右手边` 等方位词与「其他/其它/他人」不误报；「它」仅在后接人物动作时判。真实项目实测：瓦檐 328 处、海岛 17 处（均为旧项目未遵守该纪律）。
+- 原骨架 A 里的旧「角色指代纪律」条目改为指针（单一事实源）。
+- 测试：48 → 51（K12 正反例 + 新增「good 通过全部门」总测试）。
+
+**改动文件**：references/prompt-rules.md / assets/templates.md / scripts/check.py / tests/(test_check.py, fixtures/bad_pronoun, good_project 修订) / README.md / create.md
