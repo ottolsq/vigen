@@ -55,27 +55,32 @@ GATE0 需求问卷+对齐
 ## 目录结构（规则全文的唯一权威）
 
 ```
-├── SKILL.md              # GATE0 问卷 + 工作流 + 意图路由（含活剧本修订）+ 14 条硬规则（要点+指针）+ 回退阶梯 + 效率纪律
+├── SKILL.md              # GATE0 问卷 + 工作流 + 意图路由（含活剧本修订）+ 15 条硬规则（要点+指针，新增 15 check.py 门）+ 回退阶梯 + 停点收缩（真分叉才停）+ E2 挂图不阻塞 + 效率纪律
 ├── references/
-│   ├── screenwriting-craft.md # 剧本创作：7 大漏洞自检 + 钩子悬念纪律 + 故事三层分离 + GATE1.5 + 故事板四格
-│   ├── prompt-rules.md   # 四大底层认知 + 图片/视频骨架 A·B + 道具六条判定 + L1-L4 分级 + 发声描述公式 + 校验（11 关键门 + 13 抽查项）
+│   ├── screenwriting-craft.md # 剧本创作：7 大漏洞自检（操作程序+证据引用）+ 台词行动理论（议程卡/五说/策略库/声音五维）+ 场景发动机与升级六问 + 当集兑现 + 反对七式 + 误会四判据 + 钩子悬念纪律 + 故事三层分离 + GATE1.5 + 故事板四格
+│   ├── prompt-rules.md   # 四大底层认知 + 0.7 可生成性前置门（四类高风险+比划测试+改写五法）+ 图片/视频骨架 A·B + 道具六条判定 + L1-L4 分级 + 发声描述公式 + 校验（12 关键门 A1-A12 + 13 抽查项）
 │   ├── models.md         # 模型能力档案 + 生成路径判定 + 换模型指引
-│   ├── cinematography.md # 40 运镜 + 8 转场 + 机位语义 + 段长/慢镜预算 + 双方案表 + 节奏模板
+│   ├── cinematography.md # 运镜功能决策表（R1-R7，固定是最后一行）+ 动机五类词表 + 40 运镜 + 8 转场 + 机位语义 + 水平角度词表 + 对白场切法 + 工作景别 + 峰值与强调手段（稀缺品）+ 节奏模板
 │   ├── realism.md        # 去AI味 + 张力四法 + 表面两档与塑形约束 + 朝代纪律 + 文字物理化
 │   ├── styles.md         # 15 风格库 + 色彩基调色板 + 风格提取解梦卡
 │   ├── consistency.md    # 四层锚定 + 参考图六条/头身分离 + 角色路由/基准参考法 + 最小参考集 + 音色自提取 + 系列记忆 + 失效传播
 │   ├── content-safety.md # 内容安全反应式降级（拦截后必读；写高危题材前只查已登记模式）：措辞级解法库 + 构图级模式表 + 降级阶梯 + 显式否定旧设定 + 失败分类对策
 │   ├── knowledge-index.md# 扩展知识库路由表（命中才读，token 纪律守门文件）+ 负面词效力分端裁决
 │   ├── examples.md       # 完整示例
-│   ├── action-combat.md  # [扩展] 武打动作引擎
+│   ├── action-combat.md  # [扩展] 武打动作引擎：交手账（回合三格+胜负手）+ 打击呈现三件套 + 围攻方位纪律 + 三拍容器 + 打斗接触专条
 │   ├── cinema-grade-params.md # [扩展] 电影级参数块 + 国漫四视图
 │   ├── expressions.md / director-styles.md / extended-views.md / emotion-craft.md / ugc-realism.md / anime-to-real.md  # [扩展]
 │   ├── learning-guide.md # 学习指导（缺陷清单/使用边界/资料吸收台账）——不进日常执行链路
 │   └── _archive-suspended-claims.md  # 停用主张归档（不读不用）
 ├── assets/
-│   └── templates.md      # 00-06 项目文件标准模板
+│   └── templates.md      # 00-06 项目文件标准模板（01 含打斗交手账/【峰】标记/CT1 动机列；04 含 PLAN/REF 槽位）
+├── scripts/
+│   └── check.py          # 薄校验层（K1-K10 机械门，纯标准库——硬规则 15）
 └── tests/
-    └── baseline-record.md  # TDD 测试记录
+    ├── test_check.py       # check.py 单元测试（26 tests）
+    ├── baseline-record.md  # TDD 测试记录
+    ├── baseline-checkpy-record.md  # 真实项目试跑误拦观察记录
+    └── fixtures/           # good/bad 样例项目
 ```
 
 ## 当前模型栈（2026-10）
@@ -94,7 +99,7 @@ GATE0 需求问卷+对齐
 cd skillsCreate
 mkdir -p ~/.claude/skills/vigen
 cp SKILL.md ~/.claude/skills/vigen/
-cp -r references assets ~/.claude/skills/vigen/
+cp -r references assets scripts ~/.claude/skills/vigen/
 ```
 
 安装后无需手动调用——对话中出现"帮我做一个短视频 / 分镜 / 视频提示词 / 多集短剧 / 王家卫感短片"等意图时自动触发；也可显式 `/vigen`。
@@ -115,6 +120,6 @@ cp -r references assets ~/.claude/skills/vigen/
 
 ## 已知边界
 
-- 只产提示词与项目文件，不调用生成 API、不做剪辑执行
+- 只产提示词与项目文件，不调用生成 API、不做剪辑执行；check.py 只读校验项目 Markdown（K1-K10 机械门），同样不调 API、不改文件
 - 不做真人拍摄指导；剧本必须经 GATE1.5 用户定稿（skill 自检是辅助不是替代）
 - 内容安全走**反应式降级**（V2.9）：未登记模式不预防性降敏；被拦后按措辞级/构图级降级，解法登记进已验证模式库（剧情可保留、措辞与构图可调），不保证通过所有平台审核
