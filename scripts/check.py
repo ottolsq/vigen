@@ -740,6 +740,8 @@ _PRONOUN_RE = re.compile(r"(?<!其)(对方|那个人|两人|二人|双方|他|�
 _HUMAN_ACTION = set("说看走站坐抬转拿握伸退冲停笑低靠盯望递接推拉蹲跪扑抓挥砍刺劈跳跑")
 _BODY_RE = re.compile(r"(左手|右手|左臂|右臂|左肩|右肩|左腿|右腿|左脚|右脚|左腰侧|右腰侧|左脸颊|右脸颊)(?!边)")
 _BODY_SPATIAL = ("左手", "右手", "左臂", "右臂", "左肩", "右肩", "左腿", "右腿", "左脚", "右脚")
+# 「哪里」模糊：命中动词 + 身上/某处/要害（没写具体部位）
+_VAGUE_HIT_RE = re.compile(r"(打在|踢在|砍在|刺在|击中|砸在|撞在|落在)[^。；\n]{0,8}(身上|某处|要害)")
 
 
 def _prompt_lines(project: Project, key: str) -> List[Tuple[int, str]]:
@@ -785,6 +787,11 @@ def gate_k12(project: Project, partial: bool) -> List[Finding]:
                     "K12", DOC_FILES[key], line_no,
                     "人物指代用了「%s」——改为角色名（本行角色：%s；台词引号内不受限）"
                     % (tok, "/".join(line_names) or "见 02 锚定表")))
+            for m in _VAGUE_HIT_RE.finditer(text):
+                findings.append(Finding(
+                    "K12", DOC_FILES[key], line_no,
+                    "命中位置模糊「%s%s」——写具体部位（<角色名>的<左/右><部位>，如「林枫的右侧肋下」）"
+                    % (m.group(1), m.group(2))))
             for m in _BODY_RE.finditer(text):
                 part = m.group(1)
                 back = text[max(0, m.start() - 14):m.start()]
