@@ -63,5 +63,24 @@ class TestK3(unittest.TestCase):
         self.assertTrue(any("林枫" in x.message and "锚定短语缺失" in x.message for x in f))
 
 
+class TestK4(unittest.TestCase):
+    def test_good(self):
+        self.assertEqual(check.gate_k4(check.Project(FIXTURES / "good_project"), False), [])
+
+    def test_duplicate_and_dangling(self):
+        f = check.gate_k4(check.Project(FIXTURES / "bad_shotid"), False)
+        self.assertTrue(any("镜号重复" in x.message for x in f))
+        self.assertTrue(any("引用了01分镜表不存在的镜号" in x.message for x in f))
+
+
+class TestK9(unittest.TestCase):
+    def test_good(self):
+        self.assertEqual(check.gate_k9(check.Project(FIXTURES / "good_project"), False), [])
+
+    def test_uncovered_plot_point(self):
+        f = check.gate_k9(check.Project(FIXTURES / "bad_coverage"), False)
+        self.assertTrue(any(x.gate == "K9" and "情节点" in x.message and "未覆盖" in x.message for x in f))
+
+
 if __name__ == "__main__":
     unittest.main()

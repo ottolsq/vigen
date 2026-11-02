@@ -405,10 +405,144 @@ def gate_k3(project: Project, partial: bool) -> List[Finding]:
     return findings
 
 
+# ---------------------------------------------------------------- K4 稳定镜号
+
+# 合法镜号：1 / 2 / S3 / S3a（后缀式插入）
+_SHOTID_RE = re.compile(r"^(S?\d+[a-z]?)(?:（[^）]*）)?$")
+# 作废行：~~S3b~~（v3 作废）
+_VOIDED_RE = re.compile(r"^~~(S?\d+[a-z]?)~~")
+# 03/04 引用的镜号形态：镜1 / 镜头1 / S3a
+_REF_RE = re.compile(r"(?:镜|镜头)(S?\d+[a-z]?)")
+# 04 镜头块标题行：0.0s–4.0s｜镜头1｜标题
+_BLOCK_RE = re.compile(r"(?:镜|镜头)(S?\d+[a-z]?)[｜|]")
+
+
+def _storyboard_ids(project: Project) -> Tuple[dict, dict]:
+    """返回 (活动镜号→行号, 作废镜号→行号)。"""
+    live: dict = {}
+    voided: dict = {}
+    for line_no, cells in _storyboard_rows(project):
+        raw = cells[0]
+        vm = _VOIDED_RE.match(raw)
+        if vm:
+            voided.setdefault(vm.group(1), line_no)
+            continue
+        m = _SHOTID_RE.match(raw)
+        if m:
+            live.setdefault(m.group(1), line_no)
+    return live, voided
+
+
+def gate_k4(project: Project, partial: bool) -> List[Finding]:
+    """K4 稳定镜号：01 镜号唯一（作废行除外）；03/04 引用的镜号必须存在于 01
+    且不引用已作废镜号。"""
+    if project.doc("01") is None:
+        return []
+    findings: List[Finding] = []
+    live, voided = _storyboard_ids(project)
+
+    # 唯一性：同镜号出现两行（后一行重复）
+    seen: set = set()
+    for line_no, cells in _storyboard_rows(project):
+        raw = cells[0]
+        if _VOIDED_RE.match(raw):
+            continue
+        m = _SHOTID_RE.match(raw)
+        if not m:
+            continue
+        sid = m.group(1)
+        if sid in seen:
+            findings.append(Finding(
+                "K4", DOC_FILES["01"], line_no,
+                "镜号重复：%s 已分配（稳定镜号规则：插入用后缀式 S3a，不重排已有镜号）" % sid))
+        seen.add(sid)
+
+    # 引用解析（03/04）
+    for key in ("03", "04"):
+        lines = project.doc(key)
+        if lines is None:
+            continue
+        for i, ln in enumerate(lines, start=1):
+            for m in _REF_RE.finditer(ln):
+                ref = m.group(1)
+                # 跳过表格里的"镜1-2"区间中段？01 覆盖列写"镜1-2"合法——
+                # 引用检查只对 03/04 的镜头块/情景图标题行生效
+                if ref in live:
+                    continue
+                if ref in voided:
+                    findings.append(Finding(
+                        "K4", DOC_FILES[key], i,
+                        "引用了已作废镜号：镜%s（作废镜号保留行号仅供追溯，禁止再引用）" % ref))
+                else:
+                    findings.append(Finding(
+                        "K4", DOC_FILES[key], i,
+                        "引用了01分镜表不存在的镜号：镜%s（03 资产矩阵/04 段落须与 01 镜号对齐）" % ref))
+    return findings
+
+
+# ---------------------------------------------------------------- K9 情节点覆盖
+
+_PLOT_ROW_RE = re.compile(r"^\|\s*(\d+)\s*\|")
+
+
+def _plot_rows(project: Project) -> List[Tuple[int, str, str, str]]:
+    """01 情节点清单：(行号, 情节点文本, 覆盖镜号列, 状态列)。表头含'情节点'才解析。"""
+    out = []
+    lines = project.doc("01")
+    if lines is None:
+        return out
+    col_cov = col_st = -1
+    for i, ln in enumerate(lines, start=1):
+        if not ln.startswith("|"):
+            col_cov = col_st = -1
+            continue
+        cells = [c.strip() for c in ln.split("|")[1:-1]]
+        if "情节点" in cells and "覆盖镜号" in cells:
+            col_cov = cells.index("覆盖镜号")
+            col_st = cells.index("状态")
+            continue
+        if col_cov >= 0 and len(cells) > max(col_cov, col_st):
+            if set(cells[0]) <= {"-", " ", ":"} or not cells[0].isdigit():
+                continue
+            out.append((i, cells[1], cells[col_cov], cells[col_st]))
+    return out
+
+
+def gate_k9(project: Project, partial: bool) -> List[Finding]:
+    """K9 情节点覆盖：双向核对——无擅自删减（行存在），无漏拍（覆盖镜号非空+状态✓+
+    引用镜号存在于 01 分镜表）。"""
+    if project.doc("01") is None:
+        return []
+    findings: List[Finding] = []
+    live, _voided = _storyboard_ids(project)
+
+    for line_no, text, cov, status in _plot_rows(project):
+        label = text[:20]
+        if not cov:
+            findings.append(Finding(
+                "K9", DOC_FILES["01"], line_no,
+                "情节点%s未覆盖：覆盖镜号列为空（分镜必须 100%% 覆盖情节点——硬规则7；"
+                "不拍需在分镜表写弃拍理由）" % label))
+            continue
+        if "✓" not in status:
+            findings.append(Finding(
+                "K9", DOC_FILES["01"], line_no,
+                "情节点%s状态未勾：状态列须 ✓（未拍/改派须写明处置）" % label))
+        for m in _REF_RE.finditer(cov):
+            ref = m.group(1)
+            if ref not in live:
+                findings.append(Finding(
+                    "K9", DOC_FILES["01"], line_no,
+                    "情节点%s覆盖镜号镜%s在01分镜表不存在" % (label, ref)))
+    return findings
+
+
 GATES: List[Tuple[str, Callable[[Project, bool], List[Finding]]]] = [
     ("K1", gate_k1),
     ("K2", gate_k2),
     ("K3", gate_k3),
+    ("K4", gate_k4),
+    ("K9", gate_k9),
 ]
 
 
