@@ -24,8 +24,10 @@ enforce 的条款（与 vigen_md 解析层配套）：
   K13 节拍认领（每拍恰好一镜/双向一致/顺序/有台词镜不得 —）→ A14
   K14 钩子位置与时长预算（前3拍/末拍/±15%≥2.5s）→ A15
   K15 短剧立项单一致性（必填字段/档位集数/单元划分/付费墙落位）→ short-drama-market
-  K16 短剧集结构（本集结算/断章/长档中段小钩 + 独白旁白配额与位置）→ A16
-      「叙事形态」缺失或为电影化时 K15/K16 静默跳过（旧项目零影响）
+  K16 短剧集结构（本集结算/断章/长档中段小钩 + 独白旁白配额与位置）
+      → screenwriting-craft 一·九 / short-drama-market.md
+      「叙事形态」缺失或为电影化时 K15/K16 静默跳过（旧项目零影响）；
+      模板占位（含花括号/`第N集`）不算已填，K15/K16 报「未填」
 
 用法（CT6）：
     python check.py <项目目录> [--partial] [--gate K5[,K6]]
@@ -1141,7 +1143,6 @@ VO_LEN = 12
 _UNIT_RE = re.compile(
     r"([A-Za-z])\s*[（(]\s*(\d+)\s*[-–—~至]\s*(\d+)\s*[)）]")
 _SPAN_RE = re.compile(r"(\d+)\s*[-–—~至]\s*(\d+)")
-_WALL_RE = re.compile(r"(一级|二级|三级)[^\d\n]{0,12}(\d+)")
 _VO_LINE_RE = re.compile(
     r"^(内心独白|独白|心声|旁白|画外音|画面字幕|字幕)"
     r"(（[^）]*）|\([^)]*\))?\s*[:：]\s*(.+)$")
@@ -1151,7 +1152,7 @@ _VO_BRACKET_RE = re.compile(r"^\[VO\]\s*[:：]?\s*(.+)$", re.I)
 
 def _parent_series_doc(project: Project) -> Optional[List[str]]:
     """系列项目：ep01/ 的上一级是 00_剧情状态.md（check 在单集目录跑）。"""
-    p = project.root.parent / DOC_FILES["00"]
+    p = project.root.resolve().parent / DOC_FILES["00"]
     if not p.is_file():
         return None
     try:
@@ -1186,20 +1187,73 @@ def _has_series_meta(project: Project) -> bool:
             or _parent_series_doc(project) is not None)
 
 
+_PLACEHOLDER_RE = re.compile(r"[{}]")
+_MENU_FIELDS = ("平台", "档位", "流派", "备案类别")
+
+
+def _is_placeholder(value: str) -> bool:
+    """模板占位（含花括号）不算已填；`—` 也不算。"""
+    v = (value or "").strip()
+    return bool(_PLACEHOLDER_RE.search(v)) or v in ("—", "-", "–")
+
+
+def _filled(value: Optional[str]) -> bool:
+    return bool(value) and not _is_placeholder(value)
+
+
+def _form_state(project: Project) -> str:
+    """叙事形态三态：short / film / ambiguous / auto。
+
+    - 未填 / — → auto（旧项目与电影化项目静默跳过）
+    - 「非竖屏短剧（电影化）」→ film（否定写法不误判）
+    - 同时含「竖屏短剧」与「电影化」→ ambiguous（模板菜单未选定，K15 报错）
+    """
+    raw = _meta_value(project, "叙事形态").strip()
+    if not raw:
+        return "auto"
+    if _is_placeholder(raw):
+        if "竖屏" in raw and "电影化" in raw:
+            return "ambiguous"
+        if "竖屏" in raw:
+            return "short"
+        if "电影化" in raw:
+            return "film"
+        return "auto"
+    if re.search(r"(非|不是|不用|不要)\s*竖屏", raw):
+        return "film"
+    has_short = "竖屏" in raw
+    has_film = "电影化" in raw
+    if has_short and has_film:
+        return "ambiguous"
+    if has_short:
+        return "short"
+    if has_film:
+        return "film"
+    return "auto"
+
+
 def _short_form(project: Project) -> bool:
-    """旧项目无「叙事形态」/ 电影化 → 静默跳过 K15/K16。"""
-    return SHORT_FORM in _meta_value(project, "叙事形态")
+    return _form_state(project) == "short"
+
+
+def _format_state(project: Project) -> str:
+    """档位三态：standard / long / manju / ambiguous / bad / 空。"""
+    raw = _meta_value(project, "档位").strip()
+    if not raw:
+        return ""
+    hits = [k for k in ("标准档", "长档", "漫剧档") if k in raw]
+    if len(hits) > 1:
+        return "ambiguous"
+    if _is_placeholder(raw):
+        return ""
+    if not hits:
+        return "bad"
+    return {"标准档": "standard", "长档": "long", "漫剧档": "manju"}[hits[0]]
 
 
 def _short_format(project: Project) -> str:
-    raw = _meta_value(project, "档位")
-    if "长档" in raw:
-        return "long"
-    if "漫剧" in raw:
-        return "manju"
-    if "标准" in raw:
-        return "standard"
-    return ""
+    state = _format_state(project)
+    return state if state in ("standard", "long", "manju") else ""
 
 
 def _parse_int(text: str) -> Optional[int]:
@@ -1217,12 +1271,41 @@ def _parse_units(text: str) -> List[Tuple[str, int, int]]:
             for i, m in enumerate(_SPAN_RE.finditer(text or ""))]
 
 
+_WALL_SPLIT = re.compile(r"(一级|二级|三级)")
+
+
 def _parse_walls(text: str) -> Dict[int, int]:
-    """'一级墙 第12集 / 二级墙 第30集' → {1:12, 2:30}。"""
+    """'一级墙 第12集 / 二级墙 第30集' → {1:12, 2:30}。
+
+    按层级词切段逐段取首个数字——禁止跨层吞数（「一级墙 无 / 二级墙 第10集」
+    不能把 10 算成一级墙）。
+    """
     level = {"一级": 1, "二级": 2, "三级": 3}
+    parts = _WALL_SPLIT.split(text or "")
     out: Dict[int, int] = {}
-    for m in _WALL_RE.finditer(text or ""):
-        out[level[m.group(1)]] = int(m.group(2))
+    for i in range(1, len(parts) - 1, 2):
+        m = re.search(r"(\d+)", parts[i + 1])
+        if m:
+            out[level[parts[i]]] = int(m.group(1))
+    return out
+
+
+def _is_no_wall(text: str) -> bool:
+    """「无」「无付费墙」「无（广告分账）」→ 无墙；含墙位数字或「一级…」不算。"""
+    v = (text or "").strip()
+    return v.startswith("无") and not re.search(r"\d", v) and "第" not in v
+
+
+def _wall_bounds(total: int, variant: str) -> Optional[List[Tuple[int, int]]]:
+    """按变体放宽付费墙区间：投流前置只放宽一级墙；治愈系后置整体 +3 集。"""
+    base = WALL_RANGES.get(total)
+    if not base:
+        return None
+    out = list(base)
+    if variant == "投流前置":
+        out[0] = (3, 8)
+    elif variant == "治愈系后置":
+        out = [(lo + 2, hi + 3) for lo, hi in out]
     return out
 
 
@@ -1261,31 +1344,50 @@ def _field_body(lines: List[str], *names: str) -> Optional[str]:
 
 def gate_k15(project: Project, partial: bool) -> List[Finding]:
     """短剧立项单一致性：必填字段 / 档位集数 / 单元划分 / 付费墙落位。"""
-    if not _short_form(project):
+    state = _form_state(project)
+    if state in ("auto", "film"):
         return []
     key = "00" if _has_series_meta(project) else "01"
     file_name = DOC_FILES[key]
     findings: List[Finding] = []
 
+    if state == "ambiguous":
+        findings.append(Finding(
+            "K15", file_name, 0,
+            "叙事形态未选定：值同时含「竖屏短剧」与「电影化」（不要保留模板菜单）"))
+
     base_fields = ("平台", "档位", "总集数", "赛道", "流派", "情绪契约", "备案类别")
     for name in base_fields:
-        if not _meta_value(project, name):
+        value = _meta_value(project, name)
+        if not value or _is_placeholder(value):
             findings.append(Finding(
-                "K15", file_name, 0, "短剧立项单缺「%s」" % name))
+                "K15", file_name, 0,
+                "短剧立项单缺「%s」或仍是模板占位" % name))
+        elif name in _MENU_FIELDS and " / " in value:
+            findings.append(Finding(
+                "K15", file_name, 0,
+                "「%s」未选定（值含多个选项：%s）" % (name, value)))
 
-    fmt = _short_format(project)
-    if _meta_value(project, "档位") and not fmt:
+    fmt_state = _format_state(project)
+    if fmt_state == "ambiguous":
+        findings.append(Finding(
+            "K15", file_name, 0,
+            "档位未选定：值同时含多个档位（%s）"
+            % _meta_value(project, "档位")))
+    elif fmt_state == "bad":
         findings.append(Finding(
             "K15", file_name, 0,
             "档位「%s」无法识别（须含 标准档/长档/漫剧档）"
             % _meta_value(project, "档位")))
 
-    total = _parse_int(_meta_value(project, "总集数"))
+    raw_total = _meta_value(project, "总集数")
+    total = None if _is_placeholder(raw_total) else _parse_int(raw_total)
     if total is None or total <= 0:
         findings.append(Finding(
-            "K15", file_name, 0, "总集数不是正整数"))
+            "K15", file_name, 0, "总集数不是正整数或仍是模板占位"))
         return findings
 
+    fmt = _short_format(project)
     if fmt:
         known = FORMAT_TOTALS[fmt]
         all_known = set().union(*FORMAT_TOTALS.values())
@@ -1300,10 +1402,13 @@ def gate_k15(project: Project, partial: bool) -> List[Finding]:
     if total <= 1:
         return findings
 
+    emotion_flow = "情绪流" in _meta_value(project, "流派")
     raw_units = _meta_value(project, "单元划分")
-    if not raw_units:
-        findings.append(Finding(
-            "K15", file_name, 0, "短剧立项单缺「单元划分」"))
+    if not raw_units or _is_placeholder(raw_units):
+        if emotion_flow:
+            findings.append(Finding(
+                "K15", file_name, 0,
+                "情绪流项目缺「单元划分」（剧情流可写「—」）"))
     else:
         units = _parse_units(raw_units)
         if not units:
@@ -1335,28 +1440,53 @@ def gate_k15(project: Project, partial: bool) -> List[Finding]:
                     "单元划分止于第%d集，与总集数 %d 不一致"
                     % (prev_end, total)))
 
-    raw_walls = _meta_value(project, "付费墙落位")
-    if not raw_walls:
+    raw_variant = _meta_value(project, "付费墙变体")
+    variant = "标准"
+    if _is_placeholder(raw_variant):
         findings.append(Finding(
-            "K15", file_name, 0, "短剧立项单缺「付费墙落位」"))
-    elif "无" in raw_walls and not _WALL_RE.search(raw_walls):
+            "K15", file_name, 0,
+            "付费墙变体未选定（仍是模板占位）"))
+    elif "投流" in raw_variant:
+        variant = "投流前置"
+    elif "后置" in raw_variant or "治愈" in raw_variant:
+        variant = "治愈系后置"
+    elif "无墙" in raw_variant or "广告" in raw_variant:
+        variant = "无墙"
+
+    raw_walls = _meta_value(project, "付费墙落位")
+    if not raw_walls or _is_placeholder(raw_walls):
+        findings.append(Finding(
+            "K15", file_name, 0,
+            "短剧立项单缺「付费墙落位」或仍是模板占位"))
+    elif variant == "无墙":
+        if not _is_no_wall(raw_walls):
+            findings.append(Finding(
+                "K15", file_name, 0,
+                "付费墙变体=无墙，但「付费墙落位」填了具体墙位"))
+    elif _is_no_wall(raw_walls):
         pass  # 广告分账无付费墙
     else:
         walls = _parse_walls(raw_walls)
-        ranges = WALL_RANGES.get(total)
+        ranges = _wall_bounds(total, variant)
         for level, label in ((1, "一级"), (2, "二级"), (3, "三级")):
             if level not in walls:
                 findings.append(Finding(
                     "K15", file_name, 0,
                     "付费墙落位缺「%s墙 第N集」" % label))
                 continue
+            if not (1 <= walls[level] <= total):
+                findings.append(Finding(
+                    "K15", file_name, 0,
+                    "%s墙 第%d集 超出总集数 %d"
+                    % (label, walls[level], total)))
+                continue
             if ranges and not (ranges[level - 1][0] <= walls[level]
                                <= ranges[level - 1][1]):
                 findings.append(Finding(
                     "K15", file_name, 0,
-                    "%s墙 第%d集 不在总集数 %d 的允许区间 %d~%d"
+                    "%s墙 第%d集 不在总集数 %d 的允许区间 %d~%d（变体：%s）"
                     % (label, walls[level], total,
-                       ranges[level - 1][0], ranges[level - 1][1])))
+                       ranges[level - 1][0], ranges[level - 1][1], variant)))
     return findings
 
 
@@ -1376,32 +1506,23 @@ def gate_k16(project: Project, partial: bool) -> List[Finding]:
     findings: List[Finding] = []
 
     settlement = _field_body(lines, "本集结算")
-    if settlement is None:
+    if not _filled(settlement):
         findings.append(Finding(
             "K16", DOC_FILES["01"], 0,
-            "缺【本集结算】（主角可见反将 + 反派为本次施压付代价）"))
-    elif not settlement:
-        findings.append(Finding(
-            "K16", DOC_FILES["01"], 0, "【本集结算】为空"))
+            "【本集结算】缺失或未填（空/模板占位）——须写主角可见反将 + 反派为本次施压付代价"))
 
     break_body = _field_body(lines, "本集断章卡点", "本集断章")
-    if break_body is None:
+    if not _filled(break_body):
         findings.append(Finding(
             "K16", DOC_FILES["01"], 0,
-            "缺【本集断章卡点】（每集末拍必须是断章公式之一）"))
-    elif not break_body:
-        findings.append(Finding(
-            "K16", DOC_FILES["01"], 0, "【本集断章卡点】为空"))
+            "【本集断章卡点】缺失或未填（空/模板占位）——每集末拍必须是断章公式之一"))
 
     if fmt == "long":
         mid = _field_body(lines, "本集中段小钩", "中段小钩")
-        if mid is None:
+        if not _filled(mid):
             findings.append(Finding(
                 "K16", DOC_FILES["01"], 0,
-                "长档缺【本集中段小钩】（≈90 秒处必设新信息/新威胁）"))
-        elif not mid:
-            findings.append(Finding(
-                "K16", DOC_FILES["01"], 0, "【本集中段小钩】为空"))
+                "【本集中段小钩】缺失或未填（空/模板占位）——长档 ≈90 秒处必设新信息/新威胁"))
 
     os_cap = OS_CAP.get(fmt, 1)
     os_len = OS_LEN.get(fmt, 25)

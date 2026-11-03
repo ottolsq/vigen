@@ -84,7 +84,7 @@ GATE0 需求问卷+对齐
 │   ├── vigen_md.py       # 解析层（表格按表头名取列/段落按任意二级标题切块/台词结构判据）
 │   └── export.py         # 交付打包（快照 + manifest + checksums，不声称审批）
 └── tests/
-    ├── test_check.py       # check.py 单元测试（67 tests）
+    ├── test_check.py       # check.py 单元测试（71 tests；tests/ 合计 75，含 test_export 4）
     ├── baseline-record.md  # TDD 测试记录
     ├── baseline-checkpy-record.md  # 真实项目试跑误拦观察记录
     └── fixtures/           # good/bad 样例项目

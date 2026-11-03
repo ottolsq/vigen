@@ -798,15 +798,31 @@ ai-video-maker/
 **核心判断**：上一轮识别的头号冲突（潜台词 vs 大白话直给）不是二选一，是**形态不同**——电影化让观众「品」，竖屏短剧让观众「不划走」。因此加项目级 `【叙事形态】` 开关，只切换剧本层规则，02-06 完全不动。
 
 - **形态开关**：`叙事形态` 写进 00（系列）/01（单视频）立项单；无该字段或=电影化 → K15/K16 静默跳过（与 K13/K14 的 `节拍制` 同款兼容策略）。
-- **市场层**（新文件 `references/short-drama-market.md`）：档位/集数（标准 60/80/100、长档 30/40/50、漫剧 60/80/100）+ 40 赛道选型表 + 流派判定/情绪契约/单元链（单矛盾硬帽 20~30 集，长档 10~15）+ 六档证据×六档反驳 + 付费墙三级/三法则/三变体 + 前三集节拍卡/四类节奏型 + 与 vigen 文件的接口。榜单证据与附录不搬。
+- **市场层**（新文件 `references/short-drama-market.md`）：档位/集数（标准 60/80/100、长档 30/40/50、漫剧 60/80/100）+ 40 赛道选型表 + 流派判定/情绪契约/单元链（单矛盾硬帽 ≤30 集，长档 ≤15，无下限）+ 六档证据×六档反驳 + 付费墙三级/三法则/三变体 + 前三集节拍卡/四类节奏型 + 与 vigen 文件的接口。榜单证据与附录不搬。
 - **合规层**（新文件 `references/content-compliance.md`）：广电 16 号令备案分类（一类特殊题材：公安/司法/国安/民族/宗教/外交）+ 11 条内容红线 + 暴力复仇/封建糟粕专项 + 恶行不过 3 集 + 敏感词替换表 + GATE1.5 自检清单。**与 content-safety 分两层**：本文件管「内容能不能写」，content-safety 管「提示词会不会被拦」。
 - **形态 B 覆盖规则**（screenwriting-craft 一·九，8 小节）：台词信息层同轮直给、潜台词降为情绪载体（裁决了与漏洞 2④ 的冲突）；15 秒四拍（抓人立事→正面交锋→亮牌翻转→余波钩子）；集内结算（主角反将 + 反派付代价）；强画面每 2~4 句 `△` + 无效微动作黑名单；独白/旁白配额（标准 1/25、长档 2/30、漫剧 1/20，旁白 1/12）；断章五公式；01 必备字段；形态 A/B 分工一句话。
 - **模板**：00/01 新增「立项单」（平台/形态/档位/总集数/赛道/流派/情绪契约/单元划分/付费墙落位/备案类别）；01 新增「短剧集结构」（结算/中段小钩/断章）。
 - **SKILL**：GATE0 新增第 9 问「叙事形态与平台」（选竖屏短剧追问平台/档位/集数/墙位/赛道/流派/备案）；Module Map 加两个新文件的读取时点；阶段1a 加形态 B 分支；GATE1.5 加合规自检；硬规则 14 补内容层/提示词层分工；硬规则 16 扩为「节拍/钩子/短剧门」。
-- **K15 立项一致性**：必填 7 字段（平台/档位/总集数/赛道/流派/情绪契约/备案类别）+ 单元划分（单集跳过）连续、覆盖全集、单元长度 ≤30（长档 ≤15）+ 付费墙三级落位在档位允许区间（无墙写「无」跳过）+ 总集数属于另一档位集数集合时报错（自定义集数不报）。
+- **K15 立项一致性**：必填 7 字段（平台/档位/总集数/赛道/流派/情绪契约/备案类别）+ 单元划分（情绪流必填、单集跳过）连续、覆盖全集、单元长度 ≤30（长档 ≤15）+ 付费墙三级落位在档位允许区间（无墙写「无」跳过；变体口径见 V3.6.1）+ 总集数属于另一档位集数集合时报错（自定义集数不报）。
 - **K16 集结构**：每集【本集结算】【本集断章卡点】非空；长档另需【本集中段小钩】；独白/旁白按档位配额、单处字数、禁连排、禁紧贴断章。
 - **语速口径**：**不改** vigen 的 4 字/秒 + 2.5s/动作拍。短剧的 4.5 字/秒只作写作手感参考，不进机检——同一项目两套口径必然打架。
 
-**验证**：57 → **67 单测**通过；新增 5 组夹具（good_shortdrama / bad_shortdrama / long_shortdrama / good_long_shortdrama / series_shortdrama）。系列项目在 ep01/ 目录跑 check 时，立项单自动读上一级 `00_剧情状态.md`。CLI 实跑：good_shortdrama / good_long_shortdrama / good_project（旧项目）K15/K16 零 finding exit 0；bad_shortdrama 正确报 8 项（少备案/集数档错配/单元断档/一级墙越界/缺结算/独白 2 处/连排/紧贴断章）；long_shortdrama 正确报缺中段小钩。
+**验证**：57 → **67 单测**通过（test_check 63 + test_export 4）；新增 5 组夹具（good_shortdrama / bad_shortdrama / long_shortdrama / good_long_shortdrama / series_shortdrama）。系列项目在 ep01/ 目录跑 check 时，立项单自动读上一级 `00_剧情状态.md`。CLI 实跑：good_shortdrama / good_long_shortdrama / good_project（旧项目）K15/K16 零 finding exit 0；bad_shortdrama 正确报 8 项（少备案/集数档错配/单元断档/一级墙越界/缺结算/独白 2 处/连排/紧贴断章）；long_shortdrama 正确报缺中段小钩。
 
 **改动文件**：SKILL.md / README.md / create.md / references/{short-drama-market.md（新）, content-compliance.md（新）, screenwriting-craft.md, learning-guide.md} / assets/templates.md / scripts/check.py / tests/{test_check.py, fixtures/(good_shortdrama, bad_shortdrama, long_shortdrama, good_long_shortdrama)}
+
+### V3.6.1（2026-11-03，审查修复：K15/K16 占位与变体口径）
+
+**驱动**：V3.6 提交后执行代码审查，发现 15 项（P0 9 / P1 4 / P2 2）。全部修复并补回归。
+
+- **形态/档位三态**：`_form_state` / `_format_state` 区分单选、电影化、未选定；模板菜单「竖屏短剧 / 电影化」「标准档 / 长档 / 漫剧档」不再误判，报「未选定」。
+- **占位识别**：模板全部改成 `{...}`；`_is_placeholder` 拦花括号与「—」；K15 必填字段与 K16 结算/断章/中段小钩遇占位报「未填」。
+- **付费墙变体**：立项单新增 `付费墙变体`（标准/投流前置/治愈系后置/无墙）；投流前置一级墙放宽 3~8，治愈系后置区间下限 +2/上限 +3；无墙精确识别（不再把模板说明句当无墙）。
+- **墙位解析**：按层级词切段逐段取数，禁止跨层吞数（「一级墙 无 / 二级墙 第10集」不再把 10 算成一级墙）；自定义集数也校验 `1 ≤ 墙位 ≤ 总集数`。
+- **剧情流单元**：单元划分只对情绪流强制；剧情流写「—」放行。
+- **系列父目录**：`_parent_series_doc` 用 `resolve()`，修 `check.py .` 读不到上一级 00 的问题。
+- **文档口径**：K16 指针从 A16 改为 screenwriting-craft 一·九；15 秒四拍加漫剧档压缩列；选型纪律与模板对齐；20~30 改为 ≤30/≤15；README 测试计数拆开。
+
+**验证**：test_check 63 → **71**，tests/ 合计 **75**；新增 5 组夹具（template_unfilled / placeholder_fields / variant_shortdrama / story_flow_shortdrama / custom_shortdrama）。CLI：good_shortdrama / good_long_shortdrama / series_shortdrama/ep01 / variant_shortdrama / story_flow_shortdrama 全 exit 0；template_unfilled / placeholder_fields / custom_shortdrama 正确报错；三个真实旧项目零误伤。
+
+**改动文件**：scripts/check.py / assets/templates.md / references/{short-drama-market, screenwriting-craft}.md / README.md / create.md / tests/{test_check.py, fixtures/(template_unfilled, placeholder_fields, variant_shortdrama, story_flow_shortdrama, custom_shortdrama)}
