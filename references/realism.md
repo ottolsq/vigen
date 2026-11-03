@@ -86,7 +86,7 @@
 ### 慎用词（触发AI感或无效）
 | ❌ 慎用 | ✅ 改用 |
 | --- | --- |
-| photorealistic / hyperrealistic（英文单词） | a photograph + 相机参数。社区观察：触发"画得很像照片的绘画"风格；**但官方 Cookbook（Image 2 时代）明确推荐直用该词**（"strongly engage the model's photorealistic mode"）——两说相抵，A/B 验证须分 Image 2 与 2.5 各跑一组 `[待A/B验证]`；中文提示词"照片级真实感"大量成品验证无碍可用 |
+| photorealistic / hyperrealistic（英文单词）——**不是慎用词，裁决见右** | **写实类直接写**（官方 Cookbook 明确建议，强力触发写实模式）；动漫/插画类不写；质量词堆砌分体裁（写实摄影类慎用堆砌——"百语并列一画失"）——完整裁决见 **knowledge-index.md 负面词适配规则**（唯一权威） |
 | 8K / ultra HD / masterpiece | 具体质感词（film grain / skin texture）。质量词堆砌分体裁：写实摄影类有害（"百语并列一画失"）；动漫贴纸类可容忍（见 knowledge-index 负面词适配） |
 | beautiful / stunning / amazing | 具体构图光线描述 |
 | 画面质量类否定词（"不要塑料感皮肤"） | **正向引导**：把概率推到想要的样子（"natural skin texture with visible pores"）。效力分端裁决见 **knowledge-index.md 负面词适配规则**（唯一的家）——一句话要点：视频端画面类无效、图片端版式/内容边界类有效、质量美学类走正向 |

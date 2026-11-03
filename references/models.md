@@ -1,4 +1,4 @@
-# 模型能力档案（仅支持能力，2026-10-24 重构）
+# 模型能力档案（仅支持能力，2026-11-03 更新）
 
 > **确定模型时读本文件。本文件只记录各模型的支持能力**（模式/分辨率/时长/参考素材限制/参数），不记录任何"提示词癖好/最优写法"类主张——该类主张已停用归档（见 _archive-suspended-claims.md，勿读）。提示词骨架统一见 prompt-rules.md（风格1 多镜头公式），不分模型轨道。
 > 更换模型时按"能力档案卡"格式追加本文件即可，提示词骨架不变。
@@ -19,7 +19,7 @@
 ### gpt-image-2（OpenAI，2026-04）
 - 模式：文生图 / 图生图 / 多图参考（多张输入图，用途靠提示词声明）
 - API 内最高 2K 分辨率；宽高比最宽 3:1；宽高比直接写进提示词（如 "Aspect ratio 16:9"）
-- 提示词字符上限：官方未公布，不写具体数字
+- 提示词字符上限：32,000 字符（OpenAPI 规范，适用于 GPT image 模型）
 - **input_fidelity 参数**：官方口径 Image 2 **必须省略**（历史 Cookbook 编辑示例用 `input_fidelity="high"` 是旧口径，已过时）
 
 ### gpt-image-2.5（OpenAI，2026-10）
@@ -28,12 +28,39 @@
 - **迁移决策**：Image 2 已达标 → 先评 Flare，不达标再评 Sunburst；首次比较固定 quality、同输入，**先立质量再优化延迟**
 - **quality 档位**：low / medium / high / **xhigh / max** / auto（Image 2 止于 high；xhigh/max 是显式选项不是自动升级）；小字/密集信息/肖像/身份敏感编辑用 medium/high 起步比较；low 在延迟敏感场景意外地强
 - **size 输出硬约束**：边长为 16 的倍数、最长边 ≤3840、长短比 ≤3:1、总像素 655,360–8,294,400；超过 2560×1440 属实验区。常用档：1024×1536（竖）/ 1536×1024（横）/ 1024×1024（方）/ 2560×1440 / 3840×2160。快捷映射：2k=2048×2048、wide=2048×1152、tall=2160×3840、portrait=1024×1536
-- **其他参数**：n=1–10（一次多图）；background transparent 必须配 png/webp 输出（验收检查解码后 alpha 通道——"画出来的棋盘格不是透明"）；output_compression 0-100 仅 jpeg/webp；moderation auto/low 仅生成端；端点仍是 `/v1/images/generations` 与 `/v1/images/edits`
-- **input_fidelity**：2.5 上显式传 low/high 是"透传、支持未验证"——**默认省略** `[社区转述·待官方核实]`
+- **编辑输入**：1–16 张 png/webp/jpg，单张 <50MB
+- **mask**：PNG、<4MB、与首图同尺寸；多图时只作用于第一张
+- **markup（2.5 新增）**：透明 PNG 叠加在第一张图上引导编辑；须与首图同尺寸（含方向校正后）、含透明像素；**不能与 mask 同用**（OpenAPI 组件描述出现"2.5 and 2.6"，2.6 疑似在路上）
+- **其他参数**：n=1–10（一次多图）；partial_images 0–3（流式）；background transparent 必须配 png/webp 输出（验收检查解码后 alpha 通道——"画出来的棋盘格不是透明"）；output_compression 0-100 仅 jpeg/webp；moderation auto/low 仅生成端；safety_identifier（安全监控，`user` 已弃用）；**style / response_format 对 GPT image 模型不支持**（风格写进提示词；始终返回 b64_json）；端点仍是 `/v1/images/generations` 与 `/v1/images/edits`
+- **模型清单**：`gpt-image-1-mini` / `1.5` / `2` / `2-2026-04-21` / `2.5-sunburst(-2026-09-08)` / `2.5-flare(-2026-09-08)` / `chatgpt-image-latest`；**`gpt-image-1` 已于 2026-10-23 关停；DALL·E 2/3 已于 2026-05-12 退役**
+- **input_fidelity**：官方 OpenAPI/SDK 仅明确 `gpt-image-1.5` 支持 `high/low`、`gpt-image-1-mini` 仅 `low`；**`gpt-image-2` 请省略**；**2.5 未列入支持名单——默认不传**。社区有"Flare 传 high 报 400、Sunburst 可能支持"的报告，官方未确认；使用前按供应商实测。
 - **Sunburst 实测结论（作者 5 次全参数实测，[用户实测] 级）**：
   1. **成功出图 ≠ 内容正确——模型会自行发明规格与文案**（手表加编造参数、产品图加未批准的 "NO SUGAR"）→ **验收必查项：排查模型自加的文字/参数/品牌**（联动海报护栏文字白名单）
   2. 版式遵循是部分的（要求三层封闭楼层只出两层、指定方向的阴影画反）——参考图驱动的版式不能假定 100% 遵循，验收对照逐项核
   3. **models.list 查不到 / retrieve 404 ≠ 不可用**——元数据查询不能判定可用性，以实际生成端点响应为准
+
+## 边界与失败模式（官方 + 实测）
+
+- **文字渲染仍不完美**：位置/清晰度需人工核对；长段文字会糊（实测）
+- **跨生成一致性有限**：角色/品牌元素无法像素级锁定
+- **版式精确落位不稳**：元素精确位置可能失败
+- **模型会自加内容**：规格/文案/品牌字样（Sunburst 实测）→ 验收必查
+- **多轮编辑累积漂移**；mask 只是引导，**不保证像素边界**；严格保留走外部合成
+- **参考图必须分工**，否则模型不知道用途；仅在文字里提"参考图"而未真传图无效
+- **安全**：上游 LLM 拒绝 + 下游输入/输出双向检查；拦截 `code=moderation_blocked`（实测）；真实人物/深度伪造风险；**C2PA + SynthID 隐形水印**（截图/重编码会剥离——实测/经验；是信号不是证明）
+
+> 事实来源（2026-11-03 核验）：ChatGPT Images 2.5 System Card（2026-09-08，deploymentsafety.openai.com PDF）、openai/openai-openapi 规范、官方 SDK 类型定义、openai-cookbook《GPT Image Generation Models Prompting Guide》（2026-04-23 Image 2 时代快照）、help.openai.com/zh-hans-cn/articles/9055440。platform.openai.com/docs/guides/image-generation 在核验时被网络策略拦截（403），上述事实取自官方 PDF/SDK/OpenAPI/Cookbook。
+
+## 模型选择经验（[社区经验]，与官方定位一致）
+
+- **Sunburst**：用于角色资产固化、精细修图、参考图重绘；**Flare**：用于批量草图、创意发散、低成本量产
+- **网页端 vs API**：网页版 ChatGPT 图像不开放 `input_fidelity` 等高级参数，仅 API 侧可调；网页端参考图保真为默认档位
+
+## 不采信清单（社区说法与官方不符/未文档化——不得写入提示词规则）
+
+- **"模型无法生成可识别文字"**：与官方 2.5 冲突——官方已改进文字渲染并给出完整写法（引号/全大写/字体层级/逐字母拼写/质量档）。按 `prompt-rules.md` 一节的官方结构块与 `realism.md` 画面文字物理化规则写
+- **"2.5 官方支持 input_fidelity=high"**：官方 OpenAPI/SDK 未列入 2.5；仅社区报告（Sunburst 可能可用、Flare 报 400）。默认不传，需按供应商实测
+- **"官方支持 outpainting"**：官方参数面未文档化；可通过编辑+画布外扩尝试，但不得写成官方能力
 
 ## 视频模型能力
 
@@ -75,6 +102,7 @@
 | 官方平台 API / 海螺 App / Hub（**含 Context-IR**） | **自然语言即可**——Context-IR 负责转结构化。用本 skill **骨架 A**（风格1 多镜头公式，中文自然语言） |
 | 直连 H3-Base（本地部署 / 无 Context-IR 的网关） | **必须自己充当 Context-IR，写结构化中间表示**：`integrated_multimodal_description: [Shot N] … / overall_soundscape: … / non_diegetic_music: …`；Ref2VA 另加 `subject_definitions / summary / retention_analysis / detailed_description`；标签 `<Picture N>` `<Video N>` `<Audio N>` `<Subject N>` `(S1)` `<d>[语言] 台词</d>`；台词逐字保留不翻译（`<d>` 是 tokenizer 特殊 token） |
 
+> **多帧对齐（可选，需实测）**：若供应商支持 `<Picture k>` 时间对齐，可按 prompt-rules「生成路径判定·多帧配方」把每段切点帧钉到秒；默认不假定支持，先按供应商实测（能力实测优先）。
 > 官方 README 的三个可复现案例（T2VA 10s / I2VA 8s / Ref2VA 5s）给出了 H3-Context-IR 的输出全文，就是结构化形态的权威样例——走直连路径时按那些样例的字段与写法组织。旧档案中被停用的 H3 结构化语法描述因此**部分恢复为 [官方文档] 级**（见 _archive-suspended-claims.md 第五节）；仍停用的是那些无官方出处的"癖好/效果"类主张（太短是失败模式/15s 漂移/音频收敛晚等）。
 > 官方 I2VA 样例的写法特征（可借鉴进骨架 A）：单段落内用 `[Shot 1]…[Shot 2] At 00:04.500, the camera cuts to…` 表达段内切镜；`overall_soundscape` 按时间顺序写声音演变（"begins with… soon drowned out by… then cuts abruptly back to…"）；`non_diegetic_music` 写乐器/速度/动态而非"悲伤的音乐"。
 
@@ -131,7 +159,7 @@
 ## 已知差异备忘（[待验证]——实测后回填裁决）
 
 - **H3 提示词语言**：本 skill 骨架 A 用中文自然语言（走平台含 Context-IR 路径，实测可用）；有资料称 H3 官方默认英文、中文不稳——直连 H3-Base 路径下如中文效果差，改英文重写语法层（事实层不动，见 prompt-rules 头部契约）
-- **H3 角色名**：有资料称 H3/Seedance 官方规范要求视频正文用通用身份（"男人/女人"）禁角色姓名（姓名只出现在台词原文里）；本 skill 锚定短语=名字+外貌打包，暂维持现状——H3 项目实测人物混淆时，把正文姓名替换为通用身份+外貌短语 A/B 对比
+- **H3 角色名**：有资料称 H3/Seedance 官方规范要求视频正文用通用身份（"男人/女人"）禁角色姓名（姓名只出现在台词原文里）；本 skill 锚定短语=名字+外貌打包，暂维持现状——H3 项目实测人物混淆时，把正文姓名替换为通用身份+外貌短语 A/B 对比。**统一 A/B 协议见 `docs/plans/2026-11-03-name-ab-design.md`；结果出来前不改 A13/K12。**
 
 ## 供应商差异备忘（同模型不同 provider——实测确认后登记）
 

@@ -744,3 +744,49 @@ ai-video-maker/
 - 测试：48 → 51（K12 正反例 + 新增「good 通过全部门」总测试）。
 
 **改动文件**：references/prompt-rules.md / assets/templates.md / scripts/check.py / tests/(test_check.py, fixtures/bad_pronoun, good_project 修订) / README.md / create.md
+
+### V3.3（2026-11-03，imgen 反向提炼：模型事实 + 图片一致性 + 交付校验）
+
+**驱动**：imgen 是 vigen@`82f2be7`（2026-11-01）的图片侧冻结快照，之后独立演化了 8 个提交。用户裁定反向提炼 A/B/C/D 四组；两个 skill 各自独立演化，本次为人工选择性移植，不是同步。
+
+- **A 模型事实与提示词知识**：models.md 补 GPT Image 2 提示词上限 32,000、编辑输入 1-16 张、mask/markup、`input_fidelity` 官方裁决、模型清单与 EOL；新增「边界与失败模式」「模型选择经验」「不采信清单」；prompt-rules 官方结构块扩写（写实/构图/人物句式/约束与编辑/文字/多图编号）；knowledge-index 更新 photorealistic 裁决 + 负面词三层排除；realism 改指针。
+- **B 图片一致性与换装**：年轻人物皮肤状态标准句（基础句+微笑追加句）；服装锚定表升为 02 独立表；templates 新增「一·五 服装换装参考图」；官方换装范式逐字 + 角色锚工作流；文图分工/浅层深层/精确计数；图片端统一 `Image N` 编号；每轮重复 PRESERVE 清单。
+- **C 骨架/画幅/参考图组配**：三视图并排 3:2/16:9、单视图 2:3/4:5、0c 1:1、0d 1:1、服装 2:3；0c 单张表演特写；A1 场景条款与豁免；A5 白底豁免；A6 三种例外（链式/首现 OPEN/换装替代）；场景光线异时段变体；动漫/国漫四视图合图例外。
+- **D 交付模式与校验**：01 校验记录 OPEN 状态（附回填时点、不得标通过）；首批验收 prompt-only 标"未执行（无图）"；站位物件"规划/OPEN"待场景图回填；USER-LOCKED 成品资产零引用例外。
+- **学习台账**：追加 shuohao-skills-main 二次学习结论（报告 `docs/reviews/2026-11-03-shuohao-relearn.md`）；P0 候选待用户裁决后另起一轮。
+
+**明确不吸收**：imgen 的 `@Ref`/视频语境改写不回灌；imgen 无 check.py，vigen 继续以 check.py 为机械门；视频端 `@ {{Ref N}}` 编号保留，图片端才用 `Image N`。
+
+**验证**：51/51 单测通过；运行时文档零残留（官方未公布/待官方核实/两说相抵/小写 image N）；create.md 历史记录保留 V2.5 原文不动。
+
+**改动文件**：SKILL.md / README.md / create.md / references/{models, prompt-rules, knowledge-index, realism, consistency, learning-guide}.md / assets/templates.md
+
+### V3.4（2026-11-03，shuohao P0：节拍认领 + 钩子位置 + 时长预算 + 场景锚定）
+
+**驱动**：`docs/reviews/2026-11-03-shuohao-relearn.md` 的 P0 四项；设计见 `docs/plans/2026-11-03-shuohao-p0-design.md`。用户裁定：新项目默认 `节拍制：on`、旧项目跳过；K13 节拍 / K14 钩子+预算分开；容差 ±15% 且不少于 2.5s；场景锚点 3-5。
+
+- **节拍层**：01 新增「场次节拍表」（场次/节拍号/类型/内容摘要/台词字数/估算秒/认领镜号/标记）+「时长预算」；分镜表新增「认领节拍」列；节拍是分场剧本的机器索引，不是第二份剧本。
+- **K13 节拍认领**：节拍号连续；每拍恰好一个认领镜号且镜号存在；分镜表「认领节拍」反向包含；节拍顺序与镜号顺序一致；有台词镜头不得写 `—`；双向不一致逐条点名。
+- **K14 钩子 + 预算**：恰好一个【钩子】且在前 3 拍；恰好一个【悬念】且在末拍；台词秒数（ceil(字数/4)）+ 动作秒数（动作拍×2.5）与目标时长差 ≤ max(15%, 2.5s)；预算表与重算差 >1s 报错；逐镜节拍合计超生成时长 +2.5s 报错。
+- **兼容**：旧项目无 `节拍制` 字段或 `off` → K13/K14 静默跳过，不产生 finding、不改 exit code；`good_project` 继续跑旧契约。
+- **场景锚定**：02 场景表新增「场景设计意图」「一致性锚点 3-5」「光照状态清单」；拿图四扫第一项扩为"同世界 + 3-5 锚点齐"；不新增机械门（语义判断留人眼）。
+- **SKILL**：硬规则 15→16；规则 7 加节拍认领；新增规则 16；阶段1a 产出节拍表+预算；GATE1.5 呈现节拍摘要；阶段1b 分镜认领节拍；GATE1 呈现场景设计意图+锚点。
+
+**验证**：51 → **57 单测**通过（K13/K14 正反例 + 旧项目跳过 + 节拍区间解析）；`good_beats` 全量 check exit 0；`bad_hook_budget` 正确报钩子/悬念/预算三类；`good_project` K13/K14 零 finding。
+
+**改动文件**：SKILL.md / README.md / create.md / references/{screenwriting-craft, prompt-rules, consistency, learning-guide}.md / assets/templates.md / scripts/{check.py, vigen_md.py} / tests/{test_check.py, fixtures/(good_beats, bad_beat_claim, bad_hook_budget, bad_beat_missing)}
+
+### V3.5（2026-11-03，shuohao P1：单锚派生链 + H3 多帧配方 + 同批角色区分度）
+
+**驱动**：P0 试跑后用户确认 P1 稳妥版——不替换默认架构、不做未标定的硬门。
+
+- **P1-1 单锚派生链（可选路径）**：consistency 三节新增；0a 可改出"正面全身锚点"（脸清楚/白底/均光），0b/侧/背/细节从锚点改图派生，派生图之间不互相参考；模型可混用（一致性来自锚点不是模型）；锚点确认停点。**默认仍走 0a 三视图 + 0b 面部特写**；prompt-rules 0a/0b 与 templates 03 加注。
+- **P1-2 H3 多帧对齐（可选配方）**：prompt-rules「生成路径判定」新增配方——主帧钉 0.00s、子帧钉切点、对齐指令逐字对账；models.md 加"需供应商实测"提示；templates 04 加注；**暂不进 check.py**。
+- **P1-3 同批角色区分度（B 级人工检查）**：consistency 角色锚定新增规则（遮名朗读、个体描述优先、不靠真实感样板）；prompt-rules B 层新增 B14。**不做机械门**——实测中文 bigram 雷同度 6.83%，英文词级 75% 阈值不可直接迁移。
+- **试跑结论**：三份真实旧项目 K13/K14 静默跳过 exit 0；《瓦檐与竹林》36 镜模拟开启后 K13/K14 各 0 findings；试跑中加 `_norm_shot_id` 兼容 `3`/`镜3`/`S3a` 三种写法。
+
+**验证**：57 tests OK；旧项目零误伤；`good_beats` exit 0。
+
+**待执行 A/B**：视频正文"角色名 vs 通用身份"——协议与三组对照提示词见 `docs/plans/2026-11-03-name-ab-design.md`；结果出来前不改 A13/K12，prompt-rules 对应节已标"待裁决"。
+
+**改动文件**：SKILL.md / create.md / references/{consistency, prompt-rules, models, learning-guide}.md / assets/templates.md / scripts/check.py（仅 `_norm_shot_id` 健壮性）

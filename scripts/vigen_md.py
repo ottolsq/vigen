@@ -454,6 +454,22 @@ PLANREF_RE = re.compile(r"(PLAN|REF)-([A-Z0-9]+(?:-[A-Z0-9]+)*)")
 SHOT_ID_RE = re.compile(r"^(S?\d+[a-z]?)(?:（[^）]*）)?$")
 VOIDED_RE = re.compile(r"^~~(S?\d+[a-z]?)~~")
 REF_SHOT_RE = re.compile(r"(?:镜|镜头)\s*(S?\d+[a-z]?)")
+BEAT_RE = re.compile(
+    r"(?<![A-Za-z0-9])B(\d+[a-z]?)(?:\s*[-–—~至]\s*B?(\d+[a-z]?))?")
+
+
+def beat_ids(text: str) -> List[str]:
+    """'B4-B5' → ['B4','B5']；'B2a' → ['B2a']；不是节拍号的部分忽略。"""
+    out: List[str] = []
+    for m in BEAT_RE.finditer(text or ""):
+        start, end = m.group(1), m.group(2)
+        if end and start.isdigit() and end.isdigit():
+            a, b = int(start), int(end)
+            if a <= b:
+                out.extend("B%d" % i for i in range(a, b + 1))
+                continue
+        out.append("B" + start)
+    return out
 
 MODEL_CAP = {
     "happyhorse": 15.0,

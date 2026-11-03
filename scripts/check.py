@@ -21,6 +21,8 @@ enforce 的条款（与 vigen_md 解析层配套）：
   K10 PLAN/REF 闭环（禁模糊占位；REF 须在 03 登记）→ E2 / CT5（挂图清单一致性见台账 V3.1 延后）
   K11 设定间算术冲突（段内时长合计 vs 标题生成；平均镜长 vs 模型原生下限）→ 各设定单看合法的组合矛盾
   K12 指代与部位（人物禁代词/部位带主人与左右）→ prompt-rules「指代与部位纪律」/ A13
+  K13 节拍认领（每拍恰好一镜/双向一致/顺序/有台词镜不得 —）→ A14
+  K14 钩子位置与时长预算（前3拍/末拍/±15%≥2.5s）→ A15
 
 用法（CT6）：
     python check.py <项目目录> [--partial] [--gate K5[,K6]]
@@ -65,6 +67,7 @@ from vigen_md import (  # noqa: F401 — Project/Finding 供测试与外部使�
     Row,
     block_text,
     blocks,
+    beat_ids,
     cell,
     sub_blocks,
     character_names,
@@ -809,10 +812,310 @@ def gate_k12(project: Project, partial: bool) -> List[Finding]:
     return findings
 
 
+# ------------------------------------------------------------------ K13 节拍认领
+
+_BEAT_ID_RE = re.compile(r"^B([1-9]\d*)([a-z]?)$")
+
+
+def _kv_value(project: Project, *keys: str) -> str:
+    """在 01 的「项 | 值」类表格里按首列关键字取值（整体方案/GATE0/时长预算）。"""
+    for _no, header, body in iter_tables(project.doc("01") or []):
+        if len(header) < 2 or "项" not in header[0] or "值" not in header[1]:
+            continue
+        for _ln, cells in body:
+            if len(cells) < 2:
+                continue
+            if any(k in cells[0] for k in keys):
+                return cells[1].strip()
+    return ""
+
+
+def _beat_enabled(project: Project) -> bool:
+    """旧项目没有该字段 / off → 静默跳过；on → 启用。"""
+    return _kv_value(project, "节拍制").lower().startswith("on")
+
+
+def _beat_rows(project: Project) -> Optional[List[Row]]:
+    return table_rows(project.doc("01"), ("节拍号", "认领镜号"))
+
+
+def _shot_beat_rows(project: Project) -> Optional[List[Row]]:
+    return table_rows(project.doc("01"), ("镜号", "认领节拍"))
+
+
+def _norm_shot_id(raw: str) -> Optional[str]:
+    m = REF_SHOT_RE.search(raw or "")
+    if m:
+        return m.group(1)
+    m = SHOT_ID_RE.match((raw or "").strip())
+    return m.group(1) if m else None
+
+
+def _shot_beat_claims(project: Project) -> Optional[Dict[str, List[str]]]:
+    rows = _shot_beat_rows(project)
+    if rows is None:
+        return None
+    out: Dict[str, List[str]] = {}
+    for row in rows:
+        raw = row.cells.get("镜号", "").strip()
+        if VOIDED_RE.match(raw):
+            continue
+        sid = _norm_shot_id(raw)
+        if sid:
+            out[sid] = beat_ids(row.cells.get("认领节拍", ""))
+    return out
+
+
+def _shot_order(project: Project) -> Dict[str, int]:
+    out: Dict[str, int] = {}
+    for row in _story_rows(project) or []:
+        raw = row.cells.get("镜号", "").strip()
+        if VOIDED_RE.match(raw):
+            continue
+        m = SHOT_ID_RE.match(raw)
+        if m and m.group(1) not in out:
+            out[m.group(1)] = len(out)
+    return out
+
+
+def _shot_seconds(project: Project) -> Dict[str, float]:
+    out: Dict[str, float] = {}
+    for row in _story_rows(project) or []:
+        raw = row.cells.get("镜号", "").strip()
+        if VOIDED_RE.match(raw):
+            continue
+        m = SHOT_ID_RE.match(raw)
+        d = DURATION_RE.search(row.cells.get("生成时长", ""))
+        if m and d:
+            out.setdefault(m.group(1), float(d.group(1)))
+    return out
+
+
+def _parse_seconds(text: str) -> Optional[float]:
+    m = re.search(r"(\d+(?:\.\d+)?)\s*(s|秒|min|分钟)", text or "", re.I)
+    if not m:
+        return None
+    value = float(m.group(1))
+    return value * 60.0 if m.group(2).lower() in ("min", "分钟") else value
+
+
+def _parse_float(text: str) -> Optional[float]:
+    m = re.search(r"(\d+(?:\.\d+)?)", text or "")
+    return float(m.group(1)) if m else None
+
+
+def gate_k13(project: Project, partial: bool) -> List[Finding]:
+    if not _beat_enabled(project):
+        return []
+    rows = _beat_rows(project)
+    if rows is None:
+        return [Finding(
+            "K13", DOC_FILES["01"], 0,
+            "节拍制已启用但未建场次节拍表（表头须含「节拍号」「认领镜号」）")]
+    findings: List[Finding] = []
+    required = ("类型", "内容摘要", "台词字数", "估算秒", "标记")
+    missing = [c for c in required
+               if not any(c in key for key in (rows[0].cells if rows else {}))]
+    if missing:
+        findings.append(Finding(
+            "K13", DOC_FILES["01"], rows[0].line if rows else 0,
+            "节拍表缺列：%s" % "、".join(missing)))
+    live, _voided = _shot_ids(project)
+    order = _shot_order(project)
+    claims = _shot_beat_claims(project)
+    if claims is None:
+        findings.append(Finding(
+            "K13", DOC_FILES["01"], rows[0].line if rows else 0,
+            "分镜总览表缺「认领节拍」列——K13 无法双向核对"))
+        claims = {}
+    beat_to_shot: Dict[str, str] = {}
+    seen = set()
+    scene_bases: Dict[str, set] = {}
+    prev_order = -1
+    for row in rows:
+        scene = cell(row, "场次").strip() or "?"
+        bid = cell(row, "节拍号").strip()
+        label = "%s/%s" % (scene, bid)
+        m = _BEAT_ID_RE.match(bid)
+        if not m:
+            findings.append(Finding(
+                "K13", DOC_FILES["01"], row.line,
+                "节拍号「%s」格式非法（须 B1 / B2a）" % (bid or "空")))
+            continue
+        if bid in seen:
+            findings.append(Finding(
+                "K13", DOC_FILES["01"], row.line,
+                "节拍号 %s 重复（每场节拍号须唯一）" % bid))
+        seen.add(bid)
+        scene_bases.setdefault(scene, set()).add(int(m.group(1)))
+        claim = cell(row, "认领镜号").strip()
+        ids = REF_SHOT_RE.findall(claim)
+        if len(ids) != 1:
+            findings.append(Finding(
+                "K13", DOC_FILES["01"], row.line,
+                "节拍%s 须恰好一个认领镜号（当前：%s）" % (label, claim or "空")))
+            continue
+        sid = ids[0]
+        if sid not in live:
+            findings.append(Finding(
+                "K13", DOC_FILES["01"], row.line,
+                "节拍%s 认领镜号镜%s在01分镜表不存在" % (label, sid)))
+            continue
+        beat_to_shot[bid] = sid
+        if claims and bid not in claims.get(sid, []):
+            findings.append(Finding(
+                "K13", DOC_FILES["01"], row.line,
+                "镜%s 的认领节拍未包含 %s（双向不一致：节拍表写镜%s）"
+                % (sid, bid, sid)))
+        pos = order.get(sid)
+        if pos is not None:
+            if pos < prev_order:
+                findings.append(Finding(
+                    "K13", DOC_FILES["01"], row.line,
+                    "节拍%s 认领镜%s早于上一拍，节拍顺序与镜号顺序不一致"
+                    % (label, sid)))
+            prev_order = max(prev_order, pos)
+    for scene, bases in scene_bases.items():
+        if not bases:
+            continue
+        missing = [i for i in range(1, max(bases) + 1) if i not in bases]
+        if missing:
+            findings.append(Finding(
+                "K13", DOC_FILES["01"], 0,
+                "场%s 节拍号不连续，缺 %s"
+                % (scene, "、".join("B%d" % i for i in missing))))
+    for sid, bids in claims.items():
+        for bid in bids:
+            if bid not in beat_to_shot:
+                findings.append(Finding(
+                    "K13", DOC_FILES["01"], 0,
+                    "镜%s 认领的 %s 不在场次节拍表" % (sid, bid)))
+            elif beat_to_shot[bid] != sid:
+                findings.append(Finding(
+                    "K13", DOC_FILES["01"], 0,
+                    "镜%s 认领 %s，但节拍表登记为镜%s（双向不一致）"
+                    % (sid, bid, beat_to_shot[bid])))
+    for row in _story_rows(project) or []:
+        raw = row.cells.get("镜号", "").strip()
+        if VOIDED_RE.match(raw):
+            continue
+        m = SHOT_ID_RE.match(raw)
+        if not m:
+            continue
+        line = cell(row, "台词/字幕", "台词").strip()
+        if line and line not in ("—", "-", "–") and not claims.get(m.group(1)):
+            findings.append(Finding(
+                "K13", DOC_FILES["01"], row.line,
+                "镜%s 有台词但未认领节拍（认领节拍须写 B 编号，不能是 —）"
+                % m.group(1)))
+    return findings
+
+
+# ------------------------------------------------------------------ K14 钩子 + 预算
+
+def gate_k14(project: Project, partial: bool) -> List[Finding]:
+    if not _beat_enabled(project):
+        return []
+    rows = _beat_rows(project)
+    if rows is None:
+        return []
+    findings: List[Finding] = []
+    hooks: List[Tuple[int, str]] = []
+    suspense: List[Tuple[int, str]] = []
+    for i, row in enumerate(rows):
+        mark = cell(row, "标记")
+        bid = cell(row, "节拍号").strip()
+        if "钩子" in mark:
+            hooks.append((i, bid))
+        if "悬念" in mark:
+            suspense.append((i, bid))
+    if len(hooks) != 1:
+        findings.append(Finding(
+            "K14", DOC_FILES["01"], 0,
+            "须恰好一个【钩子】标记（当前 %d 个）" % len(hooks)))
+    elif hooks[0][0] >= 3:
+        findings.append(Finding(
+            "K14", DOC_FILES["01"], 0,
+            "钩子在第 %d 拍（%s），须落在前 3 拍"
+            % (hooks[0][0] + 1, hooks[0][1])))
+    if len(suspense) != 1:
+        findings.append(Finding(
+            "K14", DOC_FILES["01"], 0,
+            "须恰好一个【悬念】标记（当前 %d 个）" % len(suspense)))
+    elif suspense[0][0] != len(rows) - 1:
+        findings.append(Finding(
+            "K14", DOC_FILES["01"], 0,
+            "【悬念】在第 %d 拍（%s），须在末拍（第 %d 拍）"
+            % (suspense[0][0] + 1, suspense[0][1], len(rows))))
+
+    target = _parse_seconds(_kv_value(project, "总时长", "目标时长"))
+    if target is None:
+        findings.append(Finding(
+            "K14", DOC_FILES["01"], 0,
+            "未找到「总时长/目标时长」——K14 无法核对时长预算"))
+        return findings
+
+    chars = 0
+    action = 0
+    beat_secs: Dict[str, float] = {}
+    for row in rows:
+        raw_chars = cell(row, "台词字数").strip()
+        try:
+            chars += int(float(raw_chars or 0))
+        except ValueError:
+            findings.append(Finding(
+                "K14", DOC_FILES["01"], row.line,
+                "节拍%s 的台词字数不是数字（%s）"
+                % (cell(row, "节拍号").strip(), raw_chars)))
+        if "动作" in cell(row, "类型"):
+            action += 1
+        sec = _parse_float(cell(row, "估算秒"))
+        if sec is not None:
+            sid = " ".join(REF_SHOT_RE.findall(cell(row, "认领镜号")))
+            beat_secs[sid] = beat_secs.get(sid, 0.0) + sec
+    dialogue_sec = float(math.ceil(chars / 4.0))
+    action_sec = action * 2.5
+    estimated = dialogue_sec + action_sec
+    raw_tol = _kv_value(project, "时长容差")
+    pct_m = re.search(r"(\d+(?:\.\d+)?)\s*%", raw_tol)
+    pct = float(pct_m.group(1)) if pct_m else 15.0
+    tolerance = max(target * pct / 100.0, 2.5)
+    if abs(estimated - target) > tolerance:
+        findings.append(Finding(
+            "K14", DOC_FILES["01"], 0,
+            "时长预算不通过：台词 %.0fs + 动作 %.1fs = %.1fs，目标 %.1fs，"
+            "差 %.1fs > 容差 %.1fs"
+            % (dialogue_sec, action_sec, estimated, target,
+               abs(estimated - target), tolerance)))
+    declared = {
+        "台词秒数": _parse_float(_kv_value(project, "台词秒数")),
+        "动作秒数": _parse_float(_kv_value(project, "动作秒数")),
+        "预计总时长": _parse_float(_kv_value(project, "预计总时长")),
+    }
+    actual = {"台词秒数": dialogue_sec, "动作秒数": action_sec, "预计总时长": estimated}
+    for key, value in declared.items():
+        if value is not None and abs(value - actual[key]) > 1.0:
+            findings.append(Finding(
+                "K14", DOC_FILES["01"], 0,
+                "时长预算表「%s」写 %.1fs，按节拍表重算 %.1fs（差 >1s）"
+                % (key, value, actual[key])))
+
+    shot_secs = _shot_seconds(project)
+    for sid, total in beat_secs.items():
+        cap = shot_secs.get(sid)
+        if cap is not None and total > cap + 2.5:
+            findings.append(Finding(
+                "K14", DOC_FILES["01"], 0,
+                "镜%s 认领的节拍合计 %.1fs > 生成时长 %.1fs + 2.5s（须拆镜或减拍）"
+                % (sid, total, cap)))
+    return findings
+
+
 GATES: List[Tuple[str, GateFn]] = [
     ("K1", gate_k1), ("K2", gate_k2), ("K3", gate_k3), ("K4", gate_k4),
     ("K5", gate_k5), ("K6", gate_k6), ("K7", gate_k7), ("K8", gate_k8),
     ("K9", gate_k9), ("K10", gate_k10), ("K11", gate_k11), ("K12", gate_k12),
+    ("K13", gate_k13), ("K14", gate_k14),
 ]
 
 REQUIRED_FOR_FULL = ("01", "02", "03", "04", "05")
@@ -829,7 +1132,7 @@ def main(argv: List[str]) -> int:
               % (MINIMUM_PYTHON[0], MINIMUM_PYTHON[1], sys.version_info[0], sys.version_info[1]))
         return 2
 
-    ap = argparse.ArgumentParser(description="vigen 项目文件机械校验（K1-K10）")
+    ap = argparse.ArgumentParser(description="vigen 项目文件机械校验（K1-K14）")
     ap.add_argument("project_dir", help="项目目录（含 01-06 Markdown）")
     ap.add_argument("--partial", action="store_true",
                     help="只核对已有文档；缺文档的门静默跳过（全量要求 01-05 齐备）")

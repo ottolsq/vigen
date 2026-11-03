@@ -18,7 +18,7 @@
 
 **03 情景图示例（镜头4 · 闷雷缩紧）**（多图参考：小猫锚定图+场景图）：
 ```
-Use image 1 only for the cat's identity and appearance. Use image 2 only for the scene environment and lighting.
+Use Image 1 only for the cat's identity and appearance. Use Image 2 only for the scene environment and lighting.
 A candid photograph shot on 35mm film, natural imperfect framing, ambient light.
 {锚定短语逐字}，蜷卧在窗台软垫中央，头朝画面右侧，身体微微拱起呈半蜷姿态（尚未完全缩紧，留有继续蜷缩的余地），耳朵尖微微竖起。
 medium shot, eye level, off-center composition，前景虚化的绿萝叶片占据画面左下角。
@@ -143,7 +143,7 @@ NO
 
 **03 情景图示例（镜头1 · 悬浮定场）**（多图参考：音箱白底正面图+场景图）：
 ```
-Use image 1 only for the speaker's identity and design. Use image 2 only for the scene environment and lighting.
+Use Image 1 only for the speaker's identity and design. Use Image 2 only for the scene environment and lighting.
 A product hero shot in a minimalist showroom, medium shot, slight low angle, off-center composition.
 {主体锚定逐字}，悬浮在展厅中央偏左，环状发光元件处于暗态（尚未点亮——留有点亮的势能），顶部呼吸灯极缓明灭。
 光线：冷白主光从顶部45度，产品边缘轮廓光青蓝色。
