@@ -826,3 +826,15 @@ ai-video-maker/
 **验证**：test_check 63 → **71**，tests/ 合计 **75**；新增 5 组夹具（template_unfilled / placeholder_fields / variant_shortdrama / story_flow_shortdrama / custom_shortdrama）。CLI：good_shortdrama / good_long_shortdrama / series_shortdrama/ep01 / variant_shortdrama / story_flow_shortdrama 全 exit 0；template_unfilled / placeholder_fields / custom_shortdrama 正确报错；三个真实旧项目零误伤。
 
 **改动文件**：scripts/check.py / assets/templates.md / references/{short-drama-market, screenwriting-craft}.md / README.md / create.md / tests/{test_check.py, fixtures/(template_unfilled, placeholder_fields, variant_shortdrama, story_flow_shortdrama, custom_shortdrama)}
+
+### V3.6.2（2026-11-03，K13 阶段1a 时序修复 + 死代码清理）
+
+**驱动**：用户实测发现阶段1a 的合规产出（剧本+节拍表+预算、分镜未建）会被 K13 拦死在 GATE1.5 前；另发现 `_BODY_SPATIAL` 死代码。
+
+- **K13 时序**：分镜总览表签名改为「镜号+运镜」——节拍表的「认领镜号」含「镜号」子串，不能冒充分镜表；无分镜表时 `--partial` 只查节拍号格式/唯一/连续，不查认领镜号；全量校验才报「未建分镜总览表」。新增 `stage1a_beats` 夹具（5 拍、无分镜表）回归。
+- **死代码**：删除 `_BODY_SPATIAL`（K12 实际用 `_BODY_RE`）。
+- **文档**：screenwriting-craft 一·八 + SKILL 阶段1a 写明时序；P0 设计文档兼容表补「阶段1a」状态；learning-guide Troubleshooting 加行。
+
+**验证**：stage1a_beats `--partial --gate K13,K14` exit 0；全量 `--gate K13` 正确报「未建分镜总览表」；test_check 71 → **72**，tests/ 合计 **76**；旧项目零误伤。
+
+**改动文件**：scripts/check.py / SKILL.md / references/{screenwriting-craft, learning-guide}.md / README.md / create.md / docs/plans/2026-11-03-shuohao-p0-design.md / tests/{test_check.py, fixtures/stage1a_beats}

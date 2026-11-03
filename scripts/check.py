@@ -747,7 +747,6 @@ def gate_k11(project: Project, partial: bool) -> List[Finding]:
 _PRONOUN_RE = re.compile(r"(?<!其)(对方|那个人|两人|二人|双方|他|她|它)(?!人)")
 _HUMAN_ACTION = set("说看走站坐抬转拿握伸退冲停笑低靠盯望递接推拉蹲跪扑抓挥砍刺劈跳跑")
 _BODY_RE = re.compile(r"(左手|右手|左臂|右臂|左肩|右肩|左腿|右腿|左脚|右脚|左腰侧|右腰侧|左脸颊|右脸颊)(?!边)")
-_BODY_SPATIAL = ("左手", "右手", "左臂", "右臂", "左肩", "右肩", "左腿", "右腿", "左脚", "右脚")
 # 「哪里」模糊：命中动词 + 身上/某处/要害（没写具体部位）
 _VAGUE_HIT_RE = re.compile(r"(打在|踢在|砍在|刺在|击中|砸在|撞在|落在)[^。；\n]{0,8}(身上|某处|要害)")
 
@@ -925,14 +924,27 @@ def gate_k13(project: Project, partial: bool) -> List[Finding]:
         findings.append(Finding(
             "K13", DOC_FILES["01"], rows[0].line if rows else 0,
             "节拍表缺列：%s" % "、".join(missing)))
-    live, _voided = _shot_ids(project)
-    order = _shot_order(project)
+    # 分镜总览表的签名列是「运镜」——节拍表只有「认领镜号」，不能拿它冒充分镜表
+    has_storyboard = table_rows(
+        project.doc("01"), ("镜号", "运镜"), aliases=STORY_ALIASES) is not None
     claims = _shot_beat_claims(project)
-    if claims is None:
+    claim_checks = has_storyboard and claims is not None
+    if not has_storyboard:
+        # 阶段1a：剧本+节拍表已产出、分镜尚未建——--partial 下这是正常状态。
+        # 只查节拍号格式/唯一/连续；认领镜号是阶段1b 的产物，此处不查。
+        if not partial:
+            findings.append(Finding(
+                "K13", DOC_FILES["01"], 0,
+                "未建分镜总览表——K13 无法核对「认领镜号」"
+                "（阶段1b 后必须存在；阶段1a 用 --partial）"))
+        claims = {}
+    elif claims is None:
         findings.append(Finding(
             "K13", DOC_FILES["01"], rows[0].line if rows else 0,
             "分镜总览表缺「认领节拍」列——K13 无法双向核对"))
         claims = {}
+    live, _voided = _shot_ids(project)
+    order = _shot_order(project)
     beat_to_shot: Dict[str, str] = {}
     seen = set()
     scene_bases: Dict[str, set] = {}
@@ -953,6 +965,8 @@ def gate_k13(project: Project, partial: bool) -> List[Finding]:
                 "节拍号 %s 重复（每场节拍号须唯一）" % bid))
         seen.add(bid)
         scene_bases.setdefault(scene, set()).add(int(m.group(1)))
+        if not claim_checks:
+            continue
         claim = cell(row, "认领镜号").strip()
         ids = REF_SHOT_RE.findall(claim)
         if len(ids) != 1:
