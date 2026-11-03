@@ -23,6 +23,9 @@ enforce 的条款（与 vigen_md 解析层配套）：
   K12 指代与部位（人物禁代词/部位带主人与左右）→ prompt-rules「指代与部位纪律」/ A13
   K13 节拍认领（每拍恰好一镜/双向一致/顺序/有台词镜不得 —）→ A14
   K14 钩子位置与时长预算（前3拍/末拍/±15%≥2.5s）→ A15
+  K15 短剧立项单一致性（必填字段/档位集数/单元划分/付费墙落位）→ short-drama-market
+  K16 短剧集结构（本集结算/断章/长档中段小钩 + 独白旁白配额与位置）→ A16
+      「叙事形态」缺失或为电影化时 K15/K16 静默跳过（旧项目零影响）
 
 用法（CT6）：
     python check.py <项目目录> [--partial] [--gate K5[,K6]]
@@ -1111,11 +1114,359 @@ def gate_k14(project: Project, partial: bool) -> List[Finding]:
     return findings
 
 
+# ------------------------------------------------------------------ K15/K16 竖屏短剧
+
+SHORT_FORM = "竖屏"
+
+# 付费墙落位区间（与 short-drama-market.md 一致；自定义集数不做区间校验）
+WALL_RANGES: Dict[int, List[Tuple[int, int]]] = {
+    60: [(8, 11), (21, 24), (41, 44)],
+    80: [(10, 15), (28, 32), (55, 58)],
+    100: [(13, 19), (35, 40), (68, 73)],
+    30: [(4, 6), (10, 12), (20, 22)],
+    40: [(5, 8), (14, 16), (27, 29)],
+    50: [(7, 10), (17, 20), (34, 37)],
+}
+FORMAT_TOTALS: Dict[str, set] = {
+    "standard": {60, 80, 100},
+    "long": {30, 40, 50},
+    "manju": {60, 80, 100},
+}
+UNIT_CAP: Dict[str, int] = {"standard": 30, "long": 15, "manju": 30}
+OS_CAP: Dict[str, int] = {"standard": 1, "long": 2, "manju": 1}
+OS_LEN: Dict[str, int] = {"standard": 25, "long": 30, "manju": 20}
+VO_CAP = 1
+VO_LEN = 12
+
+_UNIT_RE = re.compile(
+    r"([A-Za-z])\s*[（(]\s*(\d+)\s*[-–—~至]\s*(\d+)\s*[)）]")
+_SPAN_RE = re.compile(r"(\d+)\s*[-–—~至]\s*(\d+)")
+_WALL_RE = re.compile(r"(一级|二级|三级)[^\d\n]{0,12}(\d+)")
+_VO_LINE_RE = re.compile(
+    r"^(内心独白|独白|心声|旁白|画外音|画面字幕|字幕)"
+    r"(（[^）]*）|\([^)]*\))?\s*[:：]\s*(.+)$")
+# vigen 既有 [VO] 记法：不区分独白/旁白，按内心独白口径计（更宽松，防误伤）
+_VO_BRACKET_RE = re.compile(r"^\[VO\]\s*[:：]?\s*(.+)$", re.I)
+
+
+def _parent_series_doc(project: Project) -> Optional[List[str]]:
+    """系列项目：ep01/ 的上一级是 00_剧情状态.md（check 在单集目录跑）。"""
+    p = project.root.parent / DOC_FILES["00"]
+    if not p.is_file():
+        return None
+    try:
+        return p.read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeDecodeError):
+        return None
+
+
+def _meta_value(project: Project, *keys: str) -> str:
+    """在 00/01 的「项 | 值」表里按首列关键字取值。
+
+    查找顺序：本目录 00 → 上一级系列 00（单集目录跑 check）→ 本目录 01。
+    """
+    docs = [project.doc("00"), _parent_series_doc(project), project.doc("01")]
+    for lines in docs:
+        for _no, header, body in iter_tables(lines or []):
+            if len(header) < 2 or "项" not in header[0] or "值" not in header[1]:
+                continue
+            for _ln, cells in body:
+                if len(cells) < 2:
+                    continue
+                name = cells[0].strip("* ").strip()
+                if any(k in name for k in keys):
+                    value = cells[1].strip()
+                    if value:
+                        return value
+    return ""
+
+
+def _has_series_meta(project: Project) -> bool:
+    return (project.doc("00") is not None
+            or _parent_series_doc(project) is not None)
+
+
+def _short_form(project: Project) -> bool:
+    """旧项目无「叙事形态」/ 电影化 → 静默跳过 K15/K16。"""
+    return SHORT_FORM in _meta_value(project, "叙事形态")
+
+
+def _short_format(project: Project) -> str:
+    raw = _meta_value(project, "档位")
+    if "长档" in raw:
+        return "long"
+    if "漫剧" in raw:
+        return "manju"
+    if "标准" in raw:
+        return "standard"
+    return ""
+
+
+def _parse_int(text: str) -> Optional[int]:
+    m = re.search(r"(\d+)", text or "")
+    return int(m.group(1)) if m else None
+
+
+def _parse_units(text: str) -> List[Tuple[str, int, int]]:
+    """'A(1-25) / B(26-52)' → [('A',1,25),('B',26,52)]；无字母标签时按出现顺序编号。"""
+    out = [(m.group(1), int(m.group(2)), int(m.group(3)))
+           for m in _UNIT_RE.finditer(text or "")]
+    if out:
+        return out
+    return [("单元%d" % (i + 1), int(m.group(1)), int(m.group(2)))
+            for i, m in enumerate(_SPAN_RE.finditer(text or ""))]
+
+
+def _parse_walls(text: str) -> Dict[int, int]:
+    """'一级墙 第12集 / 二级墙 第30集' → {1:12, 2:30}。"""
+    level = {"一级": 1, "二级": 2, "三级": 3}
+    out: Dict[int, int] = {}
+    for m in _WALL_RE.finditer(text or ""):
+        out[level[m.group(1)]] = int(m.group(2))
+    return out
+
+
+def _vo_kind_body(line: str) -> Optional[Tuple[str, str]]:
+    """独白/旁白行 → ('os'|'vo', 内容)；兼容 [VO] 记法（按 os 计）。"""
+    s = line.strip()
+    m = _VO_LINE_RE.match(s)
+    if m:
+        return ("os" if m.group(1) in ("内心独白", "独白", "心声") else "vo",
+                m.group(3))
+    m = _VO_BRACKET_RE.match(s)
+    if m:
+        return ("os", m.group(1))
+    return None
+
+
+def _field_body(lines: List[str], *names: str) -> Optional[str]:
+    """【字段】同行的值；值在下一行时取首个非空行。字段不存在返回 None。"""
+    for i, ln in enumerate(lines):
+        s = ln.strip()
+        for name in names:
+            marker = "【%s】" % name
+            if marker not in s:
+                continue
+            body = s.split(marker, 1)[1].lstrip("：: ").strip()
+            if body:
+                return body
+            for nxt in lines[i + 1:]:
+                t = nxt.strip()
+                if not t:
+                    continue
+                return "" if t.startswith("【") else t
+            return ""
+    return None
+
+
+def gate_k15(project: Project, partial: bool) -> List[Finding]:
+    """短剧立项单一致性：必填字段 / 档位集数 / 单元划分 / 付费墙落位。"""
+    if not _short_form(project):
+        return []
+    key = "00" if _has_series_meta(project) else "01"
+    file_name = DOC_FILES[key]
+    findings: List[Finding] = []
+
+    base_fields = ("平台", "档位", "总集数", "赛道", "流派", "情绪契约", "备案类别")
+    for name in base_fields:
+        if not _meta_value(project, name):
+            findings.append(Finding(
+                "K15", file_name, 0, "短剧立项单缺「%s」" % name))
+
+    fmt = _short_format(project)
+    if _meta_value(project, "档位") and not fmt:
+        findings.append(Finding(
+            "K15", file_name, 0,
+            "档位「%s」无法识别（须含 标准档/长档/漫剧档）"
+            % _meta_value(project, "档位")))
+
+    total = _parse_int(_meta_value(project, "总集数"))
+    if total is None or total <= 0:
+        findings.append(Finding(
+            "K15", file_name, 0, "总集数不是正整数"))
+        return findings
+
+    if fmt:
+        known = FORMAT_TOTALS[fmt]
+        all_known = set().union(*FORMAT_TOTALS.values())
+        if total in all_known and total not in known:
+            findings.append(Finding(
+                "K15", file_name, 0,
+                "总集数 %d 不属于「%s」的集数档（%s）"
+                % (total, {"standard": "标准档", "long": "长档",
+                           "manju": "漫剧档"}[fmt],
+                   "/".join(str(x) for x in sorted(known)))))
+
+    if total <= 1:
+        return findings
+
+    raw_units = _meta_value(project, "单元划分")
+    if not raw_units:
+        findings.append(Finding(
+            "K15", file_name, 0, "短剧立项单缺「单元划分」"))
+    else:
+        units = _parse_units(raw_units)
+        if not units:
+            findings.append(Finding(
+                "K15", file_name, 0,
+                "单元划分无法解析（写法：A(1-25) / B(26-52)）"))
+        else:
+            cap = UNIT_CAP.get(fmt, 30)
+            prev_end = 0
+            for label, start, end in units:
+                if start != prev_end + 1:
+                    findings.append(Finding(
+                        "K15", file_name, 0,
+                        "单元划分不连续：单元%s 起点第%d集，上一单元终点第%d集"
+                        % (label, start, prev_end)))
+                if end < start:
+                    findings.append(Finding(
+                        "K15", file_name, 0,
+                        "单元%s 区间 %d-%d 非法" % (label, start, end)))
+                if end - start + 1 > cap:
+                    findings.append(Finding(
+                        "K15", file_name, 0,
+                        "单元%s 跨 %d 集 > 上限 %d（单矛盾硬帽）"
+                        % (label, end - start + 1, cap)))
+                prev_end = max(prev_end, end)
+            if prev_end != total:
+                findings.append(Finding(
+                    "K15", file_name, 0,
+                    "单元划分止于第%d集，与总集数 %d 不一致"
+                    % (prev_end, total)))
+
+    raw_walls = _meta_value(project, "付费墙落位")
+    if not raw_walls:
+        findings.append(Finding(
+            "K15", file_name, 0, "短剧立项单缺「付费墙落位」"))
+    elif "无" in raw_walls and not _WALL_RE.search(raw_walls):
+        pass  # 广告分账无付费墙
+    else:
+        walls = _parse_walls(raw_walls)
+        ranges = WALL_RANGES.get(total)
+        for level, label in ((1, "一级"), (2, "二级"), (3, "三级")):
+            if level not in walls:
+                findings.append(Finding(
+                    "K15", file_name, 0,
+                    "付费墙落位缺「%s墙 第N集」" % label))
+                continue
+            if ranges and not (ranges[level - 1][0] <= walls[level]
+                               <= ranges[level - 1][1]):
+                findings.append(Finding(
+                    "K15", file_name, 0,
+                    "%s墙 第%d集 不在总集数 %d 的允许区间 %d~%d"
+                    % (label, walls[level], total,
+                       ranges[level - 1][0], ranges[level - 1][1])))
+    return findings
+
+
+def gate_k16(project: Project, partial: bool) -> List[Finding]:
+    """短剧集结构：结算/断章/长档中段小钩 + 独白旁白配额与位置。"""
+    if not _short_form(project):
+        return []
+    lines = project.doc("01")
+    if lines is None:
+        # --partial：缺文档静默跳过（与 K1/K13 同口径）；全量校验才报缺文件
+        if partial:
+            return []
+        return [Finding(
+            "K16", DOC_FILES["01"], 0,
+            "叙事形态=竖屏短剧但缺 01 文件，无法核对本集结构")]
+    fmt = _short_format(project) or "standard"
+    findings: List[Finding] = []
+
+    settlement = _field_body(lines, "本集结算")
+    if settlement is None:
+        findings.append(Finding(
+            "K16", DOC_FILES["01"], 0,
+            "缺【本集结算】（主角可见反将 + 反派为本次施压付代价）"))
+    elif not settlement:
+        findings.append(Finding(
+            "K16", DOC_FILES["01"], 0, "【本集结算】为空"))
+
+    break_body = _field_body(lines, "本集断章卡点", "本集断章")
+    if break_body is None:
+        findings.append(Finding(
+            "K16", DOC_FILES["01"], 0,
+            "缺【本集断章卡点】（每集末拍必须是断章公式之一）"))
+    elif not break_body:
+        findings.append(Finding(
+            "K16", DOC_FILES["01"], 0, "【本集断章卡点】为空"))
+
+    if fmt == "long":
+        mid = _field_body(lines, "本集中段小钩", "中段小钩")
+        if mid is None:
+            findings.append(Finding(
+                "K16", DOC_FILES["01"], 0,
+                "长档缺【本集中段小钩】（≈90 秒处必设新信息/新威胁）"))
+        elif not mid:
+            findings.append(Finding(
+                "K16", DOC_FILES["01"], 0, "【本集中段小钩】为空"))
+
+    os_cap = OS_CAP.get(fmt, 1)
+    os_len = OS_LEN.get(fmt, 25)
+    os_count = 0
+    vo_count = 0
+    prev_vo = False
+    for ln in lines:
+        s = ln.strip()
+        if not s:
+            continue
+        entry = _vo_kind_body(s)
+        if entry is None:
+            prev_vo = False
+            continue
+        kind, body = entry
+        clean = re.sub(r"[\s，。！？；：、…—\-·“”\"'‘’（）()《》!?.,]", "", body)
+        if kind == "os":
+            os_count += 1
+            if len(clean) > os_len:
+                findings.append(Finding(
+                    "K16", DOC_FILES["01"], 0,
+                    "内心独白单处 %d 字 >%d（只写具体的账）"
+                    % (len(clean), os_len)))
+        else:
+            vo_count += 1
+            if len(clean) > VO_LEN:
+                findings.append(Finding(
+                    "K16", DOC_FILES["01"], 0,
+                    "旁白/字幕单处 %d 字 >%d" % (len(clean), VO_LEN)))
+        if prev_vo:
+            findings.append(Finding(
+                "K16", DOC_FILES["01"], 0,
+                "连续两条独白/旁白（禁连排）"))
+        prev_vo = True
+
+    if os_count > os_cap:
+        findings.append(Finding(
+            "K16", DOC_FILES["01"], 0,
+            "内心独白 %d 处 > %d（%s配额）"
+            % (os_count, os_cap, fmt)))
+    if vo_count > VO_CAP:
+        findings.append(Finding(
+            "K16", DOC_FILES["01"], 0,
+            "旁白/字幕 %d 处 > %d" % (vo_count, VO_CAP)))
+
+    break_idx = next((i for i, ln in enumerate(lines)
+                      if "【本集断章" in ln), None)
+    if break_idx is not None:
+        for j in range(break_idx - 1, -1, -1):
+            s = lines[j].strip()
+            if not s:
+                continue
+            if _vo_kind_body(s):
+                findings.append(Finding(
+                    "K16", DOC_FILES["01"], 0,
+                    "独白/旁白紧贴断章收尾（断章必须落在画面/事件上）"))
+            break
+    return findings
+
+
 GATES: List[Tuple[str, GateFn]] = [
     ("K1", gate_k1), ("K2", gate_k2), ("K3", gate_k3), ("K4", gate_k4),
     ("K5", gate_k5), ("K6", gate_k6), ("K7", gate_k7), ("K8", gate_k8),
     ("K9", gate_k9), ("K10", gate_k10), ("K11", gate_k11), ("K12", gate_k12),
-    ("K13", gate_k13), ("K14", gate_k14),
+    ("K13", gate_k13), ("K14", gate_k14), ("K15", gate_k15), ("K16", gate_k16),
 ]
 
 REQUIRED_FOR_FULL = ("01", "02", "03", "04", "05")
@@ -1132,7 +1483,7 @@ def main(argv: List[str]) -> int:
               % (MINIMUM_PYTHON[0], MINIMUM_PYTHON[1], sys.version_info[0], sys.version_info[1]))
         return 2
 
-    ap = argparse.ArgumentParser(description="vigen 项目文件机械校验（K1-K14）")
+    ap = argparse.ArgumentParser(description="vigen 项目文件机械校验（K1-K16）")
     ap.add_argument("project_dir", help="项目目录（含 01-06 Markdown）")
     ap.add_argument("--partial", action="store_true",
                     help="只核对已有文档；缺文档的门静默跳过（全量要求 01-05 齐备）")

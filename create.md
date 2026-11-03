@@ -790,3 +790,23 @@ ai-video-maker/
 **待执行 A/B**：视频正文"角色名 vs 通用身份"——协议与三组对照提示词见 `docs/plans/2026-11-03-name-ab-design.md`；结果出来前不改 A13/K12，prompt-rules 对应节已标"待裁决"。
 
 **改动文件**：SKILL.md / create.md / references/{consistency, prompt-rules, models, learning-guide}.md / assets/templates.md / scripts/check.py（仅 `_norm_shot_id` 健壮性）
+
+### V3.6（2026-11-03，short-drama-factory 市场层：形态开关 + 立项单 + K15/K16）
+
+**驱动**：用户确认有红果/抖音付费短剧创作需要。上一轮阅读报告中判为「不建议吸收」的 40 赛道/付费墙/红果商业模型，从「不建议」升级为「纳入」——但**按层放**，不混进制作规则。用户裁定：①形态默认电影化（旧项目零影响）②台词按形态切换 ③合规单独文件。
+
+**核心判断**：上一轮识别的头号冲突（潜台词 vs 大白话直给）不是二选一，是**形态不同**——电影化让观众「品」，竖屏短剧让观众「不划走」。因此加项目级 `【叙事形态】` 开关，只切换剧本层规则，02-06 完全不动。
+
+- **形态开关**：`叙事形态` 写进 00（系列）/01（单视频）立项单；无该字段或=电影化 → K15/K16 静默跳过（与 K13/K14 的 `节拍制` 同款兼容策略）。
+- **市场层**（新文件 `references/short-drama-market.md`）：档位/集数（标准 60/80/100、长档 30/40/50、漫剧 60/80/100）+ 40 赛道选型表 + 流派判定/情绪契约/单元链（单矛盾硬帽 20~30 集，长档 10~15）+ 六档证据×六档反驳 + 付费墙三级/三法则/三变体 + 前三集节拍卡/四类节奏型 + 与 vigen 文件的接口。榜单证据与附录不搬。
+- **合规层**（新文件 `references/content-compliance.md`）：广电 16 号令备案分类（一类特殊题材：公安/司法/国安/民族/宗教/外交）+ 11 条内容红线 + 暴力复仇/封建糟粕专项 + 恶行不过 3 集 + 敏感词替换表 + GATE1.5 自检清单。**与 content-safety 分两层**：本文件管「内容能不能写」，content-safety 管「提示词会不会被拦」。
+- **形态 B 覆盖规则**（screenwriting-craft 一·九，8 小节）：台词信息层同轮直给、潜台词降为情绪载体（裁决了与漏洞 2④ 的冲突）；15 秒四拍（抓人立事→正面交锋→亮牌翻转→余波钩子）；集内结算（主角反将 + 反派付代价）；强画面每 2~4 句 `△` + 无效微动作黑名单；独白/旁白配额（标准 1/25、长档 2/30、漫剧 1/20，旁白 1/12）；断章五公式；01 必备字段；形态 A/B 分工一句话。
+- **模板**：00/01 新增「立项单」（平台/形态/档位/总集数/赛道/流派/情绪契约/单元划分/付费墙落位/备案类别）；01 新增「短剧集结构」（结算/中段小钩/断章）。
+- **SKILL**：GATE0 新增第 9 问「叙事形态与平台」（选竖屏短剧追问平台/档位/集数/墙位/赛道/流派/备案）；Module Map 加两个新文件的读取时点；阶段1a 加形态 B 分支；GATE1.5 加合规自检；硬规则 14 补内容层/提示词层分工；硬规则 16 扩为「节拍/钩子/短剧门」。
+- **K15 立项一致性**：必填 7 字段（平台/档位/总集数/赛道/流派/情绪契约/备案类别）+ 单元划分（单集跳过）连续、覆盖全集、单元长度 ≤30（长档 ≤15）+ 付费墙三级落位在档位允许区间（无墙写「无」跳过）+ 总集数属于另一档位集数集合时报错（自定义集数不报）。
+- **K16 集结构**：每集【本集结算】【本集断章卡点】非空；长档另需【本集中段小钩】；独白/旁白按档位配额、单处字数、禁连排、禁紧贴断章。
+- **语速口径**：**不改** vigen 的 4 字/秒 + 2.5s/动作拍。短剧的 4.5 字/秒只作写作手感参考，不进机检——同一项目两套口径必然打架。
+
+**验证**：57 → **67 单测**通过；新增 5 组夹具（good_shortdrama / bad_shortdrama / long_shortdrama / good_long_shortdrama / series_shortdrama）。系列项目在 ep01/ 目录跑 check 时，立项单自动读上一级 `00_剧情状态.md`。CLI 实跑：good_shortdrama / good_long_shortdrama / good_project（旧项目）K15/K16 零 finding exit 0；bad_shortdrama 正确报 8 项（少备案/集数档错配/单元断档/一级墙越界/缺结算/独白 2 处/连排/紧贴断章）；long_shortdrama 正确报缺中段小钩。
+
+**改动文件**：SKILL.md / README.md / create.md / references/{short-drama-market.md（新）, content-compliance.md（新）, screenwriting-craft.md, learning-guide.md} / assets/templates.md / scripts/check.py / tests/{test_check.py, fixtures/(good_shortdrama, bad_shortdrama, long_shortdrama, good_long_shortdrama)}
