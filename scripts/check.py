@@ -9,7 +9,7 @@
 
 enforce 的条款（与 vigen_md 解析层配套）：
   K1  台词逐字            → 硬规则4 / prompt-rules A11
-  K2  时长（模型上限/朗读≤镜头/4字每秒估算/段级14s）→ A2 / A3
+  K2  时长（模型上限/朗读≤镜头/4字每秒估算/段级14s/H3整数秒）→ A2 / A3
   K3  锚定逐字（色号全量 + 角色锚定短语，无 REF 绑定时）
                           → A1（色号、角色锚定；风格圣经/03/场景道具锚定见台账 V3.1 延后）
   K4  稳定镜号（唯一性/引用解析/作废行）→ SKILL 稳定镜号规则
@@ -176,30 +176,51 @@ def gate_k1(project: Project, partial: bool) -> List[Finding]:
 
 # ------------------------------------------------------------------ K2 时长
 
-def _video_cap(project: Project) -> Optional[float]:
+def _video_row(project: Project) -> Optional[Row]:
+    """02 目标模型表里的「视频」行。"""
     rows = table_rows(project.doc("02"), ("用途", "模型"),
                       aliases={"用途": ("用途",), "模型": ("模型",)})
     if not rows:
         return None
     for row in rows:
         if "视频" in row.cells.get("用途", ""):
-            cell = " ".join(row.cells.values())
-            nums = [float(m) for m in DURATION_RE.findall(cell)]
-            if nums:
-                return max(nums)          # 区间 3s-15s → 取上限
-            low = cell.lower()
-            for key, cap in MODEL_CAP.items():
-                if key in low:
-                    return cap
-            return None
+            return row
+    return None
+
+
+def _video_model(project: Project) -> Optional[str]:
+    """「视频」行的模型名单元格（只看模型名，不看备注，防备注里的 H3 误判）。"""
+    row = _video_row(project)
+    return row.cells.get("模型", "").strip() if row else None
+
+
+def _is_h3(project: Project) -> bool:
+    """当前视频模型是否为 MiniMax-H3 系（网关 seconds 只收整数）。"""
+    low = (_video_model(project) or "").lower()
+    return "h3" in low or "minimax" in low
+
+
+def _video_cap(project: Project) -> Optional[float]:
+    row = _video_row(project)
+    if row is None:
+        return None
+    cell = " ".join(row.cells.values())
+    nums = [float(m) for m in DURATION_RE.findall(cell)]
+    if nums:
+        return max(nums)          # 区间 3s-15s → 取上限
+    low = cell.lower()
+    for key, cap in MODEL_CAP.items():
+        if key in low:
+            return cap
     return None
 
 
 def gate_k2(project: Project, partial: bool) -> List[Finding]:
     findings: List[Finding] = []
     cap = _video_cap(project)
+    h3 = _is_h3(project)
 
-    # ① 04 标题里的生成时长 ≤ 模型上限
+    # ① 04 标题里的生成时长 ≤ 模型上限；H3 还须为整数秒
     if project.doc("04") is not None and cap is not None:
         checked = 0
         for block in blocks(project.doc("04"), only_segments=True):
@@ -211,6 +232,10 @@ def gate_k2(project: Project, partial: bool) -> List[Finding]:
                 findings.append(Finding(
                     "K2", DOC_FILES["04"], head_no,
                     "生成时长 %gs 超模型上限 %gs（超限须拆条+尾帧续接——A2）" % (secs, cap)))
+            if h3 and abs(secs - round(secs)) > 1e-9:
+                findings.append(Finding(
+                    "K2", DOC_FILES["04"], head_no,
+                    "生成时长 %gs 不是整数秒（H3 网关 seconds 只收整数，9.5→10——A2）" % secs))
         if checked == 0:
             findings.append(_warn("K2", "04", "段落标题未写「生成 Xs」，K2 未核对生成时长"))
 
@@ -224,6 +249,11 @@ def gate_k2(project: Project, partial: bool) -> List[Finding]:
                     "K2", DOC_FILES["01"], row.line,
                     "生成时长 %ss 超模型上限 %gs（超限须拆条+尾帧续接——A2）"
                     % (m.group(1), cap)))
+            if m and h3 and abs(float(m.group(1)) - round(float(m.group(1)))) > 1e-9:
+                findings.append(Finding(
+                    "K2", DOC_FILES["01"], row.line,
+                    "生成时长 %ss 不是整数秒（H3 网关 seconds 只收整数，9.5→10——A2）"
+                    % m.group(1)))
 
     # ③ 05 朗读时长 ≤ 所在镜头时长；4字/秒估算；段级 14s
     if project.doc("05") is not None:

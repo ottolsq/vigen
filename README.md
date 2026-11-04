@@ -14,8 +14,10 @@ AI 视频制作的痛点不在"没有工具"，而在"不知道怎么指挥工�
 | 分段生成色调漂移 | 全片色彩基调（3-5 个十六进制色号按面积分配，色号+落点进每条提示词）→ [styles.md](references/styles.md) |
 | 提示词不精准、模型听不懂 | 语义绑定三层法 + 正向引导>负面约束（分端裁决）→ [prompt-rules.md](references/prompt-rules.md) / [knowledge-index.md](references/knowledge-index.md) |
 | 复杂动作生成不出来 | 反先验动作先用首帧锁姿势，视频只写后续运动 → [prompt-rules.md](references/prompt-rules.md) |
-| 人物/场景/道具跨图不一致 | 四层锚定逐字复用 + 参考图六条硬标准 + 头身分离 + 互挂参考 → [consistency.md](references/consistency.md) |
-| 道具状态混乱 | 道具六条判定 → 独立参考图每状态一张 + 组合道具拆分出图 → [prompt-rules.md](references/prompt-rules.md) |
+| 人物/场景/道具跨图不一致 | 四层锚定逐字复用 + 参考图六条硬标准 + 头身分离 + 互挂参考 + **同一对象唯一权威参考** + **服装锁定三档** + **事实继承原则** → [consistency.md](references/consistency.md) |
+| 道具状态混乱、前后镜头背着/没背 | 道具六条判定 + **多状态合图生成后裁切单张** + 组合道具拆单张 + **逐镜位置账** → [prompt-rules.md](references/prompt-rules.md) / [consistency.md](references/consistency.md) |
+| 多张参考图互相打架 | 同一对象只留一张权威图，其余显式降级或裁掉该对象 → [consistency.md](references/consistency.md) |
+| 复杂场景一段视频装不下 | 拆成多个骨架 B 单镜片段，剪辑端拼接 → [prompt-rules.md](references/prompt-rules.md) 骨架选择器 |
 | 动作违反物理常识 | 动作三段式 + ENDING FRAME + 秒级时序 → [prompt-rules.md](references/prompt-rules.md) |
 | 跨片段音色漂移 | 按模型选语音路线（happyhorse 自带语音 / H3 音色自提取 / cosyvoice 对轨）+ 发声描述公式 → [consistency.md](references/consistency.md) |
 | 一段视频只有一个镜头 | 骨架 A 多镜头段落公式为默认 → [prompt-rules.md](references/prompt-rules.md) |

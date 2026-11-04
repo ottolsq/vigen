@@ -838,3 +838,26 @@ ai-video-maker/
 **验证**：stage1a_beats `--partial --gate K13,K14` exit 0；全量 `--gate K13` 正确报「未建分镜总览表」；test_check 71 → **72**，tests/ 合计 **76**；旧项目零误伤。
 
 **改动文件**：scripts/check.py / SKILL.md / references/{screenwriting-craft, learning-guide}.md / README.md / create.md / docs/plans/2026-11-03-shuohao-p0-design.md / tests/{test_check.py, fixtures/stage1a_beats}
+
+### V3.7（2026-11-04，实测复盘驱动：参考图权重纪律 + 服装/场景锁定 + 状态账）
+
+**驱动**：用户在一轮真实项目中总结的 7 类 skill 缺口 + 13 条项目问题（门体被重设计、服装/场景漂移、道具背着/没背、擅自加道具、H3 音频能力一日两变、节点 ID 靠猜等）。
+
+- **同一对象唯一权威参考**（consistency 三节）：一条提示词内同一对象只留一张权威图，其余显式降级或裁掉该对象；白底/灰底加底色隔离句。图/视频两端通用。
+- **服装锁定三档**（consistency 一）：有专属服装图=锁定句+短锚；只用四视图=必须写"服装由 Image N 锁定"+短锚；关键/已漂移=补专属图。解决"硬规则4 要求逐字 vs 文图分工表要求不复述"的既有矛盾。
+- **场景锁定三件**（prompt-rules A1）：挂场景图时必写 3-5 个一致性锚点短句 + 光线锚 + LOCATION MAP，不再允许"什么都不写"。
+- **事实继承原则 + 道具位置账 + 状态四件套**（consistency / prompt-rules 骨架 A）：已声明事实必须继承或显式写变化；每镜写道具/服饰/表情/动作的当前状态与动作后状态。
+- **合图生成、单张使用**（prompt-rules 0.5/0d、extended-views、templates）：场景四视图与道具多状态可在同一张图内并列生成后裁切；裁后短边 ≥1024；合图不直接喂模型。
+- **跨段尾帧互接标准步骤**（prompt-rules 骨架 A + SKILL 阶段5）：段 N 完成→抽尾帧→段 N+1 放 Image 1/最高权重参考；每段生成后主动提醒抽帧。
+- **风格按画面类型裁剪**（consistency 风格圣经 + styles）：白底/高调/面板/VFX 剥离暗调词条，登记"高调变体"，NO 节写不压暗。
+- **无声出片 + TTS 分支**（models / consistency 四节）：能力字段可能一日两变，每批复探；无台词段不接音色参考；台词镜头做口型兜底（背身/侧脸/画外音/闭唇）。
+- **左右表述项目级二选一**（prompt-rules 指代纪律）：默认人物自身左右；模型连续镜像才切"画面左右+固定锚点"；02 登记、项目内不混用。新增入画范围逐镜写死。
+- **B 骨架拆片段**（骨架选择器）：复杂场景一段装不下 → 拆多个骨架 B 单镜片段，剪辑端拼接。
+- **画布节点 ID 只查表不猜**（SKILL 画布节）；**生成端改动回写清单**（04/05/01 三处核对）。
+- **审核措辞回填**（content-safety）：挣动→发力起身未遂、束缚→固定。
+- **check.py K2 扩展**：H3 项目生成时长必须整数秒（04 标题 + 01 生成时长列）。
+- 抽帧脚本按用户裁定暂不做；抽帧仍由用户手动完成。
+
+**验证**：`python -m unittest discover -s tests` 78 项全过（新增 h3_fractional_seconds 夹具与 2 条 K2 用例）；`check.py tests/fixtures/h3_fractional_seconds --partial --gate K2` 正确报 9.5s/4.5s 两条；good_project 无回归；旧项目未改动。
+
+**改动文件**：SKILL.md / references/{consistency, prompt-rules, models, styles, extended-views, content-safety}.md / assets/templates.md / scripts/check.py / tests/{test_check.py, fixtures/h3_fractional_seconds} / README.md / create.md
