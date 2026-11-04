@@ -860,4 +860,23 @@ ai-video-maker/
 
 **验证**：`python -m unittest discover -s tests` 78 项全过（新增 h3_fractional_seconds 夹具与 2 条 K2 用例）；`check.py tests/fixtures/h3_fractional_seconds --partial --gate K2` 正确报 9.5s/4.5s 两条；good_project 无回归；旧项目未改动。
 
-**改动文件**：SKILL.md / references/{consistency, prompt-rules, models, styles, extended-views, content-safety}.md / assets/templates.md / scripts/check.py / tests/{test_check.py, fixtures/h3_fractional_seconds} / README.md / create.md
+**改动文件**：SKILL.md / references/{consistency, prompt-rules, models, styles, extended-views, content-safety, cinematography}.md / assets/templates.md / scripts/check.py / tests/{test_check.py, fixtures/h3_fractional_seconds} / README.md / create.md
+
+### V3.7.1（2026-11-04，V3.7 提交后审查修复）
+
+**驱动**：code-review 对 V3.7 diff 报 10 项，逐项复核后修复 10 项（2 项代码门、8 项文档矛盾）。
+
+- **K2 表头解析**：`_video_row`/`_video_model` 改用 `cell()` 子串取列，兼容「用途（必填）」「模型（供应商）」等带后缀表头——此前会静默关掉 H3 整数秒门与时长门。
+- **K2 整数秒范围**：只查 04 段落生成时长；**撤销 01 分镜行的整数秒检查**——01 的「生成时长」在骨架 A 下是段内镜头时间分配（4.5s/5.5s 合法），不是网关 `seconds`。
+- **K2 多段标题**：一行声明多段（「段1a（生成 8s）与 段1b（生成 7.5s）」）改为 `findall` 逐个检查，不再只查第一个值。
+- **能用尽用 vs 唯一权威**：五处「能用尽用」补限定——同一对象先按唯一权威裁决，含同一对象的图不能并列全挂（否则 S12 门冲突复现）。
+- **无声出片 vs 骨架 A 台词**：台词三件套与 SKILL 阶段5 补例外——无声路线 04 不写台词，只写口型/画外音设计，台词留在 05/01。
+- **尾帧 vs 角色最小集**：尾帧不再无条件放 Image 1——有独立首帧位放首帧位；Ref2VA 混合参考中角色三视图/面部特写优先，尾帧随后并声明"只锁开场衔接"（A6）。
+- **A1 风格条款 vs 豁免**：高调变体只用于情景图/场景图等叙事画面；0a-0d 锚定参考图仍按豁免不加风格圣经。
+- **状态四件套 vs 打斗七段**：④动作对打斗镜改走 action-combat 七段状态机，不重复写三段式。
+- **合图尺寸算术**：2×2 合图明确要求 ≥2048×2048 正方形（宽幅 2048×1152 只有 1024×576/格）；道具多状态改为 2×2、单张最多 4 态，多于 4 态拆多张。
+- **夹具/测试**：h3 夹具的 02 表头改为「模型（供应商）」、04 标题改为多段声明，覆盖上述两个解析修复；测试断言 04 仅报 9.5s、01 不报整数秒。
+
+**验证**：`python -m unittest discover -s tests` 78 项全过；h3 夹具 `--gate K2` 报 1 条（9.5s）；good_project exit 0。
+
+**改动文件**：SKILL.md / scripts/check.py / references/{consistency, prompt-rules, extended-views}.md / assets/templates.md / create.md
