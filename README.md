@@ -60,17 +60,17 @@ GATE0 需求问卷+对齐
 ## 目录结构（规则全文的唯一权威）
 
 ```
-├── SKILL.md              # GATE0 问卷（含叙事形态/平台）+ 工作流 + 意图路由（含活剧本修订）+ 16 条硬规则（要点+指针，含 K1-K16 check.py 门）+ 回退阶梯 + 停点收缩（真分叉才停）+ E2 挂图不阻塞 + 效率纪律
+├── SKILL.md              # GATE0 问卷（含叙事形态/平台）+ 工作流 + 意图路由（含活剧本修订）+ 17 条硬规则（要点+指针，含 K1-K16 check.py 门）+ 回退阶梯 + 停点收缩（真分叉才停）+ E2 挂图不阻塞 + 效率纪律
 ├── references/
 │   ├── screenwriting-craft.md # 剧本创作：7 大漏洞自检（操作程序+证据引用）+ 台词行动理论（议程卡/五说/策略库/声音五维）+ 场景发动机与升级六问 + 当集兑现 + 反对七式 + 误会四判据 + 钩子悬念纪律 + 故事三层分离 + GATE1.5 + 故事板四格 + **一·九 形态 B（竖屏短剧）覆盖规则**
 │   ├── short-drama-market.md # 平台短剧立项与排集：档位/集数 + 40 赛道 + 流派/情绪契约/单元链 + 六档证据×反驳 + 付费墙 + 前三集节拍卡（仅竖屏短剧项目读）
 │   ├── content-compliance.md # 内容合规：备案分类 + 11 条红线 + 暴力/迷信专项 + 敏感词替换（与 content-safety 的两层分工；仅竖屏短剧项目读）
-│   ├── prompt-rules.md   # 四大底层认知 + 0.7 可生成性前置门（四类高风险+比划测试+改写五法）+ 图片/视频骨架 A·B + 道具六条判定 + L1-L4 分级 + 发声描述公式 + 校验（15 关键门 A1-A15 + 13 抽查项）
+│   ├── prompt-rules.md   # 四大底层认知 + 0.7 可生成性前置门（五类高风险+比划测试+改写五法）+ 0.8 技术动作语义锚 + 0.9 朝向三要素 + 尺度三件套/入画即登记 + 图片/视频骨架 A·B + 道具六条判定 + L1-L4 分级 + 发声描述公式 + 校验（15 关键门 A1-A15 + 13 抽查项）
 │   ├── models.md         # 模型能力档案 + 生成路径判定 + 换模型指引
 │   ├── cinematography.md # 运镜功能决策表（R1-R7，固定是最后一行）+ 动机五类词表 + 40 运镜 + 8 生成端转场/5 剪辑端转场 + 机位语义 + 对白场切法 + 工作景别 + 光影选型库 + 峰值与强调手段（稀缺品）+ 单镜时长/节奏 + 竖屏构图安全区 + 7 类场景镜头序列
 │   ├── realism.md        # 去AI味 + 张力四法 + 表面两档与塑形约束 + 朝代纪律 + 文字物理化
-│   ├── styles.md         # 15 风格库 + 色彩基调色板 + 风格提取解梦卡
-│   ├── consistency.md    # 四层锚定 + 参考图六条/头身分离 + 角色路由/基准参考法 + 最小参考集 + 音色自提取 + 系列记忆 + 失效传播
+│   ├── styles.md         # 16 风格库（含 Pixar 3D 动画电影）+ 色彩基调色板 + 风格提取解梦卡 + 项目风格隔离
+│   ├── consistency.md    # 〇 锁定清单（9类对象+五条纪律）+ 服装默认专属图 + 场景持续物/锁定三件套 + 四层锚定 + 参考图六条/头身分离 + 角色路由/基准参考法 + 最小参考集 + 音色自提取 + 系列记忆 + 失效传播
 │   ├── content-safety.md # 内容安全反应式降级（拦截后必读；写高危题材前只查已登记模式）：措辞级解法库 + 构图级模式表 + 降级阶梯 + 显式否定旧设定 + 失败分类对策
 │   ├── knowledge-index.md# 扩展知识库路由表（命中才读，token 纪律守门文件）+ 负面词效力分端裁决
 │   ├── examples.md       # 完整示例
@@ -78,15 +78,16 @@ GATE0 需求问卷+对齐
 │   ├── cinema-grade-params.md # [扩展] 电影级参数块 + 国漫四视图
 │   ├── expressions.md / director-styles.md / extended-views.md / emotion-craft.md / ugc-realism.md / anime-to-real.md  # [扩展]
 │   ├── learning-guide.md # 学习指导（缺陷清单/使用边界/资料吸收台账）——不进日常执行链路
+│   ├── execution-pitfalls.md # 执行端操作坑清单（不进 Module Map/运行时）
 │   └── _archive-suspended-claims.md  # 停用主张归档（不读不用）
 ├── assets/
-│   └── templates.md      # 00-06 项目文件标准模板（01 含打斗交手账/【峰】标记/CT1 动机列；03 含竖屏安全区；04 含 PLAN/REF 槽位；06 含单镜时长/剪辑端转场/节奏与竖屏检查）
+│   └── templates.md      # 00-06 项目文件标准模板（01 含变更"影响范围"列/入画道具列；02 含服装锁定档位/场景持续在场；03 含竖屏安全区；04 含 PLAN/REF + PLAN-TAIL；06 含单镜时长/剪辑端转场/节奏与竖屏检查）
 ├── scripts/
 │   ├── check.py          # 薄校验层（K1-K16 机械门，纯标准库——硬规则 15）
 │   ├── vigen_md.py       # 解析层（表格按表头名取列/段落按任意二级标题切块/台词结构判据）
 │   └── export.py         # 交付打包（快照 + manifest + checksums，不声称审批）
 └── tests/
-    ├── test_check.py       # check.py 单元测试（72 tests；tests/ 合计 76，含 test_export 4）
+    ├── test_check.py       # check.py 单元测试（74 tests；tests/ 合计 78，含 test_export 4）
     ├── baseline-record.md  # TDD 测试记录
     ├── baseline-checkpy-record.md  # 真实项目试跑误拦观察记录
     └── fixtures/           # good/bad 样例项目
@@ -121,6 +122,7 @@ cp -r references assets scripts ~/.claude/skills/vigen/
 
 - [create.md](create.md) — 需求文档 + 设计方案 + 迭代记录
 - [research-notes.md](research-notes.md) — 历史调研笔记（结论已按"停用主张"处理，仅存档）
+- [references/execution-pitfalls.md](references/execution-pitfalls.md) — 执行端操作坑清单（参考图尺寸/画布重连/尾帧/setPrompt/文件操作；不进运行时）
 
 ## 持续学习机制
 

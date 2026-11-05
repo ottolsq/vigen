@@ -1,4 +1,4 @@
-# 风格库（15 风格 · 风格圣经词条）
+# 风格库（16 风格 · 风格圣经词条）
 
 > 阶段1 定风格时读本文件。每个风格词条 = 完整的"风格圣经"——选定时整段复制进 02_锚定表，之后逐字追加到每条图片/视频提示词末尾。用户可自定义新风格（按同样格式加入本库）。
 
@@ -10,10 +10,12 @@
 4. 视频提示词的风格一致性由"情景参考图（首帧）+ 风格圣经逐字复用 + 质感锚定行"三重承担
 5. **用户给了一张参考图/剧照说"要这种感觉"** → 走下方"风格提取（解梦卡）"通道，提炼出的动态风格圣经与预设词条同等冻结
 6. **白底/高调/过曝/面板/VFX 类图不能直接贴全量圣经**——按 consistency.md 风格圣经节「按画面类型裁剪」剥离暗调曝光词条并登记"高调变体"；否则 holy light bloom / volumetric shafts / deep shadows 会把白底拖成暗场
+7. **项目风格隔离（V3.9）**：每个项目的风格圣经/色板/锚定只属于该项目，禁止把另一项目的提示词/风格句/锚定复制过来；共用画布时先清空旧项目节点或分区；切项目后重新冻结风格圣经。实测：Pixar 3D → 写实真人风格反转，12 个节点全线重写——措辞一旦互串立即翻车。
+8. **风格锁定三件套（V3.9）**：**叙事画面**（情景图/场景图/视频）必须同时含 ①风格圣经逐字句 ②色彩基调十六进制色号 ③风格身份句（如 `Pixar-style 3D animated feature`）；缺一=不合格。白底 0a-0d 锚定图按 A1 豁免，不套三件套。
 
-## 风格提取：从用户参考图提炼风格圣经（解梦卡——第 16 类动态词条）
+## 风格提取：从用户参考图提炼风格圣经（解梦卡——动态词条，不占预设编号）
 
-预设 15 风格覆盖不了"就要这张图的感觉"。此时不猜、不套最近似预设，按四步提取：
+预设 16 风格覆盖不了"就要这张图的感觉"。此时不猜、不套最近似预设，按四步提取：
 
 1. **三层拆解**参考图：
    - **场景事实**（不迁移）：图里的人物身份/服装/地点/文字/品牌——这些属于那张图，不属于风格
@@ -67,6 +69,7 @@
 | 美食特写 | `#F2EDE4` 米白 | `#C88A4A` 焦糖 | `#8AA84A` 新鲜绿 | `#A8968A` 暖灰 |
 | 动漫剧场版 | `#A8D8F0` 通透天蓝 | `#F0E0C8` 云白暖 | `#F09AA8` 樱粉 | `#7A9AC8` 蓝紫阴影 |
 | 手绘童趣 | `#F5EBD8` 奶油纸 | `#E8A87C` 蜡笔橙 | `#7CA8D8` 蜡笔蓝 | `#D8C8B0` 浅褐 |
+| 3D 动画电影（Pixar） | `#F2C46D` 暖阳黄 | `#7FB8D9` 天空蓝 | `#8FBF7A` 草地绿 | `#4A4E6B` 冷紫阴影 |
 
 > 自定义风格：按同样五栏配色板；导演风格（director-styles.md）以其标志色为准（王家卫=青绿阴影+洋红高光；诺兰=青蓝阴影+暖棕受光；韦斯·安德森=粉红/芥末黄/薄荷绿/天蓝）。
 > **命名色别名档**（草稿/沟通用）：与用户讨论色板时可用命名色（'Champagne Gold'/'Millennial Pink'/'Mustard Yellow'）快速对齐意向——**定稿仍必须转十六进制色号冻结**（命名色是倾向，色号才是锚点）。
@@ -148,6 +151,35 @@
 - 圣经：`hand-drawn storybook illustration, soft crayon texture, rounded shapes, warm primary colors, gentle imperfect lines, playful composition`
 - 适用：儿童、绘本、节日
 - 大白话：像手绘绘本，蜡笔质感、圆圆的、颜色暖暖的
+
+### 16. 3D 动画电影（Pixar/Disney 系）
+- 圣经：`Pixar-style 3D animated feature film in the lineage of modern stylized CG animation, stylized proportions with slightly oversized expressive eyes, soft rounded forms, subsurface scattering skin, soft global illumination, warm key light with cool rim light, cinematic depth of field, polished feature-film render`
+- 图片端排除句（仅图片；视频端靠首帧+正向句，不写画面类负面）：`not photorealistic, not anime cel shading, not generic high-precision 3D render`
+- 色彩基调（示例）：`暖阳黄 #F2C46D / 天空蓝 #7FB8D9 / 草地绿 #8FBF7A / 暗部冷紫 #4A4E6B`
+- 适用：动画电影、合家欢、奇幻、运动题材的动画化
+- 大白话：皮克斯那种圆润造型、大眼睛、皮肤透亮、光影柔和但有电影感的 3D 动画；不是照片级真人，也不是二次元赛璐璐
+- 区分：`高精度3D动画电影风格` 是泛化词，会出照片级/游戏 CG；必须写 `Pixar-style 3D animated feature` + 造型/材质词，并在图片端加排除句
+
+## 风格身份句速查（叙事画面必写；与风格圣经+色号合称三件套）
+
+| # | 风格 | 身份句（逐字写入叙事画面提示词） |
+| --- | --- | --- |
+| 1 | 电影写实 | `35mm film cinematic realism` |
+| 2 | 治愈柔和 | `soft warm pastel lifestyle photography` |
+| 3 | 日系清新 | `Japanese fresh natural-light photography` |
+| 4 | 国风写意 | `ink-wash inspired Chinese digital painting` |
+| 5 | 赛博朋克 | `cyberpunk neon night cinematography` |
+| 6 | 复古胶片 | `1970s faded film photograph` |
+| 7 | 动漫剧场版 | `2D anime feature film`（不是 3D） |
+| 8 | 极简高级 | `minimalist premium product photography` |
+| 9 | 悬疑黑色 | `film noir low-key cinematography` |
+| 10 | 奇幻史诗 | `epic fantasy concept cinematography` |
+| 11 | 美食特写 | `food magazine photography` |
+| 12 | 自然纪录片 | `nature documentary cinematography` |
+| 13 | 都市夜晚 | `urban night cinematography` |
+| 14 | 科技概念 | `futuristic tech product render` |
+| 15 | 手绘童趣 | `hand-drawn storybook illustration` |
+| 16 | 3D 动画电影（Pixar） | `Pixar-style 3D animated feature` |
 
 ## 自定义风格模板
 

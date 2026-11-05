@@ -955,3 +955,52 @@ ai-video-maker/
 **验证**：`python -m unittest discover -s tests` 78 项全过；`check.py tests/fixtures/good_project --partial` 全部通过；9 个改动文件表格列数一致；templates 798 行、cinematography 632 行（均 <800）。
 
 **改动文件**：references/{cinematography, cinema-grade-params, prompt-rules, learning-guide}.md / assets/templates.md / SKILL.md / README.md / create.md
+
+### V3.9（2026-11-05，撑杆跳项目复盘 v1→v30：锁定清单 + 风格隔离 + 技术动作/朝向/尺度）
+
+**驱动**：用户提供 30 版返工复盘 + 7 项追问（高可信度 `[用户实测]`）。核心结论：规则存在但缺"可判定清单+前置门"，且风格库缺 Pixar 3D。
+
+- **锁定清单**（consistency 〇节）：9 类对象 × 触发条件 × 锁定物 × 提示词要求；五条纪律（先登记后生成 / 两头空=停 / 入画即登记 / 反复出现=持续物 / 项目风格隔离）。
+- **服装默认专属图**：换装/多套/剧情关键/颜色易漂/已漂移 → 专属服装图必做；单套且四视图清晰才允许四视图锁定；两头空=停。
+- **场景持续物 + 场景锁定三件套**：02 新增"持续在场要素"（观众/器械/垫子/横杆/看台/光色+色号）；每镜必写母版图+3-5锚点+光线锚；场景大件颜色不重新发明。
+- **prompt-rules**：0.7 增"不可见≠没有"（五类高风险）；0.8 技术动作语义锚（真赛参考+是X不是Y+阶段分解）；0.9 朝向三要素；尺度"数字+身体比例+反例"；入画即登记；参考图 ffprobe ≥256 前置。
+- **styles**：第 16 风格 Pixar/Disney 3D（含图片端排除句）；项目风格隔离；风格锁定三件套（圣经逐字+色号+身份句）。
+- **templates**：01 变更记录"影响范围"列+入画道具列；02 服装锁定档位/场景持续在场/道具尺寸三件套；03 朝向检查。
+- **SKILL**：硬规则 17（先锁后写）；阶段 1b/2-4/5 指针。
+
+**验证**：`python -m unittest discover -s tests` 78 项全过；good_project `--partial` 全部通过；表格列数一致性通过；templates ≤800 行。
+
+**改动文件**：references/{consistency, prompt-rules, styles, models, learning-guide}.md / assets/templates.md / SKILL.md / README.md / create.md
+
+### V3.9.1（2026-11-05，同一复盘的工具/流程层）
+
+**驱动**：撑杆跳复盘中"素材与连线 / Skill 流程"两类问题。
+
+- **画布参考图插入/删除=全量重连**：单 in 口 ref 序号=连线创建顺序；插入必须删全部入线按最终顺序重连，逐条核对 `{{ref N}}`（v21/v22 各错位一轮）。
+- **setPrompt 全文重发的版本账**：重发前存版本摘要到 01 变更记录；重发后与 04 对比，禁止凭记忆。
+- **尾帧 PLAN-TAIL**：段 N 未出片时，段 N+1 写 `PLAN-TAIL-<N>` 占位，抽帧后绑 `REF-TAIL-<N>`，不因等尾帧停线。
+- **执行端操作清单**：新建 `references/execution-pitfalls.md`（参考图尺寸/画布重连/尾帧/setPrompt/exports 路径/edit oldText/ffmpeg PNG/读写同路径）。
+- **P2 待办**：`check.mjs` Node 全量移植。**`sync-canvas.mjs` 不做**（用户裁定：后续可能更换画布软件，不同软件 API 不通用；只保留通用操作纪律，不绑定具体画布）。
+
+**验证**：同 V3.9（本次无 check.py 改动、无新机检门）；docs 新增文件表格检查通过。
+
+**改动文件**：SKILL.md / assets/templates.md / references/execution-pitfalls.md / README.md / create.md
+
+### V3.9.2（2026-11-05，V3.9/V3.9.1 审查修复：10 项）
+
+**驱动**：code-review 对当前 diff 报 10 项，逐项核实属实并修复。
+
+- **REF-TAIL 未登记 → K10 失败**：03 矩阵加尾帧登记行；04 绑定后登记 `REF-TAIL-<N>`。
+- **硬规则 17 无校验项**：新增 A16 人工关键门；01 校验记录同步；硬规则 17 指针指向 A16。
+- **四视图条件冲突**：锁定清单改为"≥3 镜或正反打 → 四视图"。
+- **参考图尺寸口径**：0.5 的 1024 只约束生成锚定图；外部素材按技术规格 300-5760（模型下限 256）；models.md 指针修正。
+- **风格身份句只定义 Pixar**：新增 16 风格身份句速查表；规则 8 可执行。
+- **解梦卡编号冲突**：改为"动态词条，不占预设编号"。
+- **推荐色板缺 Pixar**：补一行。
+- **execution-pitfalls 不可发现**：Module Map 加"check 跑不起来时读"；硬规则 15 补本机执行口径。
+- **README 测试计数**：72/76 → 74/78。
+- **入画清单与资产矩阵重复**：移到 01 分镜表"入画道具（资产ID）"列；03 矩阵仍为资产侧权威。
+
+**验证**：`python -m unittest discover -s tests` 78 项全过；good_project `--partial` 全部通过；10 文件表格列数一致；templates 795、prompt-rules 739、styles 191（均 <800）。
+
+**改动文件**：references/{consistency, prompt-rules, styles, models, learning-guide, execution-pitfalls}.md / assets/templates.md / SKILL.md / README.md / create.md
