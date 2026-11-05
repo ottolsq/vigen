@@ -21,7 +21,7 @@ AI 视频制作的痛点不在"没有工具"，而在"不知道怎么指挥工�
 | 动作违反物理常识 | 动作三段式 + ENDING FRAME + 秒级时序 → [prompt-rules.md](references/prompt-rules.md) |
 | 跨片段音色漂移 | 按模型选语音路线（happyhorse 自带语音 / H3 音色自提取 / cosyvoice 对轨）+ 发声描述公式 → [consistency.md](references/consistency.md) |
 | 一段视频只有一个镜头 | 骨架 A 多镜头段落公式为默认 → [prompt-rules.md](references/prompt-rules.md) |
-| 运镜单一、转场呆板 | 运镜功能决策表 R1-R7 + 40 运镜 + 8 转场 + 峰值与强调手段（稀缺品）→ [cinematography.md](references/cinematography.md) |
+| 运镜单一、转场呆板 | 运镜功能决策表 R1-R7 + 40 运镜 + 8 生成端转场/5 剪辑端转场 + 峰值与强调手段（稀缺品）→ [cinematography.md](references/cinematography.md) |
 | 长剧遗忘细节 | 00_剧情状态.md 每集强制更新 + 尾帧续接 → [consistency.md](references/consistency.md) |
 | 剧情被擅自删改 | 情节点清单逐点登记，100% 覆盖校验 → [screenwriting-craft.md](references/screenwriting-craft.md) |
 | 做红果/抖音付费短剧，不知道排多少集、墙卡在哪 | 立项单（档位/集数/赛道/情绪契约/单元链/付费墙）+ 前三集节拍卡 → [short-drama-market.md](references/short-drama-market.md) |
@@ -67,7 +67,7 @@ GATE0 需求问卷+对齐
 │   ├── content-compliance.md # 内容合规：备案分类 + 11 条红线 + 暴力/迷信专项 + 敏感词替换（与 content-safety 的两层分工；仅竖屏短剧项目读）
 │   ├── prompt-rules.md   # 四大底层认知 + 0.7 可生成性前置门（四类高风险+比划测试+改写五法）+ 图片/视频骨架 A·B + 道具六条判定 + L1-L4 分级 + 发声描述公式 + 校验（15 关键门 A1-A15 + 13 抽查项）
 │   ├── models.md         # 模型能力档案 + 生成路径判定 + 换模型指引
-│   ├── cinematography.md # 运镜功能决策表（R1-R7，固定是最后一行）+ 动机五类词表 + 40 运镜 + 8 转场 + 机位语义 + 水平角度词表 + 对白场切法 + 工作景别 + 峰值与强调手段（稀缺品）+ 节奏模板
+│   ├── cinematography.md # 运镜功能决策表（R1-R7，固定是最后一行）+ 动机五类词表 + 40 运镜 + 8 生成端转场/5 剪辑端转场 + 机位语义 + 对白场切法 + 工作景别 + 光影选型库 + 峰值与强调手段（稀缺品）+ 单镜时长/节奏 + 竖屏构图安全区 + 7 类场景镜头序列
 │   ├── realism.md        # 去AI味 + 张力四法 + 表面两档与塑形约束 + 朝代纪律 + 文字物理化
 │   ├── styles.md         # 15 风格库 + 色彩基调色板 + 风格提取解梦卡
 │   ├── consistency.md    # 四层锚定 + 参考图六条/头身分离 + 角色路由/基准参考法 + 最小参考集 + 音色自提取 + 系列记忆 + 失效传播
@@ -80,7 +80,7 @@ GATE0 需求问卷+对齐
 │   ├── learning-guide.md # 学习指导（缺陷清单/使用边界/资料吸收台账）——不进日常执行链路
 │   └── _archive-suspended-claims.md  # 停用主张归档（不读不用）
 ├── assets/
-│   └── templates.md      # 00-06 项目文件标准模板（01 含打斗交手账/【峰】标记/CT1 动机列；04 含 PLAN/REF 槽位）
+│   └── templates.md      # 00-06 项目文件标准模板（01 含打斗交手账/【峰】标记/CT1 动机列；03 含竖屏安全区；04 含 PLAN/REF 槽位；06 含单镜时长/剪辑端转场/节奏与竖屏检查）
 ├── scripts/
 │   ├── check.py          # 薄校验层（K1-K16 机械门，纯标准库——硬规则 15）
 │   ├── vigen_md.py       # 解析层（表格按表头名取列/段落按任意二级标题切块/台词结构判据）
