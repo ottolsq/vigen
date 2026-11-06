@@ -38,7 +38,5 @@ ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s
 ## 6. 校验平台
 
 - `check.py` 需要本机 Python；沙盒里的 `python3` 可能挂死。
-- 当前执行口径：**全量**在用户本机跑 `check.py`。**无 Python 时**用 Phase 1：
-  `node "{技能目录}/scripts/check.mjs" <项目目录> --partial --gate K1,K2,K5,K6,K10,K11,K12`
-  Phase 1 与 `check.py` 同输出/同退出码；未移植门（K3/K4/K7/K8/K9/K13-K16）会明确报错，**不视为全量通过**。Phase 2/3 待补。
+- 当前执行口径：全量用 `check.py`（权威），或 `node "{技能目录}/scripts/check.mjs" <项目目录> --partial`（K1-K16 全量，与 `check.py` 同输出/同退出码）。无 Python 时用后者。
 - **画布→文档同步脚本不做**：用户后续可能更换画布软件，不同软件 API 不通用；只保留通用操作纪律（参考图全量重连 / 版本账 / 尺寸校验），不绑定具体画布。

@@ -84,13 +84,18 @@ GATE0 需求问卷+对齐
 │   └── templates.md      # 00-06 项目文件标准模板（01 含变更"影响范围"列/入画道具列；02 含服装锁定档位/场景持续在场；03 含竖屏安全区；04 含 PLAN/REF + PLAN-TAIL；06 含单镜时长/剪辑端转场/节奏与竖屏检查）
 ├── scripts/
 │   ├── check.py          # 薄校验层（K1-K16 机械门，纯标准库——硬规则 15；全量权威实现）
-│   ├── check.mjs         # Phase 1 Node 版（K1/K2/K5/K6/K10/K11/K12，与 check.py 行为对齐）
+│   ├── check.mjs         # Node CLI + 门注册（K1-K16 全量，与 check.py 行为对齐）
+│   ├── check-core.mjs    # check.mjs 共享 helpers（表格行/镜号/时长格式化）
+│   ├── check-gates-a.mjs # K1-K6 门
+│   ├── check-gates-b.mjs # K7-K12 门
+│   ├── check-gates-c.mjs # K13-K14 门（节拍认领/钩子与预算）
+│   ├── check-gates-d.mjs # K15-K16 门（短剧立项单/集结构）
 │   ├── vigen_md.py       # Python 解析层（表格按表头名取列/段落按任意二级标题切块/台词结构判据）
 │   ├── vigen-md.mjs      # Node 解析层（check.mjs 依赖，行为对齐 vigen_md.py）
 │   └── export.py         # 交付打包（快照 + manifest + checksums，不声称审批）
 └── tests/
     ├── test_check.py       # check.py 单元测试（74 tests；tests/ 合计 78，含 test_export 4）
-    ├── check-mjs.test.mjs  # check.mjs Phase 1 parity（42 tests；node --test tests/check-mjs.test.mjs）
+    ├── check-mjs.test.mjs  # check.mjs K1-K16 全量 parity（78 tests；node --test tests/check-mjs.test.mjs）
     ├── baseline-record.md  # TDD 测试记录
     ├── baseline-checkpy-record.md  # 真实项目试跑误拦观察记录
     └── fixtures/           # good/bad 样例项目
@@ -139,7 +144,7 @@ cp -r references assets scripts ~/.claude/skills/vigen/
 ## 已知边界
 
 - 只产提示词与项目文件，不调用生成 API、不做剪辑执行；check.py 只读校验项目 Markdown（K1-K16 机械门），同样不调 API、不改文件
-- `check.mjs` 当前为 **Phase 1**（K1/K2/K5/K6/K10/K11/K12），与 check.py 同输出/同退出码；未移植门会明确报错，**不视为全量通过**。全量仍用 check.py（Phase 2/3 待补）
+- `check.mjs` 已 **K1-K16 全量**，与 check.py 同输出/同退出码；全量 parity 由 `tests/check-mjs.test.mjs` 覆盖。check.py 仍是权威实现，改门必须两边同步
 - 平台商业层（赛道/集数/付费墙）是**立项参考**，不是平台官方规则；本 skill 不预测爆款、不承诺过审
 - 不做真人拍摄指导；剧本必须经 GATE1.5 用户定稿（skill 自检是辅助不是替代）
 - 内容安全走**反应式降级**（V2.9）：未登记模式不预防性降敏；被拦后按措辞级/构图级降级，解法登记进已验证模式库（剧情可保留、措辞与构图可调），不保证通过所有平台审核

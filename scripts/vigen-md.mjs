@@ -176,6 +176,57 @@ export function blocks(lines, onlySegments = false) {
   return onlySegments ? out.filter((b) => isSegmentHeading(b[0][1])) : out;
 }
 
+const SHOT_HEAD = /^##\s*镜头\s*S?\d/;
+
+export function shotBlocks(lines) {
+  const out = [];
+  for (const seg of blocks(lines)) {
+    if (SHOT_HEAD.test(seg[0][1])) {
+      out.push(seg);
+      continue;
+    }
+    let cur = null;
+    for (const [no, text] of seg.slice(1)) {
+      if (text.trim() === "```") {
+        if (cur) {
+          out.push(cur);
+          cur = null;
+        }
+        continue;
+      }
+      if (TIME_RANGE.test(text)) {
+        if (cur) out.push(cur);
+        cur = [[no, text]];
+      } else if (cur) {
+        cur.push([no, text]);
+      }
+    }
+    if (cur) out.push(cur);
+  }
+  return out;
+}
+
+export function blockText(block) {
+  return block.map(([, t]) => t).join("\n");
+}
+
+export function subBlocks(lines, prefix = "### ") {
+  if (lines === null) return [];
+  const out = [];
+  let cur = null;
+  for (let i = 0; i < lines.length; i += 1) {
+    const ln = lines[i];
+    if (ln.startsWith("## ") || ln.startsWith(prefix)) {
+      if (cur) out.push(cur);
+      cur = ln.startsWith(prefix) ? [[i + 1, ln]] : null;
+    } else if (cur) {
+      cur.push([i + 1, ln]);
+    }
+  }
+  if (cur) out.push(cur);
+  return out;
+}
+
 export const SKIP_SECTIONS = new Set([
   "AUDIO",
   "PERFORMANCE LOCK",
@@ -327,6 +378,13 @@ export const EMPHASIS_SLOW = ["慢动作", "慢镜", "Time Ramp", "升格"];
 export const EMPHASIS_OTHER = ["冲击重复", "短促推近", "定格", "闪白"];
 export const EMPHASIS_WORDS = [...EMPHASIS_SLOW, ...EMPHASIS_OTHER];
 
+export const ENV_MOTION_WORDS = [
+  "风吹", "风在吹", "风声", "微风", "风穿过", "风穿",
+  "衣摆", "衣角", "树叶", "枝叶", "涟漪", "水面", "光斑", "尘埃",
+  "雾气", "薄雾", "雾", "火焰", "火苗", "微振", "机体振动",
+  "雪", "雨丝", "雨滴", "下雨", "雨点", "飘动", "摇晃", "摆动", "摇曳",
+];
+
 export const SKELETON_A_SECTIONS = [
   "SCENE CONTEXT", "ACTIVE REFERENCES", "CONTINUITY RULE", "FORMAT",
   "CAMERA / EDITING", "ENDING FRAME", "PERFORMANCE LOCK", "FACE LOCK",
@@ -341,7 +399,30 @@ export const FOLLOW_FAMILY = /跟拍|横移|跟随/;
 export const REVEAL_FAMILY = /摇|后拉|拉远|俯仰/;
 
 export const CT1_RE = /^(reveal|pressure|alignment|relationship|transition)\(R[1-7]\)：\S/;
+export const HEX_RE = /#[0-9A-Fa-f]{6}/g;
 export const DURATION_RE = /(\d+(?:\.\d+)?)\s*s/g;
+export const SHOT_ID_RE = /^(S?\d+[a-z]?)(?:（[^）]*）)?$/;
+export const VOIDED_RE = /^~~(S?\d+[a-z]?)~~/;
+export const REF_SHOT_RE = /(?:镜|镜头)\s*(S?\d+[a-z]?)/g;
+export const BEAT_RE = /(?<![A-Za-z0-9])B(\d+[a-z]?)(?:\s*[-–—~至]\s*B?(\d+[a-z]?))?/g;
+
+export function beatIds(text) {
+  const out = [];
+  for (const m of (text || "").matchAll(BEAT_RE)) {
+    const start = m[1];
+    const end = m[2];
+    if (end && /^\d+$/.test(start) && /^\d+$/.test(end)) {
+      const a = Number(start);
+      const b = Number(end);
+      if (a <= b) {
+        for (let i = a; i <= b; i += 1) out.push("B" + i);
+        continue;
+      }
+    }
+    out.push("B" + start);
+  }
+  return out;
+}
 
 export const MODEL_CAP = {
   happyhorse: 15.0,

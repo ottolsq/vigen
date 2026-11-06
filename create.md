@@ -1018,3 +1018,44 @@ ai-video-maker/
 **验证**：`node --test tests/check-mjs.test.mjs` 42 项全过；`python -m unittest discover -s tests` 78 项全过；good_project 双端输出一致。
 
 **改动文件**：scripts/{check.mjs, vigen-md.mjs} / tests/check-mjs.test.mjs（本地，不入库） / README.md / SKILL.md / references/{learning-guide, execution-pitfalls}.md / create.md
+
+### V3.11（2026-11-06，check.mjs Phase 2a：K3/K4/K7/K8/K9）
+
+**驱动**：Phase 1 完成后继续行为兼容移植，先做结构/锚定类五门。
+
+- **K3 锚定**：02 色号逐段出现；角色锚定短语逐字（@REF 绑定则豁免）。
+- **K4 镜号**：镜号唯一性、作废镜号、03/04 标题行引用解析。
+- **K7 环境动态**：每镜 ≥1 环境动态元素；固定机位须写微振来源。
+- **K8 骨架槽位**：骨架 A 11 节齐全；骨架 B 须在 01 正面标注理由。
+- **K9 情节点覆盖**：状态列 ✓、覆盖镜号非空且能在 01 分镜表解析。
+- 解析层恢复 `subBlocks/shotBlocks/blockText/ENV_MOTION_WORDS/镜号正则`；`check.mjs` 支持 K1-K12，K13-K16 仍明确拒绝。
+- **模块拆分**：`check.mjs` 仅 CLI/门注册；共享 helpers → `check-core.mjs`；K1-K6 → `check-gates-a.mjs`；K7-K12 → `check-gates-b.mjs`。行为不变，80 项 parity 仍全过。
+
+**验证**：`node --test tests/check-mjs.test.mjs` 80 项全过（4 CLI + 38 fixtures × Phase 1/2a）；`python -m unittest discover -s tests` 78 项全过；good_project 双端输出一致。拆分后行数：check.mjs 152 / check-core 75 / check-gates-a 512 / check-gates-b 312 / vigen-md 436（均 <800）。
+
+**改动文件**：scripts/{check.mjs, vigen-md.mjs} / tests/check-mjs.test.mjs（本地，不入库） / README.md / SKILL.md / references/{learning-guide, execution-pitfalls}.md / create.md
+
+### V3.12（2026-11-06，check.mjs Phase 2b：K13/K14）
+
+**驱动**：Phase 2a + 模块拆分完成后继续，补节拍与钩子门。
+
+- **K13 节拍认领**：节拍制开关；节拍表列/格式/唯一/连续；认领镜号双向一致与顺序；有台词镜必须认领。
+- **K14 钩子 + 预算**：恰好一个钩子在前 3 拍、悬念在末拍；台词/动作秒数、容差、预算表重算、镜内节拍合计。
+- `vigen-md.mjs` 补 `beatIds`；新增 `check-gates-c.mjs`；`check.mjs` 支持 K1-K14，K15-K16 仍明确拒绝。
+
+**验证**：`node --test tests/check-mjs.test.mjs` 118 项全过（4 CLI + 38 fixtures × Phase 1/2a/2b）；`python -m unittest discover -s tests` 78 项全过；good_project 双端一致。行数：check.mjs 155 / core 75 / gates-a 512 / gates-b 312 / gates-c 361 / vigen-md 455（均 <800）。
+
+**改动文件**：scripts/{check.mjs, check-gates-c.mjs, vigen-md.mjs} / tests/check-mjs.test.mjs（本地，不入库） / README.md / SKILL.md / references/{learning-guide, execution-pitfalls}.md / create.md
+
+### V3.13（2026-11-06，check.mjs Phase 2c：K15/K16 全量）
+
+**驱动**：最后两门；完成后 `check.mjs` 与 `check.py` 全量对齐。
+
+- **K15 短剧立项单**：叙事形态/档位/必填字段/总集数/单元划分/付费墙变体与落位区间。
+- **K16 集结构**：本集结算/断章/长档中段小钩 + 独白旁白配额/单处字数/连排/贴断章。
+- 新增 `check-gates-d.mjs`；`check.mjs` 默认运行改为跑全部 K1-K16（与 check.py 一致），移除“未移植”拒绝分支。
+- 测试改为全量：2 项 CLI + 38 fixtures ×（默认运行 + 全门）= **78 项**。
+
+**验证**：`node --test tests/check-mjs.test.mjs` 78 项全过；`python -m unittest discover -s tests` 78 项全过。行数：check.mjs 148 / core 75 / gates-a 512 / gates-b 312 / gates-c 361 / gates-d 481 / vigen-md 455（均 <800）。
+
+**改动文件**：scripts/{check.mjs, check-gates-d.mjs} / tests/check-mjs.test.mjs（本地，不入库） / README.md / SKILL.md / references/{learning-guide, execution-pitfalls}.md / create.md
