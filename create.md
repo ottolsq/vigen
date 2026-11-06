@@ -1004,3 +1004,17 @@ ai-video-maker/
 **验证**：`python -m unittest discover -s tests` 78 项全过；good_project `--partial` 全部通过；10 文件表格列数一致；templates 795、prompt-rules 739、styles 191（均 <800）。
 
 **改动文件**：references/{consistency, prompt-rules, styles, models, learning-guide, execution-pitfalls}.md / assets/templates.md / SKILL.md / README.md / create.md
+
+### V3.10（2026-11-06，check.mjs Phase 1：Node 版机械校验，行为兼容 check.py）
+
+**驱动**：沙盒 python3 挂死；用户裁定做 Node 版，先 Phase 1，且行为兼容（同门、同输出、同退出码）。
+
+- **scripts/vigen-md.mjs**：Node 解析层，按 `vigen_md.py` 行为对齐（表格按表头名取列/段落切块/台词结构判定/角色名/时长模型下限）。
+- **scripts/check.mjs**：K1/K2/K5/K6/K10/K11/K12 + CLI（`--partial` / `--gate` / `--help`；同输出格式与退出码）。
+- **诚实边界**：Phase 1 未移植 K3/K4/K7/K8/K9/K13-K16；默认运行或指定未移植门 → 明确报错 exit 2，**不静默“全部通过”**。
+- **测试**：`tests/check-mjs.test.mjs`（本地套件，`.gitignore` 与现有 tests/ 同策略）——4 项 CLI + 38 个 fixture parity；每个 fixture 同时跑 py/mjs，比对 stdout 与 exit code。
+- **文档**：README scripts/已知边界、SKILL 硬规则 15、execution-pitfalls 第 6 节、learning-guide 缺陷 24/版本表同步。
+
+**验证**：`node --test tests/check-mjs.test.mjs` 42 项全过；`python -m unittest discover -s tests` 78 项全过；good_project 双端输出一致。
+
+**改动文件**：scripts/{check.mjs, vigen-md.mjs} / tests/check-mjs.test.mjs（本地，不入库） / README.md / SKILL.md / references/{learning-guide, execution-pitfalls}.md / create.md
