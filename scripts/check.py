@@ -1629,6 +1629,87 @@ def gate_k16(project: Project, partial: bool) -> List[Finding]:
     return findings
 
 
+# ------------------------------------------------------------------ A16 先锁后写（opt-in 审计）
+def _style_bible(project: Project) -> str:
+    parts = []
+    for _no, ln in project.section("02", "风格圣经"):
+        s = ln.strip()
+        if not s or s.startswith((">", "|", "#")):
+            continue
+        parts.append(s)
+    text = " ".join(parts).strip()
+    return "" if "{" in text or "}" in text else text
+
+
+def _norm_ws(text: str) -> str:
+    return re.sub(r"\s+", " ", text or "").strip()
+
+
+def _scene_persistent(project: Project) -> str:
+    for _no, _header, body in iter_tables(project.doc("02") or []):
+        for _ln, cells in body:
+            if len(cells) >= 2 and "持续在场要素" in cells[0]:
+                value = cells[1].strip()
+                if value and not _is_placeholder(value):
+                    return value
+    return ""
+
+
+def gate_a16(project: Project, partial: bool) -> List[Finding]:
+    """A16 先锁后写（opt-in 审计）：只做机械可判定的子集。
+
+    ① 04 每个段落须含 02 风格圣经逐字（风格三件套之一）
+    ② 01「入画道具」列的 REF-id 须在 03/02 登记
+    ③ 02 有持续在场要素时，04 须出现「始终在场」或「全程不出现」
+    技术动作/朝向三要素仍为人工核对。
+    """
+    findings: List[Finding] = []
+    bible = _style_bible(project)
+    if bible and project.doc("04") is not None:
+        target = _norm_ws(bible)
+        for block in blocks(project.doc("04"), only_segments=True):
+            body = _norm_ws("\n".join(t for _, t in block))
+            if target not in body:
+                findings.append(Finding(
+                    "A16", DOC_FILES["04"], block[0][0],
+                    "段落缺风格圣经逐字句（A16 风格三件套——02 已登记：%s…）"
+                    % bible[:30]))
+
+    if project.doc("01") is not None:
+        rows = table_rows(project.doc("01"), ("镜号",), aliases=STORY_ALIASES)
+        if rows and any("入画道具" in key for key in rows[0].cells):
+            doc03 = "\n".join(project.doc("03") or [])
+            doc02 = "\n".join(project.doc("02") or [])
+            for row in rows:
+                raw = cell(row, "入画道具").strip()
+                if not raw or raw in ("—", "-", "–"):
+                    continue
+                ids = re.findall(r"REF-[A-Z0-9-]+", raw)
+                if not ids:
+                    findings.append(Finding(
+                        "A16", DOC_FILES["01"], row.line,
+                        "入画道具列有内容但未写 REF-id（A16 入画即登记）：%s"
+                        % raw[:20]))
+                    continue
+                for rid in ids:
+                    if rid not in doc03 and rid not in doc02:
+                        findings.append(Finding(
+                            "A16", DOC_FILES["01"], row.line,
+                            "入画道具 %s 未在 03 资产矩阵登记（A16 入画即登记）" % rid))
+
+    persistent = _scene_persistent(project)
+    if persistent and project.doc("04") is not None:
+        doc04 = "\n".join(project.doc("04") or [])
+        if "始终在场" not in doc04 and "全程不出现" not in doc04:
+            findings.append(Finding(
+                "A16", DOC_FILES["04"], 0,
+                "02 已登记持续在场要素，但 04 未复述「始终在场/全程不出现」（A16）"))
+    return findings
+
+
+OPTIONAL_GATES: List[Tuple[str, GateFn]] = [("A16", gate_a16)]
+
+
 GATES: List[Tuple[str, GateFn]] = [
     ("K1", gate_k1), ("K2", gate_k2), ("K3", gate_k3), ("K4", gate_k4),
     ("K5", gate_k5), ("K6", gate_k6), ("K7", gate_k7), ("K8", gate_k8),
@@ -1666,13 +1747,14 @@ def main(argv: List[str]) -> int:
         print("项目目录内无 01/04 文件——未按 vigen 01-06 契约组织，跳过")
         return 2
 
-    valid = {g for g, _ in GATES}
+    all_gates = GATES + OPTIONAL_GATES
+    valid = {g for g, _ in all_gates}
     selected: Optional[set] = None
     if args.gate:
         wanted = {g.strip().upper() for g in args.gate.split(",") if g.strip()}
         bad = wanted - valid
         if bad:
-            print("未知门：%s（合法取值：%s）" % (", ".join(sorted(bad)), ", ".join(g for g, _ in GATES)))
+            print("未知门：%s（合法取值：%s）" % (", ".join(sorted(bad)), ", ".join(g for g, _ in all_gates)))
             return 2
         selected = wanted
 
@@ -1683,7 +1765,7 @@ def main(argv: List[str]) -> int:
             if project.doc(key) is None:
                 findings.append(Finding("PRE", DOC_FILES[key], 0,
                                         "全量校验缺文件 %s（只跑部分文档请用 --partial）" % DOC_FILES[key]))
-    for gate_id, gate_fn in GATES:
+    for gate_id, gate_fn in (all_gates if selected is not None else GATES):
         if selected is not None and gate_id not in selected:
             continue
         try:

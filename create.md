@@ -1059,3 +1059,31 @@ ai-video-maker/
 **验证**：`node --test tests/check-mjs.test.mjs` 78 项全过；`python -m unittest discover -s tests` 78 项全过。行数：check.mjs 148 / core 75 / gates-a 512 / gates-b 312 / gates-c 361 / gates-d 481 / vigen-md 455（均 <800）。
 
 **改动文件**：scripts/{check.mjs, check-gates-d.mjs} / tests/check-mjs.test.mjs（本地，不入库） / README.md / SKILL.md / references/{learning-guide, execution-pitfalls}.md / create.md
+
+### V3.14（2026-11-06，A16 先锁后写 opt-in 机检）
+
+**驱动**：A16 一直靠人工；把可机械判定的子集落成 opt-in 审计，默认 K1-K16 不变。
+
+- `check.py` 新增 `gate_a16` + `OPTIONAL_GATES`（`--gate A16` 可选，默认不跑）。
+- `check.mjs` 新增 `check-gates-e.mjs`；A16 三项：风格圣经逐字/入画 REF 登记/持续在场。
+- 技术动作「是X不是Y」与朝向三要素仍人工（语义/创作判断，机检误拦率高）。
+- 新增 `a16_lock_project` 夹具（预期 2 条 finding：缺风格圣经段、未登记 REF）。
+- 测试：81 项 Node（K1-K16 全量 parity + A16 夹具 parity）；Python 78。
+
+**验证**：`node --test tests/check-mjs.test.mjs` 81 项全过；`python -m unittest discover -s tests` 78 项全过；A16 双端输出一致。
+
+**改动文件**：scripts/{check.py, check.mjs, check-gates-e.mjs} / tests/check-mjs.test.mjs + fixtures/a16_lock_project（本地，不入库） / README.md / SKILL.md / references/{prompt-rules, learning-guide, execution-pitfalls}.md / create.md
+
+### V3.15（2026-11-06，撑杆跳 v46 复盘：方向锚图/空间账/解剖/声音/工程）
+
+**驱动**：段4峰值段 5 轮才逼近 + 13 条问题（用户实测）。核心：文字锁不住方向/终态时换图锚；空间账提前写；解剖约束；混音语言。
+
+- **prompt-rules 0.10**：方向锚图/目标状态图/姿态翻转中间过程；AUDIO 混音工程语言；指代纪律补"禁从动作推断左右"；4·五补运动单变量调试。
+- **consistency**：场景表加「身体-器械空间账」；参考图路由补错误示范 ref 处理 + `REF-DIR/REF-TARGET` 登记。
+- **realism 三·七**：解剖参照 + 畸形否定 + 真实姿态参考图。
+- **SKILL**：回退阶梯 ②b 长段拆独立单镜节点；画布 ref 口径修正（append 新编号/中途插入才全量重连）。
+- **templates**：02 空间账、03 方向/目标图、04 挂图顺序表、06 关键音效混音。
+
+**验证**：文档改动；Node 81 / Python 78 回归全过；表格列数一致；templates ≤800。
+
+**改动文件**：references/{prompt-rules, consistency, realism, learning-guide, execution-pitfalls}.md / assets/templates.md / SKILL.md / README.md / create.md

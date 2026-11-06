@@ -16,7 +16,8 @@ ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s
 ## 2. 画布单 in 口的 ref 序号
 
 - `{{ref N}}` 的序号 = **连线创建顺序**，不是图片文件名/素材顺序。
-- 中途插一张图：**删掉全部入线 → 按最终顺序重连 → 逐条核对 `{{ref N}}` 与用途声明**。不得"只插一条"（实测 v21/v22 各错位一轮，所有引用全错）。
+- **append**：通常只新增编号（ref7/ref8），不打乱既有序——提示词挂图顺序表追加即可。
+- **中途插入导致既有 ref 重排**：才需要删全部入线、按最终顺序重连；无论哪种，逐条核对 `{{ref N}}` 与用途声明，并同步 04 挂图顺序表（实测 v21/v22 插入错位）。
 
 ## 3. 尾帧依赖链
 
@@ -39,4 +40,5 @@ ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s
 
 - `check.py` 需要本机 Python；沙盒里的 `python3` 可能挂死。
 - 当前执行口径：全量用 `check.py`（权威），或 `node "{技能目录}/scripts/check.mjs" <项目目录> --partial`（K1-K16 全量，与 `check.py` 同输出/同退出码）。无 Python 时用后者。
+- 锁定审计（A16）：另加 `--gate A16`；机检风格圣经逐字/入画 REF 登记/持续在场三项，技术动作与朝向三要素仍人工核对。
 - **画布→文档同步脚本不做**：用户后续可能更换画布软件，不同软件 API 不通用；只保留通用操作纪律（参考图全量重连 / 版本账 / 尺寸校验），不绑定具体画布。
