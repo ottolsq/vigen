@@ -108,6 +108,23 @@ function headerIndex(header, ...names) {
   return -1;
 }
 
+function promptLines(lines) {
+  if (lines === null) return [];
+  if (lines.join("\n").includes("```")) {
+    const out = [];
+    let inside = false;
+    lines.forEach((ln, i) => {
+      if (ln.trim().startsWith("```")) {
+        inside = !inside;
+        return;
+      }
+      if (inside) out.push([i + 1, ln]);
+    });
+    if (out.length) return out;
+  }
+  return lines.map((ln, i) => [i + 1, ln]).filter(([, ln]) => !/^\s*[>#|]/.test(ln));
+}
+
 export function gateA17(project, partial) {
   const findings = [];
   const doc = project.doc("01");
@@ -117,6 +134,7 @@ export function gateA17(project, partial) {
   }
   let auditHead = null;
   let cardHead = null;
+  let stateHead = null;
   for (const [headNo, header, body] of iterTables(doc)) {
     const gi = headerIndex(header, "门");
     const ri = headerIndex(header, "结果");
@@ -152,6 +170,7 @@ export function gateA17(project, partial) {
         findings.push(finding("A17", DOC_FILES["01"], auditHead, msg));
       }
     }
+
     const ci = headerIndex(header, "段号");
     const si = headerIndex(header, "镜号");
     const di = headerIndex(header, "生成时长");
@@ -159,13 +178,99 @@ export function gateA17(project, partial) {
       cardHead = headNo;
       if (!body.length) {
         findings.push(finding("A17", DOC_FILES["01"], headNo, "批次生产卡没有数据行（每段一行）"));
-      } else if (body.some(([, cells]) => cells.some((c) => c.includes("{") || c.includes("}")))) {
-        findings.push(finding("A17", DOC_FILES["01"], headNo, "批次生产卡仍是模板占位（从 02/01/05 复制填写）"));
+      } else {
+        const required = [
+          ["台词朗读(s)", ["台词朗读", "朗读"]],
+          ["动作(s)", ["动作"]],
+          ["镜头(s)", ["镜头时长", "镜头"]],
+          ["帽", ["帽"]],
+          ["须", ["须"]],
+          ["道具", ["道具"]],
+        ];
+        const colIdx = new Map();
+        for (const [name, aliases] of required) {
+          const idx = headerIndex(header, ...aliases);
+          colIdx.set(name, idx);
+          if (idx < 0) {
+            findings.push(finding("A17", DOC_FILES["01"], headNo, `批次生产卡缺列「${name}」（V3.17 段卡必填）`));
+          }
+        }
+        const optionalMissing = [];
+        for (const [name, aliases] of [["单镜理由", ["单镜理由"]], ["峰值归属", ["峰值"]]]) {
+          if (headerIndex(header, ...aliases) < 0) optionalMissing.push(name);
+        }
+        if (optionalMissing.length) {
+          findings.push(finding("A17", DOC_FILES["01"], headNo, `批次生产卡缺列 ${optionalMissing.join("、")}（建议补：单镜理由/峰值归属）`));
+        }
+        for (const [no, cells] of body) {
+          if (cells.some((c) => c.includes("{") || c.includes("}"))) {
+            findings.push(finding("A17", DOC_FILES["01"], no, "批次生产卡仍是模板占位（从 02/01/05 复制填写）"));
+            break;
+          }
+          for (const name of ["帽", "须", "道具"]) {
+            const idx = colIdx.get(name);
+            if (idx >= 0) {
+              const value = (cells[idx] || "").trim();
+              if (isPlaceholder(value)) {
+                findings.push(finding("A17", DOC_FILES["01"], no, `段卡「${name}」为空或占位（状态三问必填）`));
+              }
+            }
+          }
+          const r = colIdx.get("台词朗读(s)");
+          const a = colIdx.get("动作(s)");
+          const sh = colIdx.get("镜头(s)");
+          if (r >= 0 && a >= 0 && sh >= 0) {
+            const raw = [cells[r], cells[a], cells[sh]].map((v) => (v || "").trim());
+            const nums = raw.map((v) => {
+              const m = /(\d+(?:\.\d+)?)/.exec(v);
+              return m ? Number.parseFloat(m[1]) : null;
+            });
+            if (nums.some((v) => v === null)) {
+              findings.push(finding("A17", DOC_FILES["01"], no, `时间账不是数字（台词朗读/动作/镜头：${raw.join(" / ")}）`));
+            } else if (nums[0] + nums[1] > nums[2] + 0.5) {
+              findings.push(finding("A17", DOC_FILES["01"], no, `时间账不通过：台词 ${nums[0].toFixed(1)}s + 动作 ${nums[1].toFixed(1)}s > 镜头 ${nums[2].toFixed(1)}s`));
+            }
+          }
+        }
+      }
+    }
+
+    const hi = headerIndex(header, "帽");
+    const sui = headerIndex(header, "须");
+    const pi = headerIndex(header, "道具");
+    const bi = headerIndex(header, "依据");
+    if (hi >= 0 && sui >= 0 && pi >= 0 && bi >= 0) {
+      stateHead = headNo;
+      if (!body.length) {
+        findings.push(finding("A17", DOC_FILES["01"], headNo, "段状态账没有数据行（每段一行）"));
+      }
+      for (const [no, cells] of body) {
+        for (const [name, idx] of [["帽", hi], ["须", sui], ["道具", pi], ["依据", bi]]) {
+          const value = (cells[idx] || "").trim();
+          if (isPlaceholder(value)) {
+            findings.push(finding("A17", DOC_FILES["01"], no, `段状态账「${name}」为空或占位（跨段状态必填）`));
+          }
+        }
       }
     }
   }
   if (auditHead === null) findings.push(finding("A17", DOC_FILES["01"], 0, "警告：未找到批次校验记录（表头含 门/结果/证据），A17 未执行"));
   if (cardHead === null) findings.push(finding("A17", DOC_FILES["01"], 0, "警告：未找到批次生产卡（表头含 段号/镜号/生成时长），A17 未执行"));
+  if (stateHead === null) findings.push(finding("A17", DOC_FILES["01"], 0, "警告：未找到段状态账（表头含 帽/须/道具/依据），A17 状态三问未核对"));
+
+  if (project.doc("04") !== null) {
+    for (const [no, ln] of promptLines(project.doc("04"))) {
+      const s = ln.trim();
+      if (!s.startsWith("@") || !s.includes("=")) continue;
+      if (!s.includes("Ref") && !s.includes("REF")) continue;
+      if (!s.includes("锁定") && !s.includes("只取")) {
+        findings.push(finding("A17", DOC_FILES["04"], no, `参考声明缺「锁定/只取」：${s.slice(0, 24)}`));
+      }
+      if (!s.includes("不复刻")) {
+        findings.push(finding("A17", DOC_FILES["04"], no, `参考声明缺「不复刻」：${s.slice(0, 24)}`));
+      }
+    }
+  }
 
   const lockKeys = ["身份锁", "表情锁", "表演锁", "说话人锁", "道具锁", "空间锁", "风格锁", "声音锁", "动作锁"];
   if (project.doc("04") !== null) {
@@ -181,6 +286,12 @@ export function gateA17(project, partial) {
       const missing = lockKeys.filter((k) => !text.includes(k));
       if (missing.length) {
         findings.push(finding("A17", DOC_FILES["04"], headNo, `锁定清单缺 ${missing.join("、")}（九项缺一不可——硬规则 19）`));
+      } else {
+        const bible = styleBible(project);
+        const m = /风格锁[：:]\s*(.+)/.exec(text);
+        if (bible && m && !normWs(m[1]).includes(normWs(bible))) {
+          findings.push(finding("A17", DOC_FILES["04"], headNo, "风格锁未逐字复制 02 风格圣经（A1/A17）"));
+        }
       }
     }
   }

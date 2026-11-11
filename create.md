@@ -1104,3 +1104,17 @@ ai-video-maker/
 **验证**：Python 82 / Node A17 夹具全过；good_project 默认门零回归；`--gate A17` 对未留痕项目正确报错、对 a17_audit_project 通过；K14 上限档夹具通过；evaluations 无生成端验证（skill 不调 API）。
 
 **改动文件**：SKILL.md / references/{consistency, prompt-rules, models, knowledge-index, learning-guide, cinematography, cinema-grade-params, execution-pitfalls}.md / assets/{templates.md, templates-character.md, templates-execution.md} / scripts/{check.py, check.mjs, check-gates-c.mjs, check-gates-e.mjs} / tests/{test_check.py, fixtures/a17_audit_project, fixtures/upper_bound_project} / README.md / create.md
+
+### V3.17（2026-11-11，水浒 ep01 只读审计驱动：K17 提示词卫生 + A17 执行契约扩展 + 一页版模板）
+
+**驱动**：对已完成项目 `waterMargin/水浒传经典故事系列/ep01`（04 1390 行、14 段）做只读审计——check.py 报 154 项（K12 115 / K7 17 / K4 6 / K5 4 / K3 3 / K11 3 / K1 2 / K2 1 / K8 3）；04 顶部已写"不得出现音乐类词"的铁律，正文仍有 38 处"禁止/无背景音乐"、7 处"旋律/节拍/和声/演唱"、0 处"本段锁定清单"。证明规则存在但执行未咬人。ep01 已关闭，**未修改项目内容**。
+
+- **K17 提示词卫生（默认门）**：04/03 正文禁音乐类词（音乐/配乐/旋律/节拍/和声/音符/伴奏/演唱/哼唱/吟唱/节奏性/节奏点/BGM，台词引号内除外）；无台词段须含"无台词/无旁白/无人声"；有声音节须有"没有第二种声音，也没有任何持续声底"。
+- **A17 执行契约扩展**：批次生产卡新增时间账列（台词朗读/动作/镜头，`朗读+动作 ≤ 镜头`）与状态三问列（帽/须/道具）；新增「段状态账」（帽/须/道具在不在/服装版本/依据 02 行号）；参考契约（`@ REF = ...` 须含"锁定/只取"+ "不复刻"）；风格锁须与 02 风格圣经逐字一致；保留 04 九项锁定清单检查。
+- **一页版段模板**：`assets/templates-execution.md` 新增五节——锁定九项/参考契约表/时间账/状态三问/可行性/正文，作为作者实际使用的紧凑模板。
+- **夹具同步**：22 个 fixtures 的"禁止背景音乐"改为正向声音白名单；a17_audit_project 增补时间账/状态账/双向参考/风格逐字。
+- **ep01 只读回归**：K17 报 54 项、A17 报 43 项（音乐词/无锁定块/参考声明缺不复刻/无段状态账/无校验留痕），证明新门能抓住真实项目问题；未修改 ep01。
+
+**验证**：Python 89 tests 全过；Node K17 与 Python 同为 54 项、A17 同为 43 项；good_project K17 exit 0、a17_audit_project A17 exit 0；默认 no 回归。
+
+**改动文件**：scripts/{check.py, check.mjs, check-gates-e.mjs, check-gates-f.mjs} / assets/templates-execution.md / SKILL.md / README.md / create.md / tests/{test_check.py, fixtures/*}

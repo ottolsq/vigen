@@ -31,6 +31,8 @@ enforce 的条款（与 vigen_md 解析层配套）：
   A16 先锁后写（opt-in）：风格圣经逐字/入画 REF/持续在场
   A17 执行契约留痕（opt-in）：批次生产卡 + 批次校验记录 A1-A16 逐项证据
       → SKILL 执行契约（V3.16）
+  K17 提示词卫生（V3.17）：04/03 正文禁音乐类词；无台词段须声明；
+      声音节须有正向收尾「没有第二种声音，也没有任何持续声底」
 
 用法（CT6）：
     python check.py <项目目录> [--partial] [--gate K5[,K6]]
@@ -1641,6 +1643,75 @@ def gate_k16(project: Project, partial: bool) -> List[Finding]:
     return findings
 
 
+# ------------------------------------------------------------------ K17 提示词卫生
+
+MUSIC_WORDS_RE = re.compile(
+    r"音乐|配乐|旋律|节拍|和声|音符|伴奏|演唱|哼唱|吟唱|节奏性|节奏点|BGM",
+    re.I)
+_QUOTE_STRIP_RE = re.compile(r'"[^"]*"|“[^”]*”|「[^」]*」|『[^』]*』')
+
+
+def _k17_prompt_lines(lines: Optional[List[str]]) -> List[Tuple[int, str]]:
+    """只取提示词正文：有代码围栏时取围栏内；否则排除 > 说明、# 标题、| 表格。"""
+    if lines is None:
+        return []
+    text = "\n".join(lines)
+    if "```" in text:
+        out: List[Tuple[int, str]] = []
+        inside = False
+        for no, ln in enumerate(lines, start=1):
+            if ln.strip().startswith("```"):
+                inside = not inside
+                continue
+            if inside:
+                out.append((no, ln))
+        if out:
+            return out
+    return [(no, ln) for no, ln in enumerate(lines, start=1)
+            if not ln.strip().startswith((">", "#", "|"))]
+
+
+def gate_k17(project: Project, partial: bool) -> List[Finding]:
+    """K17 提示词卫生（V3.17，默认门）。
+
+    ① 04/03 正文不出现音乐类词（台词引号内除外）
+    ② 04 无台词段须含「无台词/无旁白/无人声」声明
+    ③ 04 有声音节的段落须有正向收尾「没有第二种声音，也没有任何持续声底」
+    """
+    findings: List[Finding] = []
+    for key in ("04", "03"):
+        lines = project.doc(key)
+        if lines is None:
+            continue
+        for no, ln in _k17_prompt_lines(lines):
+            stripped = _QUOTE_STRIP_RE.sub("", ln)
+            m = MUSIC_WORDS_RE.search(stripped)
+            if m:
+                findings.append(Finding(
+                    "K17", DOC_FILES[key], no,
+                    "提示词正文出现音乐类词「%s」——改为正向声音白名单"
+                    "（V3.16：写音乐词会诱导音乐层）" % m.group(0)))
+
+    lines = project.doc("04")
+    if lines is not None:
+        for block in blocks(lines, only_segments=True):
+            block_lines = [t for _, t in block]
+            prompt_text = "\n".join(t for _, t in _k17_prompt_lines(block_lines))
+            has_dialogue = bool(dialogue_quotes(block_lines))
+            if not has_dialogue and not re.search(r"无台词|无旁白|无人声", prompt_text):
+                findings.append(Finding(
+                    "K17", DOC_FILES["04"], block[0][0],
+                    "无台词段缺「无台词/无旁白/无人声」首行声明（V3.16）"))
+            if re.search(r"AUDIO|声音", prompt_text):
+                if ("没有第二种声音" not in prompt_text
+                        and "没有任何持续声底" not in prompt_text):
+                    findings.append(Finding(
+                        "K17", DOC_FILES["04"], block[0][0],
+                        "声音节缺正向收尾「没有第二种声音，也没有任何持续声底」"
+                        "（V3.16）"))
+    return findings
+
+
 # ------------------------------------------------------------------ A16 先锁后写（opt-in 审计）
 def _style_bible(project: Project) -> str:
     parts = []
@@ -1743,6 +1814,7 @@ def gate_a17(project: Project, partial: bool) -> List[Finding]:
 
     audit_head: Optional[int] = None
     card_head: Optional[int] = None
+    state_head: Optional[int] = None
     for head_no, header, body in iter_tables(doc):
         gate_i = _header_index(header, "门")
         res_i = _header_index(header, "结果")
@@ -1794,17 +1866,115 @@ def gate_a17(project: Project, partial: bool) -> List[Finding]:
                 findings.append(Finding(
                     "A17", DOC_FILES["01"], head_no, "批次生产卡没有数据行（每段一行）"))
             else:
+                # V3.17：段卡必须含时间账与状态三问
+                required = {
+                    "台词朗读(s)": ("台词朗读", "朗读"),
+                    "动作(s)": ("动作",),
+                    "镜头(s)": ("镜头时长", "镜头"),
+                    "帽": ("帽",),
+                    "须": ("须",),
+                    "道具": ("道具",),
+                }
+                col_idx: Dict[str, int] = {}
+                for name, aliases in required.items():
+                    idx = _header_index(header, *aliases)
+                    col_idx[name] = idx
+                    if idx < 0:
+                        findings.append(Finding(
+                            "A17", DOC_FILES["01"], head_no,
+                            "批次生产卡缺列「%s」（V3.17 段卡必填）" % name))
+                optional_missing = []
+                for name, aliases in (("单镜理由", ("单镜理由",)),
+                                      ("峰值归属", ("峰值",))):
+                    if _header_index(header, *aliases) < 0:
+                        optional_missing.append(name)
+                if optional_missing:
+                    findings.append(Finding(
+                        "A17", DOC_FILES["01"], head_no,
+                        "批次生产卡缺列 %s（建议补：单镜理由/峰值归属）"
+                        % "、".join(optional_missing)))
+
                 for no, cells in body:
                     if any("{" in c or "}" in c for c in cells):
                         findings.append(Finding(
                             "A17", DOC_FILES["01"], no,
                             "批次生产卡仍是模板占位（从 02/01/05 复制填写）"))
                         break
+                    for name in ("帽", "须", "道具"):
+                        idx = col_idx[name]
+                        if idx >= 0:
+                            value = cells[idx].strip() if idx < len(cells) else ""
+                            if _is_placeholder(value):
+                                findings.append(Finding(
+                                    "A17", DOC_FILES["01"], no,
+                                    "段卡「%s」为空或占位（状态三问必填）" % name))
+                    read_i = col_idx["台词朗读(s)"]
+                    act_i = col_idx["动作(s)"]
+                    shot_i = col_idx["镜头(s)"]
+                    if min(read_i, act_i, shot_i) >= 0:
+                        raw = [
+                            cells[i].strip() if i < len(cells) else ""
+                            for i in (read_i, act_i, shot_i)
+                        ]
+                        nums = []
+                        for value in raw:
+                            m = re.search(r"(\d+(?:\.\d+)?)", value)
+                            nums.append(float(m.group(1)) if m else None)
+                        if any(v is None for v in nums):
+                            findings.append(Finding(
+                                "A17", DOC_FILES["01"], no,
+                                "时间账不是数字（台词朗读/动作/镜头：%s）"
+                                % " / ".join(raw)))
+                        elif nums[0] + nums[1] > nums[2] + 0.5:
+                            findings.append(Finding(
+                                "A17", DOC_FILES["01"], no,
+                                "时间账不通过：台词 %.1fs + 动作 %.1fs > 镜头 %.1fs"
+                                % (nums[0], nums[1], nums[2])))
+
+        # 段状态账：段号/帽/须/道具/依据
+        state_i = _header_index(header, "帽")
+        sui_i = _header_index(header, "须")
+        prop_i = _header_index(header, "道具")
+        basis_i = _header_index(header, "依据")
+        if state_i >= 0 and sui_i >= 0 and prop_i >= 0 and basis_i >= 0:
+            state_head = head_no
+            if not body:
+                findings.append(Finding(
+                    "A17", DOC_FILES["01"], head_no,
+                    "段状态账没有数据行（每段一行）"))
+            for no, cells in body:
+                for name, idx in (("帽", state_i), ("须", sui_i),
+                                  ("道具", prop_i), ("依据", basis_i)):
+                    value = cells[idx].strip() if idx < len(cells) else ""
+                    if _is_placeholder(value):
+                        findings.append(Finding(
+                            "A17", DOC_FILES["01"], no,
+                            "段状态账「%s」为空或占位（跨段状态必填）" % name))
 
     if audit_head is None:
         findings.append(_warn("A17", "01", "未找到批次校验记录（表头含 门/结果/证据），A17 未执行"))
     if card_head is None:
         findings.append(_warn("A17", "01", "未找到批次生产卡（表头含 段号/镜号/生成时长），A17 未执行"))
+    if state_head is None:
+        findings.append(_warn("A17", "01",
+                              "未找到段状态账（表头含 帽/须/道具/依据），A17 状态三问未核对"))
+
+    # 04 参考契约：@ REF 声明须写「锁定/只取」+「不复刻」
+    if project.doc("04") is not None:
+        for no, ln in _k17_prompt_lines(project.doc("04")):
+            s = ln.strip()
+            if not s.startswith("@") or "=" not in s:
+                continue
+            if "Ref" not in s and "REF" not in s:
+                continue
+            if "锁定" not in s and "只取" not in s:
+                findings.append(Finding(
+                    "A17", DOC_FILES["04"], no,
+                    "参考声明缺「锁定/只取」：%s" % s[:24]))
+            if "不复刻" not in s:
+                findings.append(Finding(
+                    "A17", DOC_FILES["04"], no,
+                    "参考声明缺「不复刻」：%s" % s[:24]))
 
     # 04 每段段首必须有「本段锁定清单」九项（硬规则 19）
     lock_keys = ("身份锁", "表情锁", "表演锁", "说话人锁", "道具锁",
@@ -1826,6 +1996,15 @@ def gate_a17(project: Project, partial: bool) -> List[Finding]:
                 findings.append(Finding(
                     "A17", DOC_FILES["04"], head_no,
                     "锁定清单缺 %s（九项缺一不可——硬规则 19）" % "、".join(missing)))
+            else:
+                # 风格锁必须与 02 风格圣经逐字一致
+                bible = _style_bible(project)
+                if bible:
+                    m = re.search(r"风格锁[：:]\s*(.+)", text)
+                    if m and _norm_ws(bible) not in _norm_ws(m.group(1)):
+                        findings.append(Finding(
+                            "A17", DOC_FILES["04"], head_no,
+                            "风格锁未逐字复制 02 风格圣经（A1/A17）"))
     return findings
 
 
@@ -1837,6 +2016,7 @@ GATES: List[Tuple[str, GateFn]] = [
     ("K5", gate_k5), ("K6", gate_k6), ("K7", gate_k7), ("K8", gate_k8),
     ("K9", gate_k9), ("K10", gate_k10), ("K11", gate_k11), ("K12", gate_k12),
     ("K13", gate_k13), ("K14", gate_k14), ("K15", gate_k15), ("K16", gate_k16),
+    ("K17", gate_k17),
 ]
 
 REQUIRED_FOR_FULL = ("01", "02", "03", "04", "05")
@@ -1853,7 +2033,7 @@ def main(argv: List[str]) -> int:
               % (MINIMUM_PYTHON[0], MINIMUM_PYTHON[1], sys.version_info[0], sys.version_info[1]))
         return 2
 
-    ap = argparse.ArgumentParser(description="vigen 项目文件机械校验（K1-K16）")
+    ap = argparse.ArgumentParser(description="vigen 项目文件机械校验（K1-K17）")
     ap.add_argument("project_dir", help="项目目录（含 01-06 Markdown）")
     ap.add_argument("--partial", action="store_true",
                     help="只核对已有文档；缺文档的门静默跳过（全量要求 01-05 齐备）")

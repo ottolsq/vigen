@@ -222,7 +222,7 @@
 | --- | --- | --- | --- | --- |
 | v2 {date} | {改情节点X / 加镜头 / 删某线} | {镜S3a/情节点4/阶段1b-5；新增+，作废~~} | {03 追加 / 04 追加 / 02 补条目} | {用户说"…"} |
 
-> **V3.16 执行契约模板**：批次生产卡与批次校验记录见 [assets/templates-execution.md](templates-execution.md) 一/二；每段一行 + A1-A16 留痕。
+> **V3.17 执行契约模板**：批次生产卡（含时间账/状态三问）、段状态账、批次校验记录见 [assets/templates-execution.md](templates-execution.md) 一/一·二/二；一页版段模板见五。
 
 ## 校验记录（阶段末单次终检——分层，规则全文见 prompt-rules.md 四节）
 
