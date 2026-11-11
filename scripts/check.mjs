@@ -8,11 +8,11 @@ import { gateK1, gateK2, gateK3, gateK4, gateK5, gateK6 } from "./check-gates-a.
 import { gateK7, gateK8, gateK9, gateK10, gateK11, gateK12 } from "./check-gates-b.mjs";
 import { gateK13, gateK14 } from "./check-gates-c.mjs";
 import { gateK15, gateK16 } from "./check-gates-d.mjs";
-import { gateA16 } from "./check-gates-e.mjs";
+import { gateA16, gateA17 } from "./check-gates-e.mjs";
 
 const ALL_GATES = [
   "K1", "K2", "K3", "K4", "K5", "K6", "K7", "K8",
-  "K9", "K10", "K11", "K12", "K13", "K14", "K15", "K16", "A16",
+  "K9", "K10", "K11", "K12", "K13", "K14", "K15", "K16", "A16", "A17",
 ];
 const IMPLEMENTED = new Set(ALL_GATES);
 const GATES = [
@@ -21,14 +21,14 @@ const GATES = [
   ["K9", gateK9], ["K10", gateK10], ["K11", gateK11], ["K12", gateK12],
   ["K13", gateK13], ["K14", gateK14], ["K15", gateK15], ["K16", gateK16],
 ];
-const OPTIONAL_GATES = [["A16", gateA16]];
+const OPTIONAL_GATES = [["A16", gateA16], ["A17", gateA17]];
 const ALL_GATE_FNS = [...GATES, ...OPTIONAL_GATES];
 
 function usage() {
   return [
     "usage: check.mjs [-h] [--partial] [--gate GATE] project_dir",
     "",
-    "vigen 项目文件机械校验（默认 K1-K16；A16 为可选锁定审计）",
+    "vigen 项目文件机械校验（默认 K1-K16；A16/A17 为可选审计：A16 锁定审计，A17 执行契约留痕）",
     "",
     "positional arguments:",
     "  project_dir   项目目录（含 01-06 Markdown）",

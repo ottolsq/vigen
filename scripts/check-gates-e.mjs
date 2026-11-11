@@ -97,3 +97,92 @@ export function gateA16(project) {
   }
   return findings;
 }
+
+
+// A17 执行契约留痕（opt-in）：批次生产卡 + 批次校验记录 + 04 段锁定清单九项。
+function headerIndex(header, ...names) {
+  for (const name of names) {
+    const i = header.findIndex((h) => h.includes(name));
+    if (i >= 0) return i;
+  }
+  return -1;
+}
+
+export function gateA17(project, partial) {
+  const findings = [];
+  const doc = project.doc("01");
+  if (doc === null) {
+    findings.push(finding("A17", DOC_FILES["01"], 0, "警告：01 缺失，A17 未执行"));
+    return findings;
+  }
+  let auditHead = null;
+  let cardHead = null;
+  for (const [headNo, header, body] of iterTables(doc)) {
+    const gi = headerIndex(header, "门");
+    const ri = headerIndex(header, "结果");
+    const ei = headerIndex(header, "证据");
+    if (gi >= 0 && ri >= 0 && ei >= 0) {
+      auditHead = headNo;
+      const seen = new Set();
+      for (const [no, cells] of body) {
+        const m = ((cells[gi] || "").match(/A\s*(\d+)/));
+        if (!m) continue;
+        const n = Number.parseInt(m[1], 10);
+        if (n < 1 || n > 16) continue;
+        seen.add(n);
+        const res = (cells[ri] || "").trim();
+        const ev = (cells[ei] || "").trim();
+        if (res.includes("{") || res.includes("}")) {
+          findings.push(finding("A17", DOC_FILES["01"], no, `A${n} 结果仍是模板占位（填 PASS/OPEN/NA）`));
+        } else if (!["PASS", "OPEN", "NA"].includes(res.toUpperCase())) {
+          findings.push(finding("A17", DOC_FILES["01"], no, `A${n} 结果须为 PASS/OPEN/NA（当前：${res}）`));
+        }
+        if (!ev || ["—", "-", "–"].includes(ev)) {
+          findings.push(finding("A17", DOC_FILES["01"], no, `A${n} 证据为空（写文件:行/镜号）`));
+        } else if (ev.includes("{") || ev.includes("}")) {
+          findings.push(finding("A17", DOC_FILES["01"], no, `A${n} 证据仍是模板占位（填文件:行/镜号）`));
+        }
+      }
+      const missing = [];
+      for (let n = 1; n <= 16; n += 1) if (!seen.has(n)) missing.push(n);
+      if (missing.length) {
+        const msg = missing.length === 1
+          ? `批次校验记录缺 A${missing[0]}（A1-A16 必须逐项留痕）`
+          : `批次校验记录缺 ${missing.length} 项（首个 A${missing[0]}；A1-A16 必须逐项留痕）`;
+        findings.push(finding("A17", DOC_FILES["01"], auditHead, msg));
+      }
+    }
+    const ci = headerIndex(header, "段号");
+    const si = headerIndex(header, "镜号");
+    const di = headerIndex(header, "生成时长");
+    if (ci >= 0 && si >= 0 && di >= 0) {
+      cardHead = headNo;
+      if (!body.length) {
+        findings.push(finding("A17", DOC_FILES["01"], headNo, "批次生产卡没有数据行（每段一行）"));
+      } else if (body.some(([, cells]) => cells.some((c) => c.includes("{") || c.includes("}")))) {
+        findings.push(finding("A17", DOC_FILES["01"], headNo, "批次生产卡仍是模板占位（从 02/01/05 复制填写）"));
+      }
+    }
+  }
+  if (auditHead === null) findings.push(finding("A17", DOC_FILES["01"], 0, "警告：未找到批次校验记录（表头含 门/结果/证据），A17 未执行"));
+  if (cardHead === null) findings.push(finding("A17", DOC_FILES["01"], 0, "警告：未找到批次生产卡（表头含 段号/镜号/生成时长），A17 未执行"));
+
+  const lockKeys = ["身份锁", "表情锁", "表演锁", "说话人锁", "道具锁", "空间锁", "风格锁", "声音锁", "动作锁"];
+  if (project.doc("04") !== null) {
+    const segs = blocks(project.doc("04"), true);
+    if (!segs.length) findings.push(finding("A17", DOC_FILES["04"], 0, "警告：未找到段落块，A17 锁定清单未核对"));
+    for (const block of segs) {
+      const headNo = block[0][0];
+      const text = block.map(([, t]) => t).join("\n");
+      if (!text.includes("本段锁定清单")) {
+        findings.push(finding("A17", DOC_FILES["04"], headNo, "段落缺「本段锁定清单」（硬规则 19：九项锁定缺一不可）"));
+        continue;
+      }
+      const missing = lockKeys.filter((k) => !text.includes(k));
+      if (missing.length) {
+        findings.push(finding("A17", DOC_FILES["04"], headNo, `锁定清单缺 ${missing.join("、")}（九项缺一不可——硬规则 19）`));
+      }
+    }
+  }
+  return findings;
+}

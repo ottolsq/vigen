@@ -1087,3 +1087,20 @@ ai-video-maker/
 **验证**：文档改动；Node 81 / Python 78 回归全过；表格列数一致；templates ≤800。
 
 **改动文件**：references/{prompt-rules, consistency, realism, learning-guide, execution-pitfalls}.md / assets/templates.md / SKILL.md / README.md / create.md
+
+### V3.16（2026-11-11，水浒项目 v99-v153 实战复盘：声音/锁定/一致性/执行契约）
+
+**驱动**：用户 150+ 版真实项目返工记录 + 追加 7 问（固定镜头/上下文丢失/风格记忆错误/凭记忆/加戏/音色参考变音频/多余台词）+ 5 问（镜头过长/漏情节/固定总时长/04 太长/图片提示词删减）+ 语音默认裁定。
+
+- **声音**：音频类负面词反转为正向声音白名单（只写具体声源 + "没有第二种声音，也没有任何持续声底"）；不写音乐类词（旋律/节拍/和声/演唱/禁止背景音乐/无 BGM）；H3 空镜/大环境尤其；`non_diegetic_music: N/A`；无台词段首行写"无台词/无旁白/无人声"；NO 节禁用引号写例句。
+- **一致性**：0a 合图变体默认（左半大幅正脸≥40% + 右半三视图，裁成脸锚/三视图锚两张）；多人脸对照条（用途声明写死）；锚定短语与实图核对；帽/胡须/配饰有无论；数量账（人数/道具件数）；入画/不入画账；尺寸不改 02 数值；空鞘必须有参考图；刀形显式否定；缺陷词限域计数；站位口径唯一。
+- **台词/声音**：一句台词唯一落点；05 加口型列与对应表；慢读铁律；音色参考四要素（只取音色/不复现台词/不作 BGM/用新台词）；**语音默认=视频模型原生语音**，TTS/cosyvoice 仅降级兜底。
+- **执行**：执行契约（写前重读 02/01/05 + 段生产卡 + 批次校验 A1-A16 留痕 + 汇报绑定）；`--gate A17` 机检留痕（生产卡/校验记录/04 段锁定清单九项）；项目文件不受"一次只读一遍"限制；冻结字段禁止手打。
+- **锁定**：硬规则 19 全量锁定——每段段首九项（身份/表情/表演/说话人/道具/空间/风格/声音/动作）缺一不可。
+- **节奏/时长**：单镜 >3s 必须写"这 X 秒在变什么"，答不出拆镜；GATE0 增时长模式（固定/上限档），上限档只查不超上限、不要求凑满；K14 支持上限档。
+- **图片端**：03 每张图独立完整 12 槽，禁止"同上/略"。
+- **其他**：K12 石像误拦登记为已裁定接受（不改代码）；setPrompt 汉字损坏与不可见字符处置入 execution-pitfalls；04 不物理拆卷（会破坏 check 的 04 门）。
+
+**验证**：Python 82 / Node A17 夹具全过；good_project 默认门零回归；`--gate A17` 对未留痕项目正确报错、对 a17_audit_project 通过；K14 上限档夹具通过；evaluations 无生成端验证（skill 不调 API）。
+
+**改动文件**：SKILL.md / references/{consistency, prompt-rules, models, knowledge-index, learning-guide, cinematography, cinema-grade-params, execution-pitfalls}.md / assets/{templates.md, templates-character.md, templates-execution.md} / scripts/{check.py, check.mjs, check-gates-c.mjs, check-gates-e.mjs} / tests/{test_check.py, fixtures/a17_audit_project, fixtures/upper_bound_project} / README.md / create.md

@@ -325,7 +325,16 @@ export function gateK14(project) {
   const pctM = /(\d+(?:\.\d+)?)\s*%/.exec(rawTol);
   const pct = pctM ? Number(pctM[1]) : 15.0;
   const tolerance = Math.max((target * pct) / 100.0, 2.5);
-  if (Math.abs(estimated - target) > tolerance) {
+  const mode = kvValue(project, "时长模式");
+  const upperOnly = mode.includes("上限") || mode.includes("范围");
+  if (upperOnly) {
+    if (estimated > target + 1.0) {
+      findings.push(finding(
+        "K14", DOC_FILES["01"], 0,
+        `时长超上限：台词 ${dialogueSec.toFixed(0)}s + 动作 ${actionSec.toFixed(1)}s = ${estimated.toFixed(1)}s > 上限 ${target.toFixed(1)}s（上限档只查不超，不要求凑满）`,
+      ));
+    }
+  } else if (Math.abs(estimated - target) > tolerance) {
     findings.push(finding(
       "K14", DOC_FILES["01"], 0,
       `时长预算不通过：台词 ${dialogueSec.toFixed(0)}s + 动作 ${actionSec.toFixed(1)}s = ${estimated.toFixed(1)}s，目标 ${target.toFixed(1)}s，差 ${Math.abs(estimated - target).toFixed(1)}s > 容差 ${tolerance.toFixed(1)}s`,

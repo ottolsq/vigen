@@ -28,6 +28,9 @@ enforce 的条款（与 vigen_md 解析层配套）：
       → screenwriting-craft 一·九 / short-drama-market.md
       「叙事形态」缺失或为电影化时 K15/K16 静默跳过（旧项目零影响）；
       模板占位（含花括号/`第N集`）不算已填，K15/K16 报「未填」
+  A16 先锁后写（opt-in）：风格圣经逐字/入画 REF/持续在场
+  A17 执行契约留痕（opt-in）：批次生产卡 + 批次校验记录 A1-A16 逐项证据
+      → SKILL 执行契约（V3.16）
 
 用法（CT6）：
     python check.py <项目目录> [--partial] [--gate K5[,K6]]
@@ -1131,7 +1134,16 @@ def gate_k14(project: Project, partial: bool) -> List[Finding]:
     pct_m = re.search(r"(\d+(?:\.\d+)?)\s*%", raw_tol)
     pct = float(pct_m.group(1)) if pct_m else 15.0
     tolerance = max(target * pct / 100.0, 2.5)
-    if abs(estimated - target) > tolerance:
+    mode = _kv_value(project, "时长模式") or ""
+    upper_only = ("上限" in mode) or ("范围" in mode)
+    if upper_only:
+        # 上限档（V3.16）：只要求不超上限，不强制卡到目标值——防为凑时长删情节
+        if estimated > target + 1.0:
+            findings.append(Finding(
+                "K14", DOC_FILES["01"], 0,
+                "时长超上限：台词 %.0fs + 动作 %.1fs = %.1fs > 上限 %.1fs（上限档只查不超，不要求凑满）"
+                % (dialogue_sec, action_sec, estimated, target)))
+    elif abs(estimated - target) > tolerance:
         findings.append(Finding(
             "K14", DOC_FILES["01"], 0,
             "时长预算不通过：台词 %.0fs + 动作 %.1fs = %.1fs，目标 %.1fs，"
@@ -1707,7 +1719,117 @@ def gate_a16(project: Project, partial: bool) -> List[Finding]:
     return findings
 
 
-OPTIONAL_GATES: List[Tuple[str, GateFn]] = [("A16", gate_a16)]
+# ------------------------------------------------------------------ A17 执行契约留痕（opt-in 审计）
+
+def _header_index(header: List[str], *names: str) -> int:
+    for name in names:
+        for i, h in enumerate(header):
+            if name in h:
+                return i
+    return -1
+
+
+def gate_a17(project: Project, partial: bool) -> List[Finding]:
+    """A17 执行契约留痕（opt-in）：只查留痕完整性，不查内容质量。
+
+    - 01 必须有「批次生产卡」表（表头含 段号/镜号/生成时长）且至少一行数据
+    - 01 必须有「批次校验记录」表（表头含 门/结果/证据），A1-A16 逐项出现，
+      每行结果非空、证据非空（OPEN 也必须有回填时点说明）
+    """
+    findings: List[Finding] = []
+    doc = project.doc("01")
+    if doc is None:
+        return [_warn("A17", "01", "01 缺失，A17 未执行")]
+
+    audit_head: Optional[int] = None
+    card_head: Optional[int] = None
+    for head_no, header, body in iter_tables(doc):
+        gate_i = _header_index(header, "门")
+        res_i = _header_index(header, "结果")
+        ev_i = _header_index(header, "证据")
+        if gate_i >= 0 and res_i >= 0 and ev_i >= 0:
+            audit_head = head_no
+            seen = set()
+            for no, cells in body:
+                if gate_i >= len(cells):
+                    continue
+                m = re.search(r"A\s*(\d+)", cells[gate_i])
+                if not m:
+                    continue
+                n = int(m.group(1))
+                if n < 1 or n > 16:
+                    continue
+                seen.add(n)
+                res = cells[res_i].strip() if res_i < len(cells) else ""
+                ev = cells[ev_i].strip() if ev_i < len(cells) else ""
+                if "{" in res or "}" in res:
+                    findings.append(Finding(
+                        "A17", DOC_FILES["01"], no,
+                        "A%d 结果仍是模板占位（填 PASS/OPEN/NA）" % n))
+                elif res.upper() not in ("PASS", "OPEN", "NA"):
+                    findings.append(Finding(
+                        "A17", DOC_FILES["01"], no,
+                        "A%d 结果须为 PASS/OPEN/NA（当前：%s）" % (n, res)))
+                if not ev or ev in ("—", "-", "–"):
+                    findings.append(Finding(
+                        "A17", DOC_FILES["01"], no, "A%d 证据为空（写文件:行/镜号）" % n))
+                elif "{" in ev or "}" in ev:
+                    findings.append(Finding(
+                        "A17", DOC_FILES["01"], no,
+                        "A%d 证据仍是模板占位（填文件:行/镜号）" % n))
+            missing = [n for n in range(1, 17) if n not in seen]
+            if missing:
+                findings.append(Finding(
+                    "A17", DOC_FILES["01"], audit_head,
+                    "批次校验记录缺 A%d（A1-A16 必须逐项留痕）" % missing[0]
+                    if len(missing) == 1 else
+                    "批次校验记录缺 %d 项（首个 A%d；A1-A16 必须逐项留痕）"
+                    % (len(missing), missing[0])))
+        card_i = _header_index(header, "段号")
+        shot_i = _header_index(header, "镜号")
+        dur_i = _header_index(header, "生成时长")
+        if card_i >= 0 and shot_i >= 0 and dur_i >= 0:
+            card_head = head_no
+            if not body:
+                findings.append(Finding(
+                    "A17", DOC_FILES["01"], head_no, "批次生产卡没有数据行（每段一行）"))
+            else:
+                for no, cells in body:
+                    if any("{" in c or "}" in c for c in cells):
+                        findings.append(Finding(
+                            "A17", DOC_FILES["01"], no,
+                            "批次生产卡仍是模板占位（从 02/01/05 复制填写）"))
+                        break
+
+    if audit_head is None:
+        findings.append(_warn("A17", "01", "未找到批次校验记录（表头含 门/结果/证据），A17 未执行"))
+    if card_head is None:
+        findings.append(_warn("A17", "01", "未找到批次生产卡（表头含 段号/镜号/生成时长），A17 未执行"))
+
+    # 04 每段段首必须有「本段锁定清单」九项（硬规则 19）
+    lock_keys = ("身份锁", "表情锁", "表演锁", "说话人锁", "道具锁",
+                 "空间锁", "风格锁", "声音锁", "动作锁")
+    if project.doc("04") is not None:
+        segs = blocks(project.doc("04"), only_segments=True)
+        if not segs:
+            findings.append(_warn("A17", "04", "未找到段落块，A17 锁定清单未核对"))
+        for block in segs:
+            head_no = block[0][0]
+            text = "\n".join(t for _no, t in block)
+            if "本段锁定清单" not in text:
+                findings.append(Finding(
+                    "A17", DOC_FILES["04"], head_no,
+                    "段落缺「本段锁定清单」（硬规则 19：九项锁定缺一不可）"))
+                continue
+            missing = [k for k in lock_keys if k not in text]
+            if missing:
+                findings.append(Finding(
+                    "A17", DOC_FILES["04"], head_no,
+                    "锁定清单缺 %s（九项缺一不可——硬规则 19）" % "、".join(missing)))
+    return findings
+
+
+OPTIONAL_GATES: List[Tuple[str, GateFn]] = [("A16", gate_a16), ("A17", gate_a17)]
 
 
 GATES: List[Tuple[str, GateFn]] = [
