@@ -1125,3 +1125,19 @@ ai-video-maker/
 **验证**：Python 90 tests 全过；Node 87 tests 全过；good_project K17 exit 0、a17_audit_project A17 exit 0；split_volumes K8 Python/Node 均 exit 0；ep01 K17 54 / A17 43；默认门零回归。
 
 **改动文件**：scripts/{check.py, check.mjs, check-gates-e.mjs, check-gates-f.mjs, vigen_md.py, vigen-md.mjs} / assets/{templates.md, templates-execution.md} / references/{prompt-rules, execution-pitfalls, learning-guide}.md / SKILL.md / README.md / create.md / tests/{test_check.py, fixtures/*}
+
+### V3.18（2026-11-11，other14 吸收：成片镜头写法 + 负面词裁决修正 + Niagra 技能特效）
+
+**驱动**：用户提供 other14.md（4 段真实成片提示词片段 + Niagra 实时粒子特效教程；只读该文件，不读同目录其他文档）。用户实测修正：**负面词有效，失效主因是"与正向描述冲突"**。
+
+- **负面词裁决修正**（knowledge-index / prompt-rules 0.3 / SKILL 硬规则 5）：负面词不是无效；先写正向目标状态，再写"正向未要求的失败模式/多余物"，短而靶向 3-5 条；同一对象/属性不得正负并存；冲突时改正向或删负面。V3.16 音乐案例归为冲突（正向只写风雪/脚步，负面写"禁止背景音乐"把音乐概念塞进来）。H3 音频仍用正向声音白名单。
+- **镜头写法**（cinematography）：等效视角度数表（63°/47°/29°/18° ≈ 29/41/70/114mm）；机距+视线齐高+初始焦点；推近/拉远写总位移（"推近五厘米"）；光源/风/粒子/落叶失败模式自检（负面可用先过冲突）。
+- **台词/空间**（templates 05 / consistency）：内心 OS 写"画内可见口型（未出声）"；配音紧凑格式 `角色｜声线｜态度｜音量/语速/气息/咬字/尾音`；场景新增"空间参照物 4-8 件"。
+- **角色一致性自检**（consistency）：换脸/发型服装跳变/手指错误/闪烁/背景融化；有技能特效时另按 vfx-effects 自检。
+- **新建 references/vfx-effects.md**：Niagra 三层光效（emissive/分层渲染/高光锚定）+ 法师法阵/射手弓弦/剑修刃部三类形态 + 动态轨迹（运动模糊采样/节奏/层叠/投影）+ 失败模式负面清单；`[社区方法论]`，未实测。
+- **路由**：knowledge-index / SKILL Module Map / 规则归属表 / README 目录树已加 vfx-effects。
+- **未吸收**：材料中"禁止背景音乐/环境氛围音"的负面写法（与 V3.16 H3 冲突，只吸收"只保留对白+必要物理音效"意图）；特效教程未实测；OCR 错字按语义提炼。
+
+**验证**：文档改动；Python 90 / Node 87 tests 应保持全过（未改门逻辑）；vfx-effects 路由已登记。
+
+**改动文件**：references/{knowledge-index, prompt-rules, cinematography, consistency, learning-guide}.md / references/vfx-effects.md（新增）/ assets/templates.md / SKILL.md / README.md / create.md

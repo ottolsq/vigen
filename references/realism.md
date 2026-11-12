@@ -89,7 +89,7 @@
 | photorealistic / hyperrealistic（英文单词）——**不是慎用词，裁决见右** | **写实类直接写**（官方 Cookbook 明确建议，强力触发写实模式）；动漫/插画类不写；质量词堆砌分体裁（写实摄影类慎用堆砌——"百语并列一画失"）——完整裁决见 **knowledge-index.md 负面词适配规则**（唯一权威） |
 | 8K / ultra HD / masterpiece | 具体质感词（film grain / skin texture）。质量词堆砌分体裁：写实摄影类有害（"百语并列一画失"）；动漫贴纸类可容忍（见 knowledge-index 负面词适配） |
 | beautiful / stunning / amazing | 具体构图光线描述 |
-| 画面质量类否定词（"不要塑料感皮肤"） | **正向引导**：把概率推到想要的样子（"natural skin texture with visible pores"）。效力分端裁决见 **knowledge-index.md 负面词适配规则**（唯一的家）——一句话要点：视频端画面类无效、图片端版式/内容边界类有效、质量美学类走正向 |
+| 画面质量类否定词（"不要塑料感皮肤"） | **正向引导**：把概率推到想要的样子（"natural skin texture with visible pores"）。效力分端裁决见 **knowledge-index.md 负面词适配规则**（唯一的家）——一句话要点：负面词有效但不得与正向冲突；视频端目标失败模式/多余物类可用，图片端版式/内容边界类有效，质量美学类走正向 |
 | portrait（单独出现） | medium shot + off-center + 机位（单独 portrait 默认头像式构图） |
 | "暖色调/低饱和"倾向词 | 十六进制色号+颜色落在哪里（见 styles.md 色彩基调） |
 

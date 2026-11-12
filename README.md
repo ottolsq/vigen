@@ -30,6 +30,8 @@ AI 视频制作的痛点不在"没有工具"，而在"不知道怎么指挥工�
 | 生成资产浪费钱 | 资产引用矩阵先行，零引用不生成 → [prompt-rules.md](references/prompt-rules.md) |
 | 生成失败不知道怎么救 | 结构判定前置的回退阶梯 → [SKILL.md](SKILL.md) |
 | 提示词被内容审核拦截 | 反应式降级：已登记模式前置复用 + 拦截后降级阶梯（措辞→构图→拆独角→二分定位）→ [content-safety.md](references/content-safety.md) |
+| 负面词加了没效果/越加越糟 | 先查是否与正向冲突（正向要A又禁A / 负面引入正向未要求的对象）→ [knowledge-index.md](references/knowledge-index.md) 负面词裁决 |
+| 技能特效/法阵/剑气/粒子爆发 | Niagra 三层光效（emissive/分层/高光锚定）+ 法师/射手/剑修三类形态 + 动态轨迹 → [vfx-effects.md](references/vfx-effects.md) |
 | 中途要加镜头/改情节 | 活剧本修订（局部重排 + 稳定镜号），不重走全流程 → [SKILL.md](SKILL.md) |
 
 ## 工作流
@@ -77,6 +79,7 @@ GATE0 需求问卷+对齐
 │   ├── knowledge-index.md# 扩展知识库路由表（命中才读，token 纪律守门文件）+ 负面词效力分端裁决
 │   ├── examples.md       # 完整示例
 │   ├── action-combat.md  # [扩展] 武打动作引擎：交手账（回合三格+胜负手）+ 打击呈现三件套 + 围攻方位纪律 + 三拍容器 + 打斗接触专条
+│   ├── vfx-effects.md    # [扩展] 技能特效：Niagra 三层光效 + 法师/射手/剑修三类形态 + 动态轨迹 + 失败模式负面清单（社区方法论，待实测）
 │   ├── cinema-grade-params.md # [扩展] 电影级参数块 + 国漫四视图
 │   ├── expressions.md / director-styles.md / extended-views.md / emotion-craft.md / ugc-realism.md / anime-to-real.md  # [扩展]
 │   ├── learning-guide.md # 学习指导（缺陷清单/使用边界/资料吸收台账）——不进日常执行链路
