@@ -30,6 +30,7 @@ enforce 的条款（与 vigen_md 解析层配套）：
       模板占位（含花括号/`第N集`）不算已填，K15/K16 报「未填」
   A16 先锁后写（opt-in）：风格圣经逐字/入画 REF/持续在场
   A17 执行契约留痕（opt-in）：批次生产卡 + 批次校验记录 A1-A16 逐项证据
+      + 段状态账 + 参考契约 + 时间账 + 风格锁 + 人物/道具就地绑定（V3.19）
       → SKILL 执行契约（V3.16）
   K17 提示词卫生（V3.17）：04/03 正文禁音乐类词；无台词段须声明；
       声音节须有正向收尾「没有第二种声音，也没有任何持续声底」
@@ -1790,6 +1791,83 @@ def gate_a16(project: Project, partial: bool) -> List[Finding]:
     return findings
 
 
+def _normalize_ref_binding(name: str) -> str:
+    return re.escape(name) + r"\s*@\s*\{?\{?\s*(?:Ref|REF|图)"
+
+
+def _characters_with_refs(project: Project) -> set:
+    """02 角色锚定表里登记了参考图路径的角色名（A17 就地绑定检查用）。"""
+    lines = project.doc("02")
+    if lines is None:
+        return set()
+    names = set()
+    in_section = False
+    current: Optional[List[Tuple[int, str]]] = None
+    blocks_: List[List[Tuple[int, str]]] = []
+    for no, ln in enumerate(lines, start=1):
+        if ln.startswith("## "):
+            in_section = ln[3:].strip().startswith("角色锚定表")
+            current = None
+            continue
+        if not in_section:
+            continue
+        if ln.startswith("### "):
+            current = [(no, ln)]
+            blocks_.append(current)
+        elif current is not None:
+            current.append((no, ln))
+    for block in blocks_:
+        head = block[0][1][4:].strip()
+        name = re.split(r"[（(]", head)[0].strip()
+        if not name:
+            continue
+        for _no, text in block:
+            if "参考图路径" not in text:
+                continue
+            cells = [c.strip() for c in text.strip().strip("|").split("|")]
+            value = cells[1] if len(cells) > 1 else ""
+            if value and not _is_placeholder(value):
+                names.add(name)
+            break
+    return names
+
+
+def _props_with_refs(project: Project) -> set:
+    """02 道具锚定表里登记了参考图路径的道具名（A17 就地绑定检查用）。"""
+    lines = project.doc("02")
+    if lines is None:
+        return set()
+    names = set()
+    in_section = False
+    current: Optional[List[Tuple[int, str]]] = None
+    blocks_: List[List[Tuple[int, str]]] = []
+    for no, ln in enumerate(lines, start=1):
+        if ln.startswith("## "):
+            in_section = ln[3:].strip().startswith("道具锚定表")
+            current = None
+            continue
+        if not in_section:
+            continue
+        if ln.startswith("### "):
+            current = [(no, ln)]
+            blocks_.append(current)
+        elif current is not None:
+            current.append((no, ln))
+    for block in blocks_:
+        name = block[0][1][4:].strip()
+        if not name:
+            continue
+        for _no, text in block:
+            if "参考图路径" not in text:
+                continue
+            cells = [c.strip() for c in text.strip().strip("|").split("|")]
+            value = cells[1] if len(cells) > 1 else ""
+            if value and not _is_placeholder(value):
+                names.add(name)
+            break
+    return names
+
+
 # ------------------------------------------------------------------ A17 执行契约留痕（opt-in 审计）
 
 def _header_index(header: List[str], *names: str) -> int:
@@ -2022,6 +2100,34 @@ def gate_a17(project: Project, partial: bool) -> List[Finding]:
                         findings.append(Finding(
                             "A17", DOC_FILES["04"], head_no,
                             "风格锁未逐字复制 02 风格圣经（A1/A17）"))
+
+    # 人物参考就地绑定（硬规则 20）：有参考图的角色，每镜首次出现写 角色名 @RefN
+    ref_names = _characters_with_refs(project)
+    ref_props = _props_with_refs(project)
+    if (ref_names or ref_props) and project.doc("04") is not None:
+        for shot in shot_blocks(project.doc("04")):
+            content: List[str] = []
+            for _no, t in shot:
+                s = t.strip()
+                if s.upper() in ("ENDING FRAME", "PERFORMANCE LOCK", "FACE LOCK",
+                                 "AUDIO", "LIGHTING", "NO"):
+                    break
+                if s.startswith(("表演：", "表演注", "自检")):
+                    continue
+                content.append(t)
+            text = "\n".join(content)
+            for name in ref_names:
+                if name in text and not re.search(_normalize_ref_binding(name), text):
+                    findings.append(Finding(
+                        "A17", DOC_FILES["04"], shot[0][0],
+                        "角色「%s」在本镜出现但名字后未绑定参考（写 角色名 @{{Ref N}}——硬规则20）"
+                        % name))
+            for name in ref_props:
+                if name in text and not re.search(_normalize_ref_binding(name), text):
+                    findings.append(Finding(
+                        "A17", DOC_FILES["04"], shot[0][0],
+                        "道具「%s」在本镜出现但名字后未绑定参考（写 道具名 @{{Ref N}}——硬规则20）"
+                        % name))
     return findings
 
 

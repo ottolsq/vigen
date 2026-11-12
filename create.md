@@ -1141,3 +1141,18 @@ ai-video-maker/
 **验证**：文档改动；Python 90 / Node 87 tests 应保持全过（未改门逻辑）；vfx-effects 路由已登记。
 
 **改动文件**：references/{knowledge-index, prompt-rules, cinematography, consistency, learning-guide}.md / references/vfx-effects.md（新增）/ assets/templates.md / SKILL.md / README.md / create.md
+
+### V3.19（2026-11-12，用户实测：人物/道具参考就地绑定）
+
+**驱动**：用户指出视频模型有时无法认识谁是谁——只在 ACTIVE REFERENCES 列参考不够，必须在正文人物/道具名后直接引用参考。
+
+- **硬规则 20**：每个镜头块里，有参考图的角色和道具首次出现，写成 `名称 @{{Ref N}}`（或 `@REF-xxx`），名字后紧跟参考；多角色同镜逐个绑定；每句台词仍写 `角色名 @RefN："原文"`。只在 ACTIVE REFERENCES 列参考=不合格。
+- **prompt-rules 骨架 A 使用规则**：新增"人物/道具名后直接绑定参考（V3.19）"与正反例；A13 同步。
+- **templates 04**：新增就地绑定示例；`assets/templates.md` 同步。
+- **A17 机检**：新增 profile——从 02 角色锚定表/道具锚定表提取"有参考图路径"的名称；每个 shot 块的正文（排除表演/自检行，截止到 ENDING FRAME/PERFORMANCE LOCK 等节）若出现该名称但名字后无 `@...Ref`，报"未绑定参考"。
+- **夹具**：a17_audit_project 的角色/道具正文补 `@REF-*`，新增铜钥道具与参考路径；新增两条 Python 测试（角色/道具缺失绑定）。
+- **ep01 只读回归**：A17 从 44 项增至 102 项（大量角色/道具未就地绑定），未修改 ep01。
+
+**验证**：Python 92 tests 全过；Node 87 tests 全过；a17_audit_project A17 exit 0；good_project 默认门零回归。
+
+**改动文件**：SKILL.md / references/{prompt-rules, learning-guide}.md / assets/templates.md / scripts/{check.py, check-gates-e.mjs} / README.md / create.md / tests/test_check.py

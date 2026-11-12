@@ -5,6 +5,7 @@ import {
   cell,
   finding,
   iterTables,
+  shotBlocks,
   tableRows,
 } from "./vigen-md.mjs";
 import { STORY_ALIASES } from "./check-core.mjs";
@@ -123,6 +124,62 @@ function promptLines(lines) {
     if (out.length) return out;
   }
   return lines.map((ln, i) => [i + 1, ln]).filter(([, ln]) => !/^\s*[>#|]/.test(ln));
+}
+
+function escapeRegExp(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function namesWithRefs(project, sectionName) {
+  const lines = project.doc("02");
+  if (lines === null) return new Set();
+  const blocksArr = [];
+  let inSection = false;
+  let cur = null;
+  for (let i = 0; i < lines.length; i += 1) {
+    const ln = lines[i];
+    if (ln.startsWith("## ")) {
+      inSection = ln.slice(3).trim().startsWith(sectionName);
+      cur = null;
+      continue;
+    }
+    if (!inSection) continue;
+    if (ln.startsWith("### ")) {
+      cur = [[i + 1, ln]];
+      blocksArr.push(cur);
+    } else if (cur) {
+      cur.push([i + 1, ln]);
+    }
+  }
+  const names = new Set();
+  for (const block of blocksArr) {
+    const name = block[0][1].slice(4).trim().split(/[（(]/)[0].trim();
+    if (!name) continue;
+    for (const [, t] of block) {
+      if (!t.includes("参考图路径")) continue;
+      const cells = t.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((c) => c.trim());
+      const value = cells[1] || "";
+      if (value && !isPlaceholder(value)) names.add(name);
+      break;
+    }
+  }
+  return names;
+}
+
+function hasInlineRef(text, name) {
+  const re = new RegExp(`${escapeRegExp(name)}\\s*@\\s*\\{?\\{?\\s*(?:Ref|REF|图)`);
+  return re.test(text);
+}
+
+function shotContent(shot) {
+  const out = [];
+  for (const [, t] of shot) {
+    const s = t.trim();
+    if (["ENDING FRAME", "PERFORMANCE LOCK", "FACE LOCK", "AUDIO", "LIGHTING", "NO"].includes(s.toUpperCase())) break;
+    if (s.startsWith("表演：") || s.startsWith("表演注") || s.startsWith("自检")) continue;
+    out.push(t);
+  }
+  return out.join("\n");
 }
 
 export function gateA17(project, partial) {
@@ -314,6 +371,30 @@ export function gateA17(project, partial) {
         const m = /风格锁[：:]\s*(.+)/.exec(text);
         if (bible && m && !normWs(m[1]).includes(normWs(bible))) {
           findings.push(finding("A17", DOC_FILES["04"], headNo, "风格锁未逐字复制 02 风格圣经（A1/A17）"));
+        }
+      }
+    }
+  }
+
+  const chars = namesWithRefs(project, "角色锚定表");
+  const props = namesWithRefs(project, "道具锚定表");
+  if ((chars.size || props.size) && project.doc("04") !== null) {
+    for (const shot of shotBlocks(project.doc("04"))) {
+      const text = shotContent(shot);
+      for (const name of chars) {
+        if (text.includes(name) && !hasInlineRef(text, name)) {
+          findings.push(finding(
+            "A17", DOC_FILES["04"], shot[0][0],
+            `角色「${name}」在本镜出现但名字后未绑定参考（写 角色名 @{{Ref N}}——硬规则20）`,
+          ));
+        }
+      }
+      for (const name of props) {
+        if (text.includes(name) && !hasInlineRef(text, name)) {
+          findings.push(finding(
+            "A17", DOC_FILES["04"], shot[0][0],
+            `道具「${name}」在本镜出现但名字后未绑定参考（写 道具名 @{{Ref N}}——硬规则20）`,
+          ));
         }
       }
     }
