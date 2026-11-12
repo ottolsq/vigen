@@ -1156,3 +1156,19 @@ ai-video-maker/
 **验证**：Python 92 tests 全过；Node 87 tests 全过；a17_audit_project A17 exit 0；good_project 默认门零回归。
 
 **改动文件**：SKILL.md / references/{prompt-rules, learning-guide}.md / assets/templates.md / scripts/{check.py, check-gates-e.mjs} / README.md / create.md / tests/test_check.py
+
+### V3.20（2026-11-12，运镜库入口：M01-M40 + 选型槽 + A17 校验）
+
+**驱动**：用户指出"反复提及的多种镜头库实际没被使用"——ep01 实测：01 运镜列几乎全 `固定(R7)`，04 词频 固定 46 / 推近 12 / 摇 3 / 跟拍 1，环绕/升降/甩镜/变焦 0；8 转场几乎全硬切。根因：库是字典不是必填槽，R1-R7 只选功能族不选具体招式，40 条无稳定 ID，机检只查格式不查选型。
+
+- **M01-M40 稳定编号**：基础 20（M01-M20）+ 扩展 20（M21-M40），加在 cinematography 运镜表首列；新增「7 功能 × 3 推荐招式」速查表（R1-R7 → M 编号）。
+- **01 分镜表**：运镜列改为 `Mxx 库名（R行号）`；模板示例与说明同步；新增「运镜分布台账」（警告级：非对话/非特写固定占比 >70% 或全片只用 R1/R7 → 逐镜复核，不硬失败）。
+- **04 镜头块**：新增 `运镜：{Mxx 库名}（R行号）` 行，从 01 逐字复制。
+- **段卡**：新增「运镜选型（Mxx+R行号）」「转场选型（8 种之一/硬切）」两列。
+- **A17 机检**：01 运镜列必须含 Mxx；04 每个 shot 块必须含 `运镜：Mxx`；段卡必须有运镜/转场选型列且值非占位。
+- **A12/硬规则 11**：运镜必须写 Mxx 编号，写不出=没选。
+- **夹具**：a17_audit_project 的 01 运镜列与 04 shot 块补 M 编号；新增两条 Python 测试（01/04 缺 M 编号）。
+
+**验证**：Python 94 tests 全过；Node 87 tests 全过；a17_audit_project A17 exit 0；good_project 默认门零回归。
+
+**改动文件**：references/{cinematography, prompt-rules, learning-guide}.md / assets/{templates.md, templates-execution.md} / SKILL.md / scripts/{check.py, check-gates-e.mjs} / README.md / create.md / tests/test_check.py

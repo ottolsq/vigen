@@ -254,6 +254,8 @@ export function gateA17(project, partial) {
           ["帽", ["帽"]],
           ["须", ["须"]],
           ["道具", ["道具"]],
+          ["运镜选型", ["运镜选型", "运镜"]],
+          ["转场选型", ["转场选型"]],
         ];
         const colIdx = new Map();
         for (const [name, aliases] of required) {
@@ -275,7 +277,7 @@ export function gateA17(project, partial) {
             findings.push(finding("A17", DOC_FILES["01"], no, "批次生产卡仍是模板占位（从 02/01/05 复制填写）"));
             break;
           }
-          for (const name of ["帽", "须", "道具"]) {
+          for (const name of ["帽", "须", "道具", "运镜选型", "转场选型"]) {
             const idx = colIdx.get(name);
             if (idx >= 0) {
               const value = (cells[idx] || "").trim();
@@ -322,6 +324,20 @@ export function gateA17(project, partial) {
       }
     }
   }
+  const storyRows = tableRows(project.doc("01"), ["镜号", "运镜"], STORY_ALIASES);
+  if (storyRows) {
+    for (const r of storyRows) {
+      const value = cell(r, "运镜").trim();
+      if (!value || ["—", "-", "–"].includes(value)) continue;
+      if (!/M\d{2}/.test(value)) {
+        findings.push(finding(
+          "A17", DOC_FILES["01"], r.line,
+          `运镜列缺 Mxx 编号（V3.20——写不出编号=没有选）：${value.slice(0, 24)}`,
+        ));
+      }
+    }
+  }
+
   if (auditHead === null) findings.push(finding("A17", DOC_FILES["01"], 0, "警告：未找到批次校验记录（表头含 门/结果/证据），A17 未执行"));
   if (cardHead === null) findings.push(finding("A17", DOC_FILES["01"], 0, "警告：未找到批次生产卡（表头含 段号/镜号/生成时长），A17 未执行"));
   if (stateHead === null) findings.push(finding("A17", DOC_FILES["01"], 0, "警告：未找到段状态账（表头含 帽/须/道具/依据），A17 状态三问未核对"));
@@ -381,6 +397,12 @@ export function gateA17(project, partial) {
   if ((chars.size || props.size) && project.doc("04") !== null) {
     for (const shot of shotBlocks(project.doc("04"))) {
       const text = shotContent(shot);
+      if (!/运镜\s*[:：]\s*M\d{2}/.test(text)) {
+        findings.push(finding(
+          "A17", DOC_FILES["04"], shot[0][0],
+          "镜头块缺「运镜：Mxx 库名（R行号）」（V3.20——写不出编号=没有选）",
+        ));
+      }
       for (const name of chars) {
         if (text.includes(name) && !hasInlineRef(text, name)) {
           findings.push(finding(

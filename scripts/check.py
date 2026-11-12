@@ -1960,6 +1960,8 @@ def gate_a17(project: Project, partial: bool) -> List[Finding]:
                     "帽": ("帽",),
                     "须": ("须",),
                     "道具": ("道具",),
+                    "运镜选型": ("运镜选型", "运镜"),
+                    "转场选型": ("转场选型",),
                 }
                 col_idx: Dict[str, int] = {}
                 for name, aliases in required.items():
@@ -1986,7 +1988,7 @@ def gate_a17(project: Project, partial: bool) -> List[Finding]:
                             "A17", DOC_FILES["01"], no,
                             "批次生产卡仍是模板占位（从 02/01/05 复制填写）"))
                         break
-                    for name in ("帽", "须", "道具"):
+                    for name in ("帽", "须", "道具", "运镜选型", "转场选型"):
                         idx = col_idx[name]
                         if idx >= 0:
                             value = cells[idx].strip() if idx < len(cells) else ""
@@ -2037,6 +2039,17 @@ def gate_a17(project: Project, partial: bool) -> List[Finding]:
                             "A17", DOC_FILES["01"], no,
                             "段状态账「%s」为空或占位（跨段状态必填）" % name))
 
+    # 01 分镜表运镜列必须写 Mxx（V3.20）
+    rows = table_rows(project.doc("01"), ("镜号", "运镜"), aliases=STORY_ALIASES)
+    if rows:
+        for row in rows:
+            value = cell(row, "运镜").strip()
+            if not value or value in ("—", "-", "–"):
+                continue
+            if not re.search(r"M\d{2}", value):
+                findings.append(Finding(
+                    "A17", DOC_FILES["01"], row.line,
+                    "运镜列缺 Mxx 编号（V3.20——写不出编号=没有选）：%s" % value[:24]))
     if audit_head is None:
         findings.append(_warn("A17", "01", "未找到批次校验记录（表头含 门/结果/证据），A17 未执行"))
     if card_head is None:
@@ -2116,6 +2129,10 @@ def gate_a17(project: Project, partial: bool) -> List[Finding]:
                     continue
                 content.append(t)
             text = "\n".join(content)
+            if not re.search(r"运镜\s*[:：]\s*M\d{2}", text):
+                findings.append(Finding(
+                    "A17", DOC_FILES["04"], shot[0][0],
+                    "镜头块缺「运镜：Mxx 库名（R行号）」（V3.20——写不出编号=没有选）"))
             for name in ref_names:
                 if name in text and not re.search(_normalize_ref_binding(name), text):
                     findings.append(Finding(
