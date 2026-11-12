@@ -256,6 +256,7 @@ export function gateA17(project, partial) {
           ["道具", ["道具"]],
           ["运镜选型", ["运镜选型", "运镜"]],
           ["转场选型", ["转场选型"]],
+          ["表演依据", ["表演依据"]],
         ];
         const colIdx = new Map();
         for (const [name, aliases] of required) {
@@ -277,7 +278,7 @@ export function gateA17(project, partial) {
             findings.push(finding("A17", DOC_FILES["01"], no, "批次生产卡仍是模板占位（从 02/01/05 复制填写）"));
             break;
           }
-          for (const name of ["帽", "须", "道具", "运镜选型", "转场选型"]) {
+          for (const name of ["帽", "须", "道具", "运镜选型", "转场选型", "表演依据"]) {
             const idx = colIdx.get(name);
             if (idx >= 0) {
               const value = (cells[idx] || "").trim();
@@ -309,7 +310,8 @@ export function gateA17(project, partial) {
     const sui = headerIndex(header, "须");
     const pi = headerIndex(header, "道具");
     const bi = headerIndex(header, "依据");
-    if (hi >= 0 && sui >= 0 && pi >= 0 && bi >= 0) {
+    const vi = headerIndex(header, "服装版本");
+    if (hi >= 0 && sui >= 0 && pi >= 0 && bi >= 0 && vi >= 0) {
       stateHead = headNo;
       if (!body.length) {
         findings.push(finding("A17", DOC_FILES["01"], headNo, "段状态账没有数据行（每段一行）"));
@@ -337,6 +339,61 @@ export function gateA17(project, partial) {
       }
     }
   }
+
+  const transitions = ["硬切", "相似动作", "前景遮挡", "形状匹配", "甩镜", "闪白", "视线", "匹配剪辑"];
+  const transRows = tableRows(project.doc("01"), ["镜号", "转场"], STORY_ALIASES);
+  if (transRows) {
+    for (const r of transRows) {
+      const value = cell(r, "转场").trim();
+      if (!value || ["—", "-", "–"].includes(value)) continue;
+      if (value.includes("硬切")) {
+        if (!/硬切\s*[（(].+[）)]/.test(value)) {
+          findings.push(finding(
+            "A17", DOC_FILES["01"], r.line,
+            `转场写「硬切」须带理由（硬切（理由）——V3.21）：${value.slice(0, 24)}`,
+          ));
+        }
+        continue;
+      }
+      if (!transitions.some((t) => value.includes(t))) {
+        findings.push(finding(
+          "A17", DOC_FILES["01"], r.line,
+          `转场不在 8 种库内（硬切/相似动作/前景遮挡/形状匹配/甩镜/闪白/视线/匹配剪辑）：${value.slice(0, 24)}`,
+        ));
+      }
+    }
+  }
+
+  const ledgerNames = ["运镜库", "转场库", "场景镜头序列", "FACS", "身体姿态", "情绪反向", "打斗七段", "导演风格", "VFX", "方向锚", "短剧市场", "内容合规"];
+  let ledgerFound = false;
+  for (const [headNo, header, body] of iterTables(doc)) {
+    const capI = headerIndex(header, "能力");
+    const statusI = headerIndex(header, "使用");
+    const reasonI = headerIndex(header, "证据", "理由");
+    if (capI >= 0 && statusI >= 0 && reasonI >= 0) {
+      ledgerFound = true;
+      const seenNames = new Set();
+      for (const [no, cells] of body) {
+        const cap = (cells[capI] || "").trim();
+        const status = (cells[statusI] || "").trim();
+        const reason = (cells[reasonI] || "").trim();
+        for (const name of ledgerNames) if (cap.includes(name)) seenNames.add(name);
+        if (isPlaceholder(status) || !status) {
+          findings.push(finding("A17", DOC_FILES["01"], no, `可选能力台账「${cap.slice(0, 20)}」未填使用/不适用/待定`));
+        } else if (!["使用", "不适用", "待定"].includes(status)) {
+          findings.push(finding("A17", DOC_FILES["01"], no, `可选能力台账「${cap.slice(0, 20)}」状态须为 使用/不适用/待定（当前：${status}）`));
+        }
+        if (isPlaceholder(reason) || !reason) {
+          findings.push(finding("A17", DOC_FILES["01"], no, `可选能力台账「${cap.slice(0, 20)}」缺证据/理由`));
+        }
+      }
+      const missingNames = ledgerNames.filter((n) => !seenNames.has(n));
+      if (missingNames.length) {
+        findings.push(finding("A17", DOC_FILES["01"], headNo, `可选能力台账缺项：${missingNames.join("、")}`));
+      }
+    }
+  }
+  if (!ledgerFound) findings.push(finding("A17", DOC_FILES["01"], 0, "警告：未找到可选能力台账（表头含 能力/使用/证据），A17 未核对"));
 
   if (auditHead === null) findings.push(finding("A17", DOC_FILES["01"], 0, "警告：未找到批次校验记录（表头含 门/结果/证据），A17 未执行"));
   if (cardHead === null) findings.push(finding("A17", DOC_FILES["01"], 0, "警告：未找到批次生产卡（表头含 段号/镜号/生成时长），A17 未执行"));
@@ -387,6 +444,28 @@ export function gateA17(project, partial) {
         const m = /风格锁[：:]\s*(.+)/.exec(text);
         if (bible && m && !normWs(m[1]).includes(normWs(bible))) {
           findings.push(finding("A17", DOC_FILES["04"], headNo, "风格锁未逐字复制 02 风格圣经（A1/A17）"));
+        }
+      }
+      if (text.includes("打斗段：是")) {
+        const stages = [
+          ["Start State", "起始状态"], ["Intent", "意图"], ["Attack", "攻击"],
+          ["Response", "应对"], ["Impact", "命中"], ["Recovery", "恢复"],
+          ["End State", "结束状态"],
+        ];
+        const missingStages = stages
+          .filter(([en, zh]) => !text.includes(en) && !text.includes(zh))
+          .map(([en]) => en);
+        if (missingStages.length) {
+          findings.push(finding(
+            "A17", DOC_FILES["04"], headNo,
+            `打斗段缺七段：${missingStages.join("、")}（action-combat 第7节）`,
+          ));
+        }
+        if (!(project.doc("01") || []).join("\n").includes("交手账")) {
+          findings.push(finding(
+            "A17", DOC_FILES["04"], headNo,
+            "打斗段标记存在但 01 无「打斗交手账」（先写交手账再排镜）",
+          ));
         }
       }
     }

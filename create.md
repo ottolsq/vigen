@@ -1172,3 +1172,18 @@ ai-video-maker/
 **验证**：Python 94 tests 全过；Node 87 tests 全过；a17_audit_project A17 exit 0；good_project 默认门零回归。
 
 **改动文件**：references/{cinematography, prompt-rules, learning-guide}.md / assets/{templates.md, templates-execution.md} / SKILL.md / scripts/{check.py, check-gates-e.mjs} / README.md / create.md / tests/test_check.py
+
+### V3.21（2026-11-12，P0：打斗七段/表演依据/转场选型/可选能力台账）
+
+**驱动**：ep01 审计发现打斗七段 0 使用、FACS/微表情 0、8 转场只用硬切/视线、可选能力无使用记录。
+
+- **P0-1 打斗七段强制**：action-combat 第7节新增「打斗段：是（交手账 RX-RY）」标记；A17 检查标记存在则七段齐全、01 必须有交手账。
+- **P0-2 表演依据槽**：段卡新增「表演依据（FACS/身体姿态/情绪索引 行号）」；A17 要求列存在且非空/非占位；04 表演注仍要求身体/生理证据（人工）。
+- **P0-3 转场选型槽**：01 转场列必须是 8 种之一；`硬切（理由）` 必须带括号理由；A17 校验。
+- **P0-4 可选能力台账**：01 新增 12 项台账（运镜/转场/场景序列/FACS/身体姿态/情绪索引/打斗七段/导演风格/VFX/方向锚/短剧市场/内容合规），每项 `使用/不适用/待定 + 证据或理由`；A17 校验完整性、状态合法、理由非空。
+- **硬规则 21**：可选能力留痕；README/模板同步。
+- **夹具**：a17_audit_project 补表演依据、硬切理由、12 项台账；新增 4 条 Python 测试（转场理由/台账缺项/打斗七段/表演依据）。
+
+**验证**：Python 98 tests 全过；Node 87 tests 全过；a17_audit_project A17 exit 0；good_project 默认门零回归。
+
+**改动文件**：references/{action-combat, learning-guide}.md / assets/{templates.md, templates-execution.md} / SKILL.md / scripts/{check.py, check-gates-e.mjs} / README.md / create.md / tests/test_check.py

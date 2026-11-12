@@ -1962,6 +1962,7 @@ def gate_a17(project: Project, partial: bool) -> List[Finding]:
                     "道具": ("道具",),
                     "运镜选型": ("运镜选型", "运镜"),
                     "转场选型": ("转场选型",),
+                    "表演依据": ("表演依据",),
                 }
                 col_idx: Dict[str, int] = {}
                 for name, aliases in required.items():
@@ -1988,14 +1989,14 @@ def gate_a17(project: Project, partial: bool) -> List[Finding]:
                             "A17", DOC_FILES["01"], no,
                             "批次生产卡仍是模板占位（从 02/01/05 复制填写）"))
                         break
-                    for name in ("帽", "须", "道具", "运镜选型", "转场选型"):
+                    for name in ("帽", "须", "道具", "运镜选型", "转场选型", "表演依据"):
                         idx = col_idx[name]
                         if idx >= 0:
                             value = cells[idx].strip() if idx < len(cells) else ""
-                            if _is_placeholder(value):
+                            if not value or _is_placeholder(value):
                                 findings.append(Finding(
                                     "A17", DOC_FILES["01"], no,
-                                    "段卡「%s」为空或占位（状态三问必填）" % name))
+                                    "段卡「%s」为空或占位（必填）" % name))
                     read_i = col_idx["台词朗读(s)"]
                     act_i = col_idx["动作(s)"]
                     shot_i = col_idx["镜头(s)"]
@@ -2024,7 +2025,8 @@ def gate_a17(project: Project, partial: bool) -> List[Finding]:
         sui_i = _header_index(header, "须")
         prop_i = _header_index(header, "道具")
         basis_i = _header_index(header, "依据")
-        if state_i >= 0 and sui_i >= 0 and prop_i >= 0 and basis_i >= 0:
+        version_i = _header_index(header, "服装版本")
+        if state_i >= 0 and sui_i >= 0 and prop_i >= 0 and basis_i >= 0 and version_i >= 0:
             state_head = head_no
             if not body:
                 findings.append(Finding(
@@ -2034,7 +2036,7 @@ def gate_a17(project: Project, partial: bool) -> List[Finding]:
                 for name, idx in (("帽", state_i), ("须", sui_i),
                                   ("道具", prop_i), ("依据", basis_i)):
                     value = cells[idx].strip() if idx < len(cells) else ""
-                    if _is_placeholder(value):
+                    if not value or _is_placeholder(value):
                         findings.append(Finding(
                             "A17", DOC_FILES["01"], no,
                             "段状态账「%s」为空或占位（跨段状态必填）" % name))
@@ -2050,6 +2052,68 @@ def gate_a17(project: Project, partial: bool) -> List[Finding]:
                 findings.append(Finding(
                     "A17", DOC_FILES["01"], row.line,
                     "运镜列缺 Mxx 编号（V3.20——写不出编号=没有选）：%s" % value[:24]))
+    # P0-3 转场选型：01 转场列必须是 8 种之一；硬切必须带理由（V3.21）
+    transitions = ("硬切", "相似动作", "前景遮挡", "形状匹配", "甩镜",
+                   "闪白", "视线", "匹配剪辑")
+    trans_rows = table_rows(project.doc("01"), ("镜号", "转场"), aliases=STORY_ALIASES)
+    if trans_rows:
+        for row in trans_rows:
+            value = cell(row, "转场").strip()
+            if not value or value in ("—", "-", "–"):
+                continue
+            if "硬切" in value:
+                if not re.search(r"硬切\s*[（(].+[）)]", value):
+                    findings.append(Finding(
+                        "A17", DOC_FILES["01"], row.line,
+                        "转场写「硬切」须带理由（硬切（理由）——V3.21）：%s" % value[:24]))
+                continue
+            if not any(t in value for t in transitions):
+                findings.append(Finding(
+                    "A17", DOC_FILES["01"], row.line,
+                    "转场不在 8 种库内（硬切/相似动作/前景遮挡/形状匹配/甩镜/闪白/视线/匹配剪辑）：%s"
+                    % value[:24]))
+
+    # P0-4 可选能力台账：每项 使用/不适用/待定 + 证据（V3.21）
+    ledger_names = ("运镜库", "转场库", "场景镜头序列", "FACS", "身体姿态",
+                    "情绪反向", "打斗七段", "导演风格", "VFX",
+                    "方向锚", "短剧市场", "内容合规")
+    ledger_found = False
+    for head_no, header, body in iter_tables(doc):
+        cap_i = _header_index(header, "能力")
+        status_i = _header_index(header, "使用")
+        reason_i = _header_index(header, "证据", "理由")
+        if cap_i >= 0 and status_i >= 0 and reason_i >= 0:
+            ledger_found = True
+            seen_names = set()
+            for no, cells in body:
+                cap = cells[cap_i].strip() if cap_i < len(cells) else ""
+                status = cells[status_i].strip() if status_i < len(cells) else ""
+                reason = cells[reason_i].strip() if reason_i < len(cells) else ""
+                for name in ledger_names:
+                    if name in cap:
+                        seen_names.add(name)
+                if _is_placeholder(status) or not status:
+                    findings.append(Finding(
+                        "A17", DOC_FILES["01"], no,
+                        "可选能力台账「%s」未填使用/不适用/待定" % cap[:20]))
+                elif status not in ("使用", "不适用", "待定"):
+                    findings.append(Finding(
+                        "A17", DOC_FILES["01"], no,
+                        "可选能力台账「%s」状态须为 使用/不适用/待定（当前：%s）"
+                        % (cap[:20], status)))
+                if _is_placeholder(reason) or not reason:
+                    findings.append(Finding(
+                        "A17", DOC_FILES["01"], no,
+                        "可选能力台账「%s」缺证据/理由" % cap[:20]))
+            missing_names = [n for n in ledger_names if n not in seen_names]
+            if missing_names:
+                findings.append(Finding(
+                    "A17", DOC_FILES["01"], head_no,
+                    "可选能力台账缺项：%s" % "、".join(missing_names)))
+    if not ledger_found:
+        findings.append(_warn("A17", "01",
+                              "未找到可选能力台账（表头含 能力/使用/证据），A17 未核对"))
+
     if audit_head is None:
         findings.append(_warn("A17", "01", "未找到批次校验记录（表头含 门/结果/证据），A17 未执行"))
     if card_head is None:
@@ -2113,6 +2177,26 @@ def gate_a17(project: Project, partial: bool) -> List[Finding]:
                         findings.append(Finding(
                             "A17", DOC_FILES["04"], head_no,
                             "风格锁未逐字复制 02 风格圣经（A1/A17）"))
+            # P0-1 打斗段：标记 + 七段齐全（V3.21）
+            if "打斗段：是" in text:
+                stages = (
+                    ("Start State", "起始状态"),
+                    ("Intent", "意图"),
+                    ("Attack", "攻击"),
+                    ("Response", "应对"),
+                    ("Impact", "命中"),
+                    ("Recovery", "恢复"),
+                    ("End State", "结束状态"),
+                )
+                missing = [en for en, zh in stages if en not in text and zh not in text]
+                if missing:
+                    findings.append(Finding(
+                        "A17", DOC_FILES["04"], head_no,
+                        "打斗段缺七段：%s（action-combat 第7节）" % "、".join(missing)))
+                if "交手账" not in "\n".join(project.doc("01") or []):
+                    findings.append(Finding(
+                        "A17", DOC_FILES["04"], head_no,
+                        "打斗段标记存在但 01 无「打斗交手账」（先写交手账再排镜）"))
 
     # 人物参考就地绑定（硬规则 20）：有参考图的角色，每镜首次出现写 角色名 @RefN
     ref_names = _characters_with_refs(project)
