@@ -1822,10 +1822,14 @@ def gate_a17(project: Project, partial: bool) -> List[Finding]:
         if gate_i >= 0 and res_i >= 0 and ev_i >= 0:
             audit_head = head_no
             seen = set()
+            has_check_row = False
             for no, cells in body:
                 if gate_i >= len(cells):
                     continue
-                m = re.search(r"A\s*(\d+)", cells[gate_i])
+                gate_text = cells[gate_i].strip()
+                if "K17" in gate_text or "check" in gate_text.lower():
+                    has_check_row = True
+                m = re.search(r"A\s*(\d+)", gate_text)
                 if not m:
                     continue
                 n = int(m.group(1))
@@ -1857,6 +1861,10 @@ def gate_a17(project: Project, partial: bool) -> List[Finding]:
                     if len(missing) == 1 else
                     "批次校验记录缺 %d 项（首个 A%d；A1-A16 必须逐项留痕）"
                     % (len(missing), missing[0])))
+            if not has_check_row:
+                findings.append(Finding(
+                    "A17", DOC_FILES["01"], audit_head,
+                    "批次校验记录缺 K17/check 结果行（该批是否跑过 check.py）"))
         card_i = _header_index(header, "段号")
         shot_i = _header_index(header, "镜号")
         dur_i = _header_index(header, "生成时长")
@@ -1975,6 +1983,15 @@ def gate_a17(project: Project, partial: bool) -> List[Finding]:
                 findings.append(Finding(
                     "A17", DOC_FILES["04"], no,
                     "参考声明缺「不复刻」：%s" % s[:24]))
+
+    # 04 只允许段/镜头标题；修正说明/变更记录应写 01
+    if project.doc("04") is not None:
+        for no, ln in enumerate(project.doc("04") or [], start=1):
+            s = ln.strip()
+            if s.startswith("## ") and re.search(r"修正说明|修正记录|变更记录|附录", s):
+                findings.append(Finding(
+                    "A17", DOC_FILES["04"], no,
+                    "04 出现非段落标题（修正说明/变更记录应写 01）：%s" % s[:30]))
 
     # 04 每段段首必须有「本段锁定清单」九项（硬规则 19）
     lock_keys = ("身份锁", "表情锁", "表演锁", "说话人锁", "道具锁",

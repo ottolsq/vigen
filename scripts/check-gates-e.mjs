@@ -142,8 +142,13 @@ export function gateA17(project, partial) {
     if (gi >= 0 && ri >= 0 && ei >= 0) {
       auditHead = headNo;
       const seen = new Set();
+      let hasCheckRow = false;
       for (const [no, cells] of body) {
-        const m = ((cells[gi] || "").match(/A\s*(\d+)/));
+        const gateText = (cells[gi] || "").trim();
+        if (gateText.includes("K17") || gateText.toLowerCase().includes("check")) {
+          hasCheckRow = true;
+        }
+        const m = (gateText.match(/A\s*(\d+)/));
         if (!m) continue;
         const n = Number.parseInt(m[1], 10);
         if (n < 1 || n > 16) continue;
@@ -168,6 +173,12 @@ export function gateA17(project, partial) {
           ? `批次校验记录缺 A${missing[0]}（A1-A16 必须逐项留痕）`
           : `批次校验记录缺 ${missing.length} 项（首个 A${missing[0]}；A1-A16 必须逐项留痕）`;
         findings.push(finding("A17", DOC_FILES["01"], auditHead, msg));
+      }
+      if (!hasCheckRow) {
+        findings.push(finding(
+          "A17", DOC_FILES["01"], auditHead,
+          "批次校验记录缺 K17/check 结果行（该批是否跑过 check.py）",
+        ));
       }
     }
 
@@ -270,6 +281,18 @@ export function gateA17(project, partial) {
         findings.push(finding("A17", DOC_FILES["04"], no, `参考声明缺「不复刻」：${s.slice(0, 24)}`));
       }
     }
+  }
+
+  if (project.doc("04") !== null) {
+    (project.doc("04") || []).forEach((ln, i) => {
+      const s = ln.trim();
+      if (s.startsWith("## ") && /修正说明|修正记录|变更记录|附录/.test(s)) {
+        findings.push(finding(
+          "A17", DOC_FILES["04"], i + 1,
+          `04 出现非段落标题（修正说明/变更记录应写 01）：${s.slice(0, 30)}`,
+        ));
+      }
+    });
   }
 
   const lockKeys = ["身份锁", "表情锁", "表演锁", "说话人锁", "道具锁", "空间锁", "风格锁", "声音锁", "动作锁"];

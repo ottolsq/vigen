@@ -1,6 +1,6 @@
 // vigen 项目文档解析层（check.mjs 的依赖模块）——与 scripts/vigen_md.py 行为对齐。
 // 只读：本模块不写任何文件。
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 
 export const DOC_FILES = {
@@ -33,6 +33,30 @@ export class Project {
 
   doc(key) {
     if (this.cache.has(key)) return this.cache.get(key);
+    // 04 分卷（V3.17）：有 04_视频提示词_*.md 时按文件名排序合并；base 只作索引。
+    if (key === "04") {
+      let volumes = [];
+      try {
+        volumes = readdirSync(this.root)
+          .filter((name) => /^04_视频提示词_.*\.md$/.test(name))
+          .sort();
+      } catch {
+        volumes = [];
+      }
+      if (volumes.length) {
+        const lines = [];
+        for (const name of volumes) {
+          try {
+            lines.push(...readFileSync(path.join(this.root, name), "utf8").split(/\r\n|\r|\n/));
+          } catch {
+            // 单卷读取失败时跳过该卷；其余卷仍可校验
+          }
+        }
+        const value = lines.length ? lines : null;
+        this.cache.set(key, value);
+        return value;
+      }
+    }
     const p = this.path(key);
     let lines = null;
     try {

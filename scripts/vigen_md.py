@@ -52,9 +52,24 @@ class Project:
         return self.root / DOC_FILES[key]
 
     def doc(self, key: str) -> Optional[List[str]]:
-        """key ∈ {"00".."06"}；文件不存在返回 None（--partial 容忍）。"""
+        """key ∈ {"00".."06"}；文件不存在返回 None（--partial 容忍）。
+
+        04 分卷（V3.17）：存在 `04_视频提示词_*.md` 时，按文件名排序合并为逻辑 04；
+        此时 `04_视频提示词.md` 只作索引，不参与扫描，避免索引标题干扰门。
+        """
         if key in self._cache:
             return self._cache[key]
+        if key == "04":
+            volumes = sorted(self.root.glob("04_视频提示词_*.md"))
+            if volumes:
+                lines: List[str] = []
+                for volume in volumes:
+                    try:
+                        lines.extend(volume.read_text(encoding="utf-8").splitlines())
+                    except (OSError, UnicodeDecodeError):
+                        continue
+                self._cache[key] = lines or None
+                return self._cache[key]
         p = self.path(key)
         if not p.is_file():
             self._cache[key] = None

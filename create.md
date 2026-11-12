@@ -1114,7 +1114,14 @@ ai-video-maker/
 - **一页版段模板**：`assets/templates-execution.md` 新增五节——锁定九项/参考契约表/时间账/状态三问/可行性/正文，作为作者实际使用的紧凑模板。
 - **夹具同步**：22 个 fixtures 的"禁止背景音乐"改为正向声音白名单；a17_audit_project 增补时间账/状态账/双向参考/风格逐字。
 - **ep01 只读回归**：K17 报 54 项、A17 报 43 项（音乐词/无锁定块/参考声明缺不复刻/无段状态账/无校验留痕），证明新门能抓住真实项目问题；未修改 ep01。
+- **04 分卷（P0-4）**：`04_视频提示词_卷NN.md` 按文件名排序合并；`04_视频提示词.md` 只作索引；check.py/check.mjs 的 `Project.doc("04")` 同步支持；新增 split_volumes 夹具。
+- **A17 补充（P1-4/P1-6）**：04 出现"修正说明/变更记录/附录"标题 → 报错（应写 01）；批次校验记录必须含 K17/check 结果行。
+- **P1-1 段状态账进 01 模板**：templates.md 01 新增「段状态账」表（帽/须/道具/服装/依据 02 行号）。
+- **P1-2 长件过门/狭窄空间**：prompt-rules 0.7 新增可行性前置（竖过/斜过/先出后转/拆件；禁止只写"不要变短"；相对锚）。
+- **P1-3 可量化约束**：prompt-rules 0.11（大小变化写 %/分数；方位写画面位置+参照物；数量/件数写死）。
+- **P2-1 生僻字**：execution-pitfalls 新增"正文避生僻/异体字，发送前扫一遍"。
+- **P2-2 安全预检**：一页版段模板新增「安全预检」行（高危元素/已登记模式/未登记正常写）。
 
-**验证**：Python 89 tests 全过；Node K17 与 Python 同为 54 项、A17 同为 43 项；good_project K17 exit 0、a17_audit_project A17 exit 0；默认 no 回归。
+**验证**：Python 90 tests 全过；Node 87 tests 全过；good_project K17 exit 0、a17_audit_project A17 exit 0；split_volumes K8 Python/Node 均 exit 0；ep01 K17 54 / A17 43；默认门零回归。
 
-**改动文件**：scripts/{check.py, check.mjs, check-gates-e.mjs, check-gates-f.mjs} / assets/templates-execution.md / SKILL.md / README.md / create.md / tests/{test_check.py, fixtures/*}
+**改动文件**：scripts/{check.py, check.mjs, check-gates-e.mjs, check-gates-f.mjs, vigen_md.py, vigen-md.mjs} / assets/{templates.md, templates-execution.md} / references/{prompt-rules, execution-pitfalls, learning-guide}.md / SKILL.md / README.md / create.md / tests/{test_check.py, fixtures/*}
