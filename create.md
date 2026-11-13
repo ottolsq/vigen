@@ -1225,3 +1225,19 @@ ai-video-maker/
 **验证**：Python 113 tests 全过；Node 130 tests 全过（A17/A18 全夹具 parity）；a17_audit_project A17 exit 0；good_project 默认门 exit 0。
 
 **改动文件**：references/{prompt-rules, models, learning-guide}.md / assets/templates.md / SKILL.md / README.md / create.md
+
+### V3.22.2（2026-11-13，代码评审修复：A17/A18 机检 15 项）
+
+**驱动**：对 V3.22/V3.22.1 提交做 review，发现 15 项真实缺陷，集中在"新机检误判/漏检/双端不一致"。
+
+- **A18 恢复生效**：豁免正则去掉裸 `text`/`文字`/`字幕`/`榜文`/`诗句` 等——这些会匹配每条图片提示词必带的 `No text, no watermark…` 收尾句，导致 A18 几乎永不报警；改为只豁免技术参考图/文字排版的明确标记。
+- **K17 负向节不再吞段**：`_drop_negative_section` 改为按每个代码围栏块单独执行；否则第一个【负面提示词】节会吞掉同文件后续所有段落，音乐词漏检。
+- **全片负面清单表格识别**：`_has_full_negative_list` 支持 Markdown 表格（跳过表头/分隔行/占位），02 按模板填表不再被误判"无可用清单"。
+- **双端 parity**：A17 参考契约 Python 改用不丢负向节的取行函数；`_model_negative_support` 支持带后缀表头并跳过模板占位；Node 段卡/段状态账补空单元格判断。
+- **A17 误判修复**：`TIME_RANGE` 要求 `｜/|` 或"镜头"分隔，不再把 `2.0—2.3s：` 秒级时序行当镜头；`CUT_LINE` 只认行首转场标记，不再把正文"视线"当切点；走位总谱提取不再因角色行加粗截断；运镜/焦段检查不再被"无参考图项目"整体跳过；群像计入背景动作线阈值；群像标题括号会被剥掉。
+- **大小写与文档**：`Negative Prompt` 大小写不敏感；01 模板裸 `硬切` 改为 `硬切（对话戏节奏）`；硬规则 21 台账名改为 A17 实际匹配的"场景镜头序列/情绪反向索引"。
+- **回归测试**：Python +9（K17 跨段/A18 收尾句/全片清单表格/负向字段占位/正则/加粗走位/群像括号/Negative 大小写/无参考图焦段），Node +2（A18 收尾句/K17 跨段）。
+
+**验证**：Python 122 tests 全过；Node 132 tests 全过（A17/A18 全夹具 parity）；a17_audit_project A17 exit 0；good_project 默认门 exit 0。
+
+**改动文件**：scripts/{check.py, check-gates-e.mjs, check-gates-f.mjs} / assets/templates.md / SKILL.md / README.md / create.md / tests/{test_check.py, check-mjs.test.mjs}

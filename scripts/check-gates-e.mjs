@@ -130,9 +130,16 @@ function escapeRegExp(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-const TIME_RANGE_ANY = /^\s*\d+(?:\.\d+)?\s*s?\s*[–\-—~～至]\s*\d+/;
-const CUT_LINE = /^\s*\d+(?:\.\d+)?\s*s?\s+.*(HARD CUT|硬切|相似动作|前景遮挡|形状匹配|甩镜|闪白|视线|匹配剪辑|叠化|淡入淡出|闪黑|缩放|划像|转场)/i;
+const TIME_RANGE_ANY = /^\s*\d+(?:\.\d+)?\s*s?\s*[–\-—~～至]\s*\d+(?:\.\d+)?\s*s?\s*(?:[｜|]|\s+镜头)/;
+const CUT_LINE = /^\s*\d+(?:\.\d+)?\s*s?\s*(?:HARD CUT|硬切|相似动作|前景遮挡|形状匹配|甩镜|闪白|匹配剪辑|叠化|淡入淡出|闪黑|缩放|划像|转场)(?:\s|（|\()/i;
 const CONTINUITY_NEG = /瞬移|换位|消失|重复|状态|teleport|swapp|disappear|duplicate|continuity/i;
+const WALK_STOPS = [
+  "\nACTIVE REFERENCES", "\n**ACTIVE REFERENCES",
+  "\nCONTINUITY RULE", "\n**CONTINUITY",
+  "\n出场人物", "\n**出场人物",
+  "\nFORMAT", "\n**FORMAT",
+  "\n【", "\n## ",
+];
 
 function namesWithRefs(project, sectionName) {
   const lines = project.doc("02");
@@ -210,7 +217,8 @@ function groupsWithRefs(project) {
   }
   const names = new Set();
   for (const block of blocksArr) {
-    const name = block[0][1].slice(4).trim();
+    let name = block[0][1].slice(4).trim();
+    name = name.split(/[（(]/)[0].trim();
     if (!name) continue;
     for (const [, t] of block) {
       if (!t.includes("参考图路径")) continue;
@@ -224,12 +232,9 @@ function groupsWithRefs(project) {
 }
 
 function negativeSectionText(text) {
-  for (const marker of ["【负面提示词】", "NEGATIVE PROMPT", "NEGATIVE PROMPTS"]) {
-    if (text.includes(marker)) {
-      return extractBetween(text, marker, ["\n【", "\n## ", "\n```"]);
-    }
-  }
-  return "";
+  const m = text.match(/【负面提示词】|NEGATIVE\s+PROMPTS?/i);
+  if (!m) return "";
+  return extractBetween(text, m[0], ["\n【", "\n## ", "\n```"]);
 }
 
 function modelNegativeSupport(project) {
@@ -238,8 +243,9 @@ function modelNegativeSupport(project) {
     const purpose = cell(r, "用途");
     if (!purpose.includes("负向") && !purpose.includes("负面")) continue;
     const value = cell(r, "模型").trim();
-    if (value.includes("支持") && !value.includes("不支持")) return "支持";
+    if (!value || isPlaceholder(value)) continue;
     if (value.includes("不支持")) return "不支持";
+    if (value.includes("支持")) return "支持";
   }
   return "";
 }
@@ -248,7 +254,16 @@ function hasFullNegativeList(project) {
   const lines = project.section("02", "全片负面清单");
   for (const [, ln] of lines) {
     const s = ln.trim();
-    if (s && !/^[>|#`]/.test(s) && !isPlaceholder(s)) return true;
+    if (!s || /^[>#`]/.test(s)) continue;
+    if (s.startsWith("|")) {
+      const cells = s.replace(/^\|/, "").replace(/\|$/, "").split("|").map((c) => c.trim());
+      if (cells.length < 2) continue;
+      if (cells.every((c) => !c || /^:?-{2,}:?$/.test(c))) continue;
+      if (cells[0] === "组" || cells[1].includes("条目")) continue;
+      if (cells.slice(1).some((c) => c && !isPlaceholder(c))) return true;
+      continue;
+    }
+    if (!isPlaceholder(s)) return true;
   }
   return false;
 }
@@ -366,7 +381,7 @@ export function gateA17(project, partial) {
             const idx = colIdx.get(name);
             if (idx >= 0) {
               const value = (cells[idx] || "").trim();
-              if (isPlaceholder(value)) {
+              if (!value || isPlaceholder(value)) {
                 findings.push(finding("A17", DOC_FILES["01"], no, `段卡「${name}」为空或占位（状态三问必填）`));
               }
             }
@@ -403,7 +418,7 @@ export function gateA17(project, partial) {
       for (const [no, cells] of body) {
         for (const [name, idx] of [["帽", hi], ["须", sui], ["道具", pi], ["依据", bi]]) {
           const value = (cells[idx] || "").trim();
-          if (isPlaceholder(value)) {
+          if (!value || isPlaceholder(value)) {
             findings.push(finding("A17", DOC_FILES["01"], no, `段状态账「${name}」为空或占位（跨段状态必填）`));
           }
         }
@@ -519,6 +534,7 @@ export function gateA17(project, partial) {
 
   const lockKeys = ["身份锁", "表情锁", "表演锁", "说话人锁", "道具锁", "空间锁", "风格锁", "声音锁", "动作锁"];
   const segCharNames = namesWithRefs(project, "角色锚定表");
+  const segGroupNames = groupsWithRefs(project);
   if (project.doc("04") !== null) {
     const segs = blocks(project.doc("04"), true);
     if (!segs.length) findings.push(finding("A17", DOC_FILES["04"], 0, "警告：未找到段落块，A17 锁定清单未核对"));
@@ -562,20 +578,19 @@ export function gateA17(project, partial) {
         }
       }
 
-      // V3.22 走位总谱：段内出现 ≥2 个有参考图的角色 → 必须有走位总谱 + 连续性铁律
+      // V3.22 走位总谱：段内出现 ≥2 个有参考图的角色（或群像）→ 走位总谱 + 连续性铁律
       const presentChars = [...segCharNames].filter((n) => text.includes(n)).sort();
+      const presentGroups = [...segGroupNames].filter((n) => text.includes(n)).sort();
+      const hasGroup = presentGroups.length > 0;
       const shotLines = block.filter(([, t]) => TIME_RANGE_ANY.test(t.trim()));
-      if (presentChars.length >= 2) {
+      if (presentChars.length >= 2 || hasGroup) {
         if (!text.includes("走位总谱")) {
           findings.push(finding(
             "A17", DOC_FILES["04"], headNo,
             "多角色段缺【走位总谱】（硬规则22：每角色位置/坐站走/朝向——防瞬移/换位/消失）",
           ));
         } else {
-          const walk = extractBetween(
-            text, "走位总谱",
-            ["\nACTIVE REFERENCES", "\nCONTINUITY RULE", "\n【", "\n## ", "\n**"],
-          );
+          const walk = extractBetween(text, "走位总谱", WALK_STOPS);
           if (!walk.includes("连续性铁律") && !text.includes("连续性铁律")) {
             findings.push(finding(
               "A17", DOC_FILES["04"], headNo,
@@ -589,13 +604,20 @@ export function gateA17(project, partial) {
               `走位总谱缺角色位置：${missingWalk.join("、")}（每个在场角色都要写场景锚点+坐站走+朝向）`,
             ));
           }
+          const missingGroups = presentGroups.filter((g) => !walk.includes(g));
+          if (missingGroups.length) {
+            findings.push(finding(
+              "A17", DOC_FILES["04"], headNo,
+              `走位总谱缺群像位置：${missingGroups.join("、")}（群像写场景锚点+流动范围）`,
+            ));
+          }
           if (shotLines.length >= 2 && !walk.includes("逐镜动线")) {
             findings.push(finding(
               "A17", DOC_FILES["04"], headNo,
               "多镜段走位总谱缺「逐镜动线」（每镜位置变化：镜头1→镜头2→…）",
             ));
           }
-          if (presentChars.length >= 3 && shotLines.length >= 2 && !walk.includes("背景动作线")) {
+          if ((presentChars.length >= 3 || hasGroup) && shotLines.length >= 2 && !walk.includes("背景动作线")) {
             findings.push(finding(
               "A17", DOC_FILES["04"], headNo,
               "≥3 人段走位总谱缺「背景动作线」（焦点不在也不停/不消失/不换人）",
@@ -668,7 +690,7 @@ export function gateA17(project, partial) {
   const chars = namesWithRefs(project, "角色锚定表");
   const props = namesWithRefs(project, "道具锚定表");
   const groups = groupsWithRefs(project);
-  if ((chars.size || props.size || groups.size) && project.doc("04") !== null) {
+  if (project.doc("04") !== null) {
     for (const shot of shotBlocks(project.doc("04"))) {
       const text = shotContent(shot);
       if (!/运镜\s*[:：]\s*M\d{2}/.test(text)) {
@@ -714,7 +736,7 @@ export function gateA17(project, partial) {
 
 // A18 图片提示词约束预算（V3.22，opt-in）——与 check.py gate_a18 行为对齐。
 const CJK_RE = /[一-鿿]/g;
-const IMAGE_EXEMPT_RE = /名单|姓名|榜文|诗句|字幕|文字|三视图|四视图|设计表|图案|排版|字体|reference sheet|character sheet|prop reference|pattern|text/i;
+const IMAGE_EXEMPT_RE = /三视图|四视图|设计表|设定图|参考图|人物设定|道具设定|场景设定|文字排版|字体设计|reference sheet|character sheet|prop reference|pattern sheet|图案特写|图案板|typography|text layout|info sheet/i;
 const CONSTRAINT_WORD_RE = /禁止|不要|不得|不能|必须|严禁|no\s+/gi;
 
 export function gateA18(project) {

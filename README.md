@@ -110,7 +110,7 @@ GATE0 需求问卷+对齐
 │   ├── vigen-md.mjs      # Node 解析层（check.mjs 依赖，行为对齐 vigen_md.py）
 │   └── export.py         # 交付打包（快照 + manifest + checksums，不声称审批）
 └── tests/
-    ├── test_check.py       # check.py 单元测试（113 tests；含 test_export）
+    ├── test_check.py       # check.py 单元测试（122 tests；含 test_export）
     ├── check-mjs.test.mjs  # check.mjs K1-K17 + A16/A17/A18 parity（node --test tests/check-mjs.test.mjs）
     ├── baseline-record.md  # TDD 测试记录
     ├── baseline-checkpy-record.md  # 真实项目试跑误拦观察记录

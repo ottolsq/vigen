@@ -1653,14 +1653,22 @@ MUSIC_WORDS_RE = re.compile(
     r"音乐|配乐|旋律|节拍|和声|音符|伴奏|演唱|哼唱|吟唱|节奏性|节奏点|BGM",
     re.I)
 _QUOTE_STRIP_RE = re.compile(r'"[^"]*"|“[^”]*”|「[^」]*」|『[^』]*』')
-_TIME_RANGE_ANY_RE = re.compile(r"^\s*\d+(?:\.\d+)?\s*s?\s*[–\-—~～至]\s*\d+")
+_TIME_RANGE_ANY_RE = re.compile(
+    r"^\s*\d+(?:\.\d+)?\s*s?\s*[–\-—~～至]\s*\d+(?:\.\d+)?\s*s?\s*(?:[｜|]|\s+镜头)")
 _CUT_LINE_RE = re.compile(
-    r"^\s*\d+(?:\.\d+)?\s*s?\s+.*"
-    r"(HARD CUT|硬切|相似动作|前景遮挡|形状匹配|甩镜|闪白|视线|匹配剪辑|"
-    r"叠化|淡入淡出|闪黑|缩放|划像|转场)", re.I)
+    r"^\s*\d+(?:\.\d+)?\s*s?\s*"
+    r"(HARD CUT|硬切|相似动作|前景遮挡|形状匹配|甩镜|闪白|匹配剪辑|"
+    r"叠化|淡入淡出|闪黑|缩放|划像|转场)(?:\s|（|\()", re.I)
 _CONTINUITY_NEG_RE = re.compile(
     r"瞬移|换位|消失|重复|状态|teleport|swapp|disappear|duplicate|continuity",
     re.I)
+_WALK_STOPS = (
+    "\nACTIVE REFERENCES", "\n**ACTIVE REFERENCES",
+    "\nCONTINUITY RULE", "\n**CONTINUITY",
+    "\n出场人物", "\n**出场人物",
+    "\nFORMAT", "\n**FORMAT",
+    "\n【", "\n## ",
+)
 
 
 def _drop_negative_section(items: List[Tuple[int, str]]) -> List[Tuple[int, str]]:
@@ -1682,11 +1690,41 @@ def _drop_negative_section(items: List[Tuple[int, str]]) -> List[Tuple[int, str]
 
 
 def _k17_prompt_lines(lines: Optional[List[str]]) -> List[Tuple[int, str]]:
-    """只取提示词正文：有代码围栏时取围栏内；否则排除 > 说明、# 标题、| 表格。"""
+    """只取提示词正文：有代码围栏时取围栏内；否则排除 > 说明、# 标题、| 表格。
+
+    V3.22.1：负向节按**每个围栏块**单独丢弃——否则一个段落的【负面提示词】
+    会把同一文件后续段落的正文全部吞掉。
+    """
     if lines is None:
         return []
     text = "\n".join(lines)
     if "```" in text:
+        out: List[Tuple[int, str]] = []
+        current: List[Tuple[int, str]] = []
+        inside = False
+        for no, ln in enumerate(lines, start=1):
+            if ln.strip().startswith("```"):
+                if inside and current:
+                    out.extend(_drop_negative_section(current))
+                    current = []
+                inside = not inside
+                continue
+            if inside:
+                current.append((no, ln))
+        if inside and current:
+            out.extend(_drop_negative_section(current))
+        if out:
+            return out
+    return _drop_negative_section([
+        (no, ln) for no, ln in enumerate(lines, start=1)
+        if not ln.strip().startswith((">", "#", "|"))])
+
+
+def _prompt_body_lines(lines: Optional[List[str]]) -> List[Tuple[int, str]]:
+    """A17 参考契约用：只取提示词正文，但不丢弃负向节（与 check.mjs 对齐）。"""
+    if lines is None:
+        return []
+    if "```" in "\n".join(lines):
         out: List[Tuple[int, str]] = []
         inside = False
         for no, ln in enumerate(lines, start=1):
@@ -1696,10 +1734,9 @@ def _k17_prompt_lines(lines: Optional[List[str]]) -> List[Tuple[int, str]]:
             if inside:
                 out.append((no, ln))
         if out:
-            return _drop_negative_section(out)
-    return _drop_negative_section([
-        (no, ln) for no, ln in enumerate(lines, start=1)
-        if not ln.strip().startswith((">", "#", "|"))])
+            return out
+    return [(no, ln) for no, ln in enumerate(lines, start=1)
+            if not ln.strip().startswith((">", "#", "|"))]
 
 
 def gate_k17(project: Project, partial: bool) -> List[Finding]:
@@ -1935,7 +1972,7 @@ def _groups_with_refs(project: Project) -> set:
         elif current is not None:
             current.append((no, ln))
     for block in group_blocks:
-        name = block[0][1][4:].strip()
+        name = re.split(r"[（(]", block[0][1][4:].strip())[0].strip()
         if not name:
             continue
         for _no, text in block:
@@ -1950,38 +1987,52 @@ def _groups_with_refs(project: Project) -> set:
 
 
 def _negative_section_text(text: str) -> str:
-    """04 的【负面提示词】节（V3.22）；没有返回空串。"""
-    for marker in ("【负面提示词】", "NEGATIVE PROMPT", "NEGATIVE PROMPTS"):
-        if marker in text:
-            return _extract_between(text, marker, ("\n【", "\n## ", "\n```"))
-    return ""
+    """04 的【负面提示词】节（V3.22）；没有返回空串。大小写不敏感，与 K17 对齐。"""
+    m = re.search(r"【负面提示词】|NEGATIVE\s+PROMPTS?", text, re.I)
+    if not m:
+        return ""
+    return _extract_between(text, m.group(0), ("\n【", "\n## ", "\n```"))
 
 
 def _model_negative_support(project: Project) -> str:
-    """02 目标模型表「负向字段」= 支持/不支持；未登记返回空串。"""
+    """02 目标模型表「负向字段」= 支持/不支持；未登记/仍是占位返回空串。"""
     rows = table_rows(project.doc("02"), ("用途", "模型"))
     for row in rows or []:
-        purpose = row.cells.get("用途", "")
+        purpose = cell(row, "用途")
         if "负向" not in purpose and "负面" not in purpose:
             continue
-        value = row.cells.get("模型", "").strip()
-        if "支持" in value and "不支持" not in value:
-            return "支持"
+        value = cell(row, "模型").strip()
+        if not value or _is_placeholder(value):
+            continue
         if "不支持" in value:
             return "不支持"
+        if "支持" in value:
+            return "支持"
     return ""
 
 
 def _has_full_negative_list(project: Project) -> bool:
-    """02 是否有已填的「全片负面清单」节（V3.22）。"""
+    """02 是否有已填的「全片负面清单」节（V3.22；支持表格与散文两种写法）。"""
     lines = project.section("02", "全片负面清单")
     if not lines:
         return False
     for _no, ln in lines:
         s = ln.strip()
-        if s and not s.startswith((">", "|", "#", "```")):
-            if not _is_placeholder(s):
+        if not s or s.startswith((">", "#", "```")):
+            continue
+        if s.startswith("|"):
+            cells = [c.strip() for c in s.strip("|").split("|")]
+            if len(cells) < 2:
+                continue
+            if all(not c or re.fullmatch(r":?-{2,}:?", c) for c in cells):
+                continue
+            if cells[0] == "组" or "条目" in cells[1]:
+                continue
+            if any(c and not _is_placeholder(c) for c in cells[1:]):
                 return True
+            continue
+        if not _is_placeholder(s):
+            return True
     return False
 
 
@@ -2248,7 +2299,7 @@ def gate_a17(project: Project, partial: bool) -> List[Finding]:
 
     # 04 参考契约：@ REF 声明须写「锁定/只取」+「不复刻」
     if project.doc("04") is not None:
-        for no, ln in _k17_prompt_lines(project.doc("04")):
+        for no, ln in _prompt_body_lines(project.doc("04")):
             s = ln.strip()
             if not s.startswith("@") or "=" not in s:
                 continue
@@ -2276,6 +2327,7 @@ def gate_a17(project: Project, partial: bool) -> List[Finding]:
     lock_keys = ("身份锁", "表情锁", "表演锁", "说话人锁", "道具锁",
                  "空间锁", "风格锁", "声音锁", "动作锁")
     seg_char_names = _characters_with_refs(project)
+    seg_group_names = _groups_with_refs(project)
     if project.doc("04") is not None:
         segs = blocks(project.doc("04"), only_segments=True)
         if not segs:
@@ -2323,18 +2375,19 @@ def gate_a17(project: Project, partial: bool) -> List[Finding]:
                         "A17", DOC_FILES["04"], head_no,
                         "打斗段标记存在但 01 无「打斗交手账」（先写交手账再排镜）"))
 
-            # V3.22 段走位总谱：段内出现 ≥2 个有参考图的角色 → 必须有走位总谱 + 连续性铁律
+            # V3.22 段走位总谱：段内出现 ≥2 个有参考图的角色（或群像）→ 走位总谱 + 连续性铁律
             present_chars = sorted(n for n in seg_char_names if n in text)
+            present_groups = sorted(g for g in seg_group_names if g in text)
+            has_group = bool(present_groups)
             shot_lines = [ln for _no, ln in block if _TIME_RANGE_ANY_RE.match(ln.strip())]
-            if len(present_chars) >= 2:
+            if len(present_chars) >= 2 or has_group:
                 if "走位总谱" not in text:
                     findings.append(Finding(
                         "A17", DOC_FILES["04"], head_no,
                         "多角色段缺【走位总谱】（硬规则22：每角色位置/坐站走/朝向——防瞬移/换位/消失）"))
                 else:
                     walk = _extract_between(
-                        text, "走位总谱",
-                        ("\nACTIVE REFERENCES", "\nCONTINUITY RULE", "\n【", "\n## ", "\n**"))
+                        text, "走位总谱", _WALK_STOPS)
                     if "连续性铁律" not in walk and "连续性铁律" not in text:
                         findings.append(Finding(
                             "A17", DOC_FILES["04"], head_no,
@@ -2345,14 +2398,20 @@ def gate_a17(project: Project, partial: bool) -> List[Finding]:
                             "A17", DOC_FILES["04"], head_no,
                             "走位总谱缺角色位置：%s（每个在场角色都要写场景锚点+坐站走+朝向）"
                             % "、".join(missing_walk)))
+                    missing_groups = [g for g in present_groups if g not in walk]
+                    if missing_groups:
+                        findings.append(Finding(
+                            "A17", DOC_FILES["04"], head_no,
+                            "走位总谱缺群像位置：%s（群像写场景锚点+流动范围）"
+                            % "、".join(missing_groups)))
                     if len(shot_lines) >= 2 and "逐镜动线" not in walk:
                         findings.append(Finding(
                             "A17", DOC_FILES["04"], head_no,
                             "多镜段走位总谱缺「逐镜动线」（每镜位置变化：镜头1→镜头2→…）"))
-                    if len(present_chars) >= 3 and len(shot_lines) >= 2 and "背景动作线" not in walk:
+                    if (len(present_chars) >= 3 or has_group) and len(shot_lines) >= 2 and "背景动作线" not in walk:
                         findings.append(Finding(
                             "A17", DOC_FILES["04"], head_no,
-                            "≥3 人段走位总谱缺「背景动作线」（焦点不在也不停/不消失/不换人）"))
+                            "≥3 人或群像段走位总谱缺「背景动作线」（焦点不在也不停/不消失/不换人）"))
 
             # V3.22 动作桥：多镜段的每个切点须写「动作桥：上镜结尾→本镜开头」
             if len(shot_lines) >= 2:
@@ -2399,7 +2458,7 @@ def gate_a17(project: Project, partial: bool) -> List[Finding]:
     ref_names = _characters_with_refs(project)
     ref_props = _props_with_refs(project)
     ref_groups = _groups_with_refs(project)
-    if (ref_names or ref_props or ref_groups) and project.doc("04") is not None:
+    if project.doc("04") is not None:
         for shot in shot_blocks(project.doc("04")):
             content: List[str] = []
             for _no, t in shot:
@@ -2447,8 +2506,9 @@ def gate_a17(project: Project, partial: bool) -> List[Finding]:
 
 _CJK_RE = re.compile(r"[一-鿿]")
 _IMAGE_EXEMPT_RE = re.compile(
-    r"名单|姓名|榜文|诗句|字幕|文字|三视图|四视图|设计表|图案|排版|字体|"
-    r"reference sheet|character sheet|prop reference|pattern|text",
+    r"三视图|四视图|设计表|设定图|参考图|人物设定|道具设定|场景设定|文字排版|字体设计|"
+    r"reference sheet|character sheet|prop reference|pattern sheet|"
+    r"图案特写|图案板|typography|text layout|info sheet",
     re.I)
 _CONSTRAINT_WORD_RE = re.compile(r"禁止|不要|不得|不能|必须|严禁|no\s+", re.I)
 

@@ -26,15 +26,19 @@ function promptLines(lines) {
   if (lines === null) return [];
   if (lines.join("\n").includes("```")) {
     const out = [];
+    let current = [];
     let inside = false;
     lines.forEach((ln, i) => {
       if (ln.trim().startsWith("```")) {
+        if (inside && current.length) out.push(...dropNegativeSection(current));
+        current = [];
         inside = !inside;
         return;
       }
-      if (inside) out.push([i + 1, ln]);
+      if (inside) current.push([i + 1, ln]);
     });
-    if (out.length) return dropNegativeSection(out);
+    if (inside && current.length) out.push(...dropNegativeSection(current));
+    if (out.length) return out;
   }
   return dropNegativeSection(lines
     .map((ln, i) => [i + 1, ln])
