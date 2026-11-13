@@ -16,17 +16,18 @@
 > 时间账（V3.17）：`台词朗读(s) + 动作(s) ≤ 镜头(s)`；无台词填 0，不填"—"。
 > 状态三问（V3.17）：帽/须/道具三列必须填，且与下方「段状态账」一致。
 
-## 一·二、01 段状态账（跨段查帽/须/道具/服装）
+## 一·二、01 段状态账（跨段查帽/须/道具/服装/走位）
 
 ```markdown
 ## 段状态账
 
-| 段号 | 帽（戴/不戴） | 须（有/无） | 道具在/不在 | 服装版本 | 依据（02 行号） |
-| --- | --- | --- | --- | --- | --- |
-| 段1 | {戴白色宽檐笠} | {络腮短须有} | {花枪在；葫芦不在} | {深青黑战袍 v1} | {02:128} |
+| 段号 | 帽（戴/不戴） | 须（有/无） | 道具在/不在 | 服装版本 | 在场/位置（每人：角色=场景锚点+坐/站/走+朝向） | 依据（02 行号） |
+| --- | --- | --- | --- | --- | --- | --- |
+| 段1 | {戴白色宽檐笠} | {络腮短须有} | {花枪在；葫芦不在} | {深青黑战袍 v1} | {林冲=草料场门内左侧，站，面朝门外；陆谦=门外石阶下，站，面朝门} | {02:128；02:145 LOCATION MAP} |
 ```
 
-> 写段卡前先查本表；本表与 02 帽账/须账/道具账冲突时，以 02 为准并回填本表。
+> 写段卡前先查本表；本表与 02 帽账/须账/道具账/LOCATION MAP 冲突时，以 02 为准并回填本表。
+> **V3.22 走位账**：多角色段「在场/位置」必须逐人写；04 段首【走位总谱】从这里逐字复制，不凭记忆重写。单角色段也写「全场只有{角色}，其他人不得出现」。
 
 ## 二、01 批次校验记录（A1-A16 逐项 + 证据）
 
@@ -120,14 +121,31 @@
 【状态三问】
 帽：{戴/不戴，依据 02:行}｜须：{有/无，依据 02:行}｜道具：{哪些在/哪些不在，依据 02:行}
 
-【可行性】
-长杆/大件：{无 / 竖过/斜过/先出后转/拆件}｜双主运镜：{无 / 复合摇臂（01 标注）/ 拆段}｜大小变化：{约占画高 X%→Y%}
+【光影演变】（V3.22.1——多镜段必写）
+{起点光：时段/方向/色温} → {中段变化：随剧情/时间怎么变} → {收束光}（与 02 光线锚、场景图一致）
+
+【走位总谱】（V3.22.1——多角色段必写，从 01 段状态账逐字复制）
+- {角色A}：{场景锚点}，{坐/站/走}，{朝向}。
+- {角色B}：{场景锚点}，{坐/站/走}，{朝向}。
+逐镜动线（多镜段必写——每镜位置变化；不动的写"始终在{锚点}"）：
+- {角色A}：镜头1{位置/动作} → 镜头2{位置/动作} → … → 镜头N{结尾位置}。
+- {角色B}：全程在{锚点}{坐/站}，仅{微动作}。
+背景动作线（≥3 人或群像段必写——焦点不在其身也不停/不消失/不换人）：
+- {角色C}：从镜头{X}到镜头{Y}持续{动作}，焦点转移时动作不中断，结尾仍在{位置}。
+连续性铁律：本段开场站位承接上段结尾；{角色A/角色B/…}不得瞬移、不得换位、不得消失、不得离席；结尾全员归位、座位无空缺。
+
+【动作桥】（V3.22——每个切点一条：上镜结尾 → 本镜开头）
+- 切点1：{上镜最后一拍的动作/视线/声音} → {本镜第一拍的动作/视线/声音}。
+
+【可行性与负向】
+长杆/大件：{无 / 竖过/斜过/先出后转/拆件}｜双主运镜：{无 / 复合摇臂（01 标注）/ 拆段}｜大小变化：{约占画高 X%→Y%}｜负向字段：{支持（见 02 全片负面清单+本段连续性清单）/ 不支持（负面只进 NO）}
 
 【安全预检】
 {无高危元素 / 命中已登记模式：{模式+解法} / 未登记：正常写，被拦再按 content-safety 降级}
 
 【提示词正文】
 {只写技术清单：画面/动作/机位/光线/声音/禁项；不写抒情句、不写音乐类词}
+{模型支持负向字段时，正文后另起【负面提示词】节——见本文件七}
 ```
 
 ## 六、可选能力台账（V3.21——每项写 使用/不适用/待定 + 理由，A17 校验）
@@ -144,7 +162,40 @@
 | 导演风格 | {…} | {导演名 / 不适用} |
 | VFX 技能特效 | {…} | {vfx-effects 节 / 无特效} |
 | 方向锚/目标状态图 | {…} | {REF-DIR/REF-TARGET / 不需要} |
+| 群像参考资产 | {…} | {群像名/REF-GROUP-xx / 无群体场面} |
+| 负面清单（全片+本段） | {…} | {02:行 全片清单 / 模型不支持负向字段} |
 | 短剧市场层 | {…} | {立项单 / 电影化不适用} |
 | 内容合规 | {…} | {备案/红线 / 电影化不适用} |
 
 > 目的：区分"不适用"与"忘了用"。不是逼所有项目把所有库都用一遍；每项必须留下判断。
+
+## 七、负面提示词两段式（V3.22——仅模型支持负向字段时写）
+
+> 判据：02「目标模型」表 `负向字段=支持` 才写本节；不支持则负面只进 NO 节（短而靶向 3-5 条），不单独成节。
+> K17 会跳过【负面提示词】节内的音乐类词——因为这里是负向字段，不是正向正文；正向正文仍禁音乐词。
+
+```markdown
+【负面提示词】
+
+① 全片通用（从 02「全片负面清单」A/B/D 组逐字复制，冻结）
+no plastic mannequin, no smooth airbrushed skin, no waxiness, no stiff pose,
+no rigid 3D render, no over-saturated colors, no bloom glare, no lens flare,
+no chromatic aberration, no digital noise reduction, no posterization,
+no claymation, no low poly, no cheap crowd rendering, no unrealistic scale change,
+no plastic silk fabric, no rubbery facial expressions, no emotional stiffness,
+no static background, no matte painting background, no frozen clouds,
+no missing wind effects, no flat cloud texture, no background looking like wallpaper,
+no weightless hair or fabric, no weightless floating lanterns, no missing candle flicker,
+no simple push in, no simple pull out, no dolly zoom, no locked-off static camera,
+no background music, no subtitles except the ending title card, no text overlay, no graphic overlay
+
+② 本段连续性（从 02 C 组按本段风险选 5-10 条，替换占位符）
+no teleporting, no character swapping positions, no inconsistent seating,
+no continuity error, no disappearing {角色A}, no {角色A} stopping mid-action,
+no changing {角色A}, no empty seats, no characters dropping out of frame,
+no characters cropped by frame edge, no duplicate {道具},
+no {道具} in the wrong state, no costume color drift
+```
+
+> 写法纪律：① 只写"正向没要求的失败模式/多余物"；② 与正向冲突的负面不写（同一对象/属性不得正负并存）；③ 本段连续性条目按本段真实风险选，不整库粘贴；④ 负面段是独立字段，不与正文混写。
+> 无负向字段的模型：把 ② 里最关键的 3-5 条改写进 NO 节（正向式优先，如"只出现{角色A}与{角色B}，没有其他人"）。

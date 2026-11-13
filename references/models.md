@@ -10,6 +10,7 @@
 | --- | --- | --- |
 | gpt-image-2 / 2.5 | 生图 | 文生图 / 图生图 / 多图参考 / 编辑 / 透明背景（仅 png/webp）；输出边长为 16 的倍数、最长边 ≤3840、长短比 ≤3:1、总像素 655,360–8,294,400 |
 | happyhorse-1.1 | 视频 | t2v / i2v（首帧）/ r2v（多图参考 1-9 张）；时长 3-15s；中/英/日 |
+| Seedance / 即梦系 | 视频 | 参考生视频（多模态参考：图片/视频/音色）；**首帧非必需 [用户实测]**；具体上限以接入平台为准 |
 | MiniMax-H3 | 视频 | fl2va 检查点（t2va/首帧/尾帧/首尾帧）+ ref2va 检查点（多媒体参考）；短边默认768px；4-15s |
 | 视频模型自带语音 | 语音（默认） | 优先使用视频模型原生语音/对白能力（happyhorse 自带音效+语音+口型；H3 t2va/i2va 等含音频生成） |
 | cosyvoice-v3.5-flash | 语音（备选） | 音色复刻 + voice_id 持久化；仅当用户要求独立 TTS 对轨时启用 |
@@ -70,6 +71,11 @@
 - 自带音效+人物语音+口型同步（纯提示词层控制，无独立音频 API 参数）
 - 异步任务轮询；720P ¥0.9/秒、1080P ¥1.2/秒
 
+### Seedance / 即梦系（火山引擎，接入平台口径）
+
+- 模式：参考生视频（多模态参考：图片 + 视频 + 音色；具体张数/时长上限以接入平台为准）
+- **首帧非必需 [用户实测]**：详细视频提示词 + 人物/场景/道具参考图即可直出，段首情景图默认可不出；对照实测 H3 去掉情景图后画面质感明显变差，H3/happyhorse 维持必出。判定与写法见 prompt-rules 一节3「Seedance 免首帧例外」与「无首帧路径的正文补强」
+
 ### MiniMax-H3（官方 README 一手资料，2026-10-24）
 
 > 来源：MiniMax-AI/MiniMax-H3 官方 README（用户提供本地副本 `skills制作相关参考材料/minimax-h3-README.md`）。标注 `[官方文档]` 的条目为权威能力参数；标注 `[网关口径]` 的以实际控制台为准。
@@ -102,7 +108,7 @@
 | 官方平台 API / 海螺 App / Hub（**含 Context-IR**） | **自然语言即可**——Context-IR 负责转结构化。用本 skill **骨架 A**（风格1 多镜头公式，中文自然语言） |
 | 直连 H3-Base（本地部署 / 无 Context-IR 的网关） | **必须自己充当 Context-IR，写结构化中间表示**：`integrated_multimodal_description: [Shot N] … / overall_soundscape: … / non_diegetic_music: …`；Ref2VA 另加 `subject_definitions / summary / retention_analysis / detailed_description`；标签 `<Picture N>` `<Video N>` `<Audio N>` `<Subject N>` `(S1)` `<d>[语言] 台词</d>`；台词逐字保留不翻译（`<d>` 是 tokenizer 特殊 token） |
 
-> **多帧对齐（可选，需实测）**：若供应商支持 `<Picture k>` 时间对齐，可按 prompt-rules「生成路径判定·多帧配方」把每段切点帧钉到秒；默认不假定支持，先按供应商实测（能力实测优先）。
+> **多帧对齐（跨环境切镜必做，需实测）**：若供应商支持 `<Picture k>` 时间对齐，按 prompt-rules「H3 多帧对齐配方」把每段切点帧钉到秒；[用户实测] H3 段内跨环境切镜缺对应情境图时画面质感骤降，供应商不支持多帧对齐则拆段（每段一个环境）。默认不假定支持，先按供应商实测（能力实测优先）。
 > 官方 README 的三个可复现案例（T2VA 10s / I2VA 8s / Ref2VA 5s）给出了 H3-Context-IR 的输出全文，就是结构化形态的权威样例——走直连路径时按那些样例的字段与写法组织。旧档案中被停用的 H3 结构化语法描述因此**部分恢复为 [官方文档] 级**（见 _archive-suspended-claims.md 第五节）；仍停用的是那些无官方出处的"癖好/效果"类主张（太短是失败模式/15s 漂移/音频收敛晚等）。
 > 官方 I2VA 样例的写法特征（可借鉴进骨架 A）：单段落内用 `[Shot 1]…[Shot 2] At 00:04.500, the camera cuts to…` 表达段内切镜；`overall_soundscape` 按时间顺序写声音演变（"begins with… soon drowned out by… then cuts abruptly back to…"）；`non_diegetic_music` 写乐器/速度/动态而非"悲伤的音乐"。
 

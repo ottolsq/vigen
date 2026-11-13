@@ -4,6 +4,24 @@ import { DOC_FILES, blocks, dialogueQuotes, finding } from "./vigen-md.mjs";
 const MUSIC_WORDS = /音乐|配乐|旋律|节拍|和声|音符|伴奏|演唱|哼唱|吟唱|节奏性|节奏点|BGM/i;
 const QUOTE_STRIP = /"[^"]*"|“[^”]*”|「[^」]*」|『[^』]*』/g;
 
+function dropNegativeSection(items) {
+  const out = [];
+  let inside = false;
+  for (const [no, ln] of items) {
+    const s = ln.trim();
+    if (s.startsWith("【负面提示词】") || s.toUpperCase().startsWith("NEGATIVE PROMPT")) {
+      inside = true;
+      continue;
+    }
+    if (inside) {
+      if (s.startsWith("【") || s.startsWith("## ")) inside = false;
+      else continue;
+    }
+    out.push([no, ln]);
+  }
+  return out;
+}
+
 function promptLines(lines) {
   if (lines === null) return [];
   if (lines.join("\n").includes("```")) {
@@ -16,11 +34,11 @@ function promptLines(lines) {
       }
       if (inside) out.push([i + 1, ln]);
     });
-    if (out.length) return out;
+    if (out.length) return dropNegativeSection(out);
   }
-  return lines
+  return dropNegativeSection(lines
     .map((ln, i) => [i + 1, ln])
-    .filter(([, ln]) => !/^\s*[>#|]/.test(ln));
+    .filter(([, ln]) => !/^\s*[>#|]/.test(ln)));
 }
 
 export function gateK17(project) {

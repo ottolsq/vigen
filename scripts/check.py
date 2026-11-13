@@ -34,6 +34,9 @@ enforce 的条款（与 vigen_md 解析层配套）：
       → SKILL 执行契约（V3.16）
   K17 提示词卫生（V3.17）：04/03 正文禁音乐类词；无台词段须声明；
       声音节须有正向收尾「没有第二种声音，也没有任何持续声底」
+      （V3.22：【负面提示词】节跳过——负向字段不是正向正文）
+  A18 图片约束预算（opt-in，V3.22）：03 单张提示词 >260 汉字或约束词 >10 处
+      → 警告约束过密（技术参考图/文字排版类豁免）
 
 用法（CT6）：
     python check.py <项目目录> [--partial] [--gate K5[,K6]]
@@ -1650,6 +1653,32 @@ MUSIC_WORDS_RE = re.compile(
     r"音乐|配乐|旋律|节拍|和声|音符|伴奏|演唱|哼唱|吟唱|节奏性|节奏点|BGM",
     re.I)
 _QUOTE_STRIP_RE = re.compile(r'"[^"]*"|“[^”]*”|「[^」]*」|『[^』]*』')
+_TIME_RANGE_ANY_RE = re.compile(r"^\s*\d+(?:\.\d+)?\s*s?\s*[–\-—~～至]\s*\d+")
+_CUT_LINE_RE = re.compile(
+    r"^\s*\d+(?:\.\d+)?\s*s?\s+.*"
+    r"(HARD CUT|硬切|相似动作|前景遮挡|形状匹配|甩镜|闪白|视线|匹配剪辑|"
+    r"叠化|淡入淡出|闪黑|缩放|划像|转场)", re.I)
+_CONTINUITY_NEG_RE = re.compile(
+    r"瞬移|换位|消失|重复|状态|teleport|swapp|disappear|duplicate|continuity",
+    re.I)
+
+
+def _drop_negative_section(items: List[Tuple[int, str]]) -> List[Tuple[int, str]]:
+    """K17 跳过明确标记的【负面提示词】节（V3.22：负向字段不是正向正文）。"""
+    out: List[Tuple[int, str]] = []
+    inside = False
+    for no, ln in items:
+        s = ln.strip()
+        if s.startswith("【负面提示词】") or s.upper().startswith("NEGATIVE PROMPT"):
+            inside = True
+            continue
+        if inside:
+            if s.startswith("【") or s.startswith("## "):
+                inside = False
+            else:
+                continue
+        out.append((no, ln))
+    return out
 
 
 def _k17_prompt_lines(lines: Optional[List[str]]) -> List[Tuple[int, str]]:
@@ -1667,9 +1696,10 @@ def _k17_prompt_lines(lines: Optional[List[str]]) -> List[Tuple[int, str]]:
             if inside:
                 out.append((no, ln))
         if out:
-            return out
-    return [(no, ln) for no, ln in enumerate(lines, start=1)
-            if not ln.strip().startswith((">", "#", "|"))]
+            return _drop_negative_section(out)
+    return _drop_negative_section([
+        (no, ln) for no, ln in enumerate(lines, start=1)
+        if not ln.strip().startswith((">", "#", "|"))])
 
 
 def gate_k17(project: Project, partial: bool) -> List[Finding]:
@@ -1870,6 +1900,93 @@ def _props_with_refs(project: Project) -> set:
 
 # ------------------------------------------------------------------ A17 执行契约留痕（opt-in 审计）
 
+def _extract_between(text: str, start: str, stops: Tuple[str, ...]) -> str:
+    idx = text.find(start)
+    if idx < 0:
+        return ""
+    rest = text[idx + len(start):]
+    cut = len(rest)
+    for stop in stops:
+        j = rest.find(stop)
+        if j >= 0:
+            cut = min(cut, j)
+    return rest[:cut]
+
+
+def _groups_with_refs(project: Project) -> set:
+    """02 群像锚定表里登记了参考图路径的群像名（A17 就地绑定检查用）。"""
+    lines = project.doc("02")
+    if lines is None:
+        return set()
+    names = set()
+    in_section = False
+    current: Optional[List[Tuple[int, str]]] = None
+    group_blocks: List[List[Tuple[int, str]]] = []
+    for no, ln in enumerate(lines, start=1):
+        if ln.startswith("## "):
+            in_section = ln[3:].strip().startswith("群像锚定表")
+            current = None
+            continue
+        if not in_section:
+            continue
+        if ln.startswith("### "):
+            current = [(no, ln)]
+            group_blocks.append(current)
+        elif current is not None:
+            current.append((no, ln))
+    for block in group_blocks:
+        name = block[0][1][4:].strip()
+        if not name:
+            continue
+        for _no, text in block:
+            if "参考图路径" not in text:
+                continue
+            cells = [c.strip() for c in text.strip().strip("|").split("|")]
+            value = cells[1] if len(cells) > 1 else ""
+            if value and not _is_placeholder(value):
+                names.add(name)
+            break
+    return names
+
+
+def _negative_section_text(text: str) -> str:
+    """04 的【负面提示词】节（V3.22）；没有返回空串。"""
+    for marker in ("【负面提示词】", "NEGATIVE PROMPT", "NEGATIVE PROMPTS"):
+        if marker in text:
+            return _extract_between(text, marker, ("\n【", "\n## ", "\n```"))
+    return ""
+
+
+def _model_negative_support(project: Project) -> str:
+    """02 目标模型表「负向字段」= 支持/不支持；未登记返回空串。"""
+    rows = table_rows(project.doc("02"), ("用途", "模型"))
+    for row in rows or []:
+        purpose = row.cells.get("用途", "")
+        if "负向" not in purpose and "负面" not in purpose:
+            continue
+        value = row.cells.get("模型", "").strip()
+        if "支持" in value and "不支持" not in value:
+            return "支持"
+        if "不支持" in value:
+            return "不支持"
+    return ""
+
+
+def _has_full_negative_list(project: Project) -> bool:
+    """02 是否有已填的「全片负面清单」节（V3.22）。"""
+    lines = project.section("02", "全片负面清单")
+    if not lines:
+        return False
+    for _no, ln in lines:
+        s = ln.strip()
+        if s and not s.startswith((">", "|", "#", "```")):
+            if not _is_placeholder(s):
+                return True
+    return False
+
+
+# ------------------------------------------------------------------ A17 执行契约留痕（opt-in 审计）
+
 def _header_index(header: List[str], *names: str) -> int:
     for name in names:
         for i, h in enumerate(header):
@@ -2052,9 +2169,10 @@ def gate_a17(project: Project, partial: bool) -> List[Finding]:
                 findings.append(Finding(
                     "A17", DOC_FILES["01"], row.line,
                     "运镜列缺 Mxx 编号（V3.20——写不出编号=没有选）：%s" % value[:24]))
-    # P0-3 转场选型：01 转场列必须是 8 种之一；硬切必须带理由（V3.21）
+    # P0-3 转场选型：01 转场列必须是 8 种生成端或 5 种剪辑端之一；硬切带理由（V3.21/V3.22）
     transitions = ("硬切", "相似动作", "前景遮挡", "形状匹配", "甩镜",
-                   "闪白", "视线", "匹配剪辑")
+                   "闪白", "视线", "匹配剪辑",
+                   "叠化", "淡入淡出", "淡出", "闪黑", "缩放", "划像")
     trans_rows = table_rows(project.doc("01"), ("镜号", "转场"), aliases=STORY_ALIASES)
     if trans_rows:
         for row in trans_rows:
@@ -2067,16 +2185,22 @@ def gate_a17(project: Project, partial: bool) -> List[Finding]:
                         "A17", DOC_FILES["01"], row.line,
                         "转场写「硬切」须带理由（硬切（理由）——V3.21）：%s" % value[:24]))
                 continue
+            if "匹配剪辑" in value and not re.search(r"匹配剪辑\s*[（(].+[）)]", value):
+                findings.append(Finding(
+                    "A17", DOC_FILES["01"], row.line,
+                    "匹配剪辑须写对应对象（匹配剪辑（对应：A→B）——V3.22）：%s"
+                    % value[:24]))
+                continue
             if not any(t in value for t in transitions):
                 findings.append(Finding(
                     "A17", DOC_FILES["01"], row.line,
-                    "转场不在 8 种库内（硬切/相似动作/前景遮挡/形状匹配/甩镜/闪白/视线/匹配剪辑）：%s"
-                    % value[:24]))
+                    "转场不在库内（生成端 8 种：硬切/相似动作/前景遮挡/形状匹配/甩镜/闪白/视线/匹配剪辑；"
+                    "剪辑端 5 种：叠化/淡入淡出/闪黑/缩放/划像）：%s" % value[:24]))
 
-    # P0-4 可选能力台账：每项 使用/不适用/待定 + 证据（V3.21）
+    # P0-4 可选能力台账：每项 使用/不适用/待定 + 证据（V3.21 / V3.22 扩项）
     ledger_names = ("运镜库", "转场库", "场景镜头序列", "FACS", "身体姿态",
                     "情绪反向", "打斗七段", "导演风格", "VFX",
-                    "方向锚", "短剧市场", "内容合规")
+                    "方向锚", "群像参考", "负面清单", "短剧市场", "内容合规")
     ledger_found = False
     for head_no, header, body in iter_tables(doc):
         cap_i = _header_index(header, "能力")
@@ -2130,14 +2254,14 @@ def gate_a17(project: Project, partial: bool) -> List[Finding]:
                 continue
             if "Ref" not in s and "REF" not in s:
                 continue
-            if "锁定" not in s and "只取" not in s:
+            if "锁定" not in s and "只取" not in s and "仅参考" not in s:
                 findings.append(Finding(
                     "A17", DOC_FILES["04"], no,
-                    "参考声明缺「锁定/只取」：%s" % s[:24]))
-            if "不复刻" not in s:
+                    "参考声明缺「锁定/只取/仅参考」：%s" % s[:24]))
+            if "不复刻" not in s and "不复制" not in s:
                 findings.append(Finding(
                     "A17", DOC_FILES["04"], no,
-                    "参考声明缺「不复刻」：%s" % s[:24]))
+                    "参考声明缺「不复刻/不复制」：%s" % s[:24]))
 
     # 04 只允许段/镜头标题；修正说明/变更记录应写 01
     if project.doc("04") is not None:
@@ -2151,6 +2275,7 @@ def gate_a17(project: Project, partial: bool) -> List[Finding]:
     # 04 每段段首必须有「本段锁定清单」九项（硬规则 19）
     lock_keys = ("身份锁", "表情锁", "表演锁", "说话人锁", "道具锁",
                  "空间锁", "风格锁", "声音锁", "动作锁")
+    seg_char_names = _characters_with_refs(project)
     if project.doc("04") is not None:
         segs = blocks(project.doc("04"), only_segments=True)
         if not segs:
@@ -2198,10 +2323,83 @@ def gate_a17(project: Project, partial: bool) -> List[Finding]:
                         "A17", DOC_FILES["04"], head_no,
                         "打斗段标记存在但 01 无「打斗交手账」（先写交手账再排镜）"))
 
-    # 人物参考就地绑定（硬规则 20）：有参考图的角色，每镜首次出现写 角色名 @RefN
+            # V3.22 段走位总谱：段内出现 ≥2 个有参考图的角色 → 必须有走位总谱 + 连续性铁律
+            present_chars = sorted(n for n in seg_char_names if n in text)
+            shot_lines = [ln for _no, ln in block if _TIME_RANGE_ANY_RE.match(ln.strip())]
+            if len(present_chars) >= 2:
+                if "走位总谱" not in text:
+                    findings.append(Finding(
+                        "A17", DOC_FILES["04"], head_no,
+                        "多角色段缺【走位总谱】（硬规则22：每角色位置/坐站走/朝向——防瞬移/换位/消失）"))
+                else:
+                    walk = _extract_between(
+                        text, "走位总谱",
+                        ("\nACTIVE REFERENCES", "\nCONTINUITY RULE", "\n【", "\n## ", "\n**"))
+                    if "连续性铁律" not in walk and "连续性铁律" not in text:
+                        findings.append(Finding(
+                            "A17", DOC_FILES["04"], head_no,
+                            "走位总谱缺「连续性铁律」（本段承接上段结尾；不得瞬移/换位/消失/离席）"))
+                    missing_walk = [n for n in present_chars if n not in walk]
+                    if missing_walk:
+                        findings.append(Finding(
+                            "A17", DOC_FILES["04"], head_no,
+                            "走位总谱缺角色位置：%s（每个在场角色都要写场景锚点+坐站走+朝向）"
+                            % "、".join(missing_walk)))
+                    if len(shot_lines) >= 2 and "逐镜动线" not in walk:
+                        findings.append(Finding(
+                            "A17", DOC_FILES["04"], head_no,
+                            "多镜段走位总谱缺「逐镜动线」（每镜位置变化：镜头1→镜头2→…）"))
+                    if len(present_chars) >= 3 and len(shot_lines) >= 2 and "背景动作线" not in walk:
+                        findings.append(Finding(
+                            "A17", DOC_FILES["04"], head_no,
+                            "≥3 人段走位总谱缺「背景动作线」（焦点不在也不停/不消失/不换人）"))
+
+            # V3.22 动作桥：多镜段的每个切点须写「动作桥：上镜结尾→本镜开头」
+            if len(shot_lines) >= 2:
+                if "光影演变" not in text:
+                    findings.append(Finding(
+                        "A17", DOC_FILES["04"], head_no,
+                        "多镜段缺「光影演变」线（起点光→中段变化→收束光——防切镜后光色跳变）"))
+                cut_points = [(i, ln) for i, (_no, ln) in enumerate(block)
+                              if _CUT_LINE_RE.match(ln.strip())]
+                if cut_points:
+                    for i, ln in cut_points:
+                        window = ln + "\n" + "\n".join(t for _no, t in block[i + 1:i + 3])
+                        if "动作桥" not in window:
+                            findings.append(Finding(
+                                "A17", DOC_FILES["04"], block[i][0],
+                                "切点缺「动作桥：上镜结尾→本镜开头」（硬规则22）"))
+                elif "动作桥" not in text:
+                    findings.append(Finding(
+                        "A17", DOC_FILES["04"], head_no,
+                        "多镜段未写「动作桥」（硬规则22：每个切点写动作/视线/声音承接）"))
+
+            # V3.22 负面提示词两段式：有【负面提示词】节时查 02 闭环与连续性条目
+            neg_text = _negative_section_text(text)
+            neg_support = _model_negative_support(project)
+            if neg_text:
+                if neg_support == "不支持":
+                    findings.append(Finding(
+                        "A17", DOC_FILES["04"], head_no,
+                        "02 标记「负向字段=不支持」，04 仍写【负面提示词】节（负面只进 NO）"))
+                if not _has_full_negative_list(project):
+                    findings.append(Finding(
+                        "A17", DOC_FILES["04"], head_no,
+                        "有【负面提示词】节但 02 无可用的「全片负面清单」（先登记再引用）"))
+                if not _CONTINUITY_NEG_RE.search(neg_text):
+                    findings.append(Finding(
+                        "A17", DOC_FILES["04"], head_no,
+                        "【负面提示词】缺本段连续性条目（不瞬移/不换位/不消失/不重复道具/状态不跳变）"))
+            elif neg_support == "支持":
+                findings.append(Finding(
+                    "A17", DOC_FILES["04"], head_no,
+                    "02 标记「负向字段=支持」但本段无【负面提示词】节（有负向能力未使用——硬规则21/22）"))
+
+    # 人物/道具/群像参考就地绑定（硬规则 20）：有参考图的角色、道具、群像，每镜首次出现写 名称 @RefN
     ref_names = _characters_with_refs(project)
     ref_props = _props_with_refs(project)
-    if (ref_names or ref_props) and project.doc("04") is not None:
+    ref_groups = _groups_with_refs(project)
+    if (ref_names or ref_props or ref_groups) and project.doc("04") is not None:
         for shot in shot_blocks(project.doc("04")):
             content: List[str] = []
             for _no, t in shot:
@@ -2209,7 +2407,10 @@ def gate_a17(project: Project, partial: bool) -> List[Finding]:
                 if s.upper() in ("ENDING FRAME", "PERFORMANCE LOCK", "FACE LOCK",
                                  "AUDIO", "LIGHTING", "NO"):
                     break
-                if s.startswith(("表演：", "表演注", "自检")):
+                if s.startswith(("表演：", "表演注", "自检",
+                                  "走位总谱", "连续性铁律", "动作桥")):
+                    continue
+                if "（动作桥" in s or "(动作桥" in s:
                     continue
                 content.append(t)
             text = "\n".join(content)
@@ -2217,22 +2418,90 @@ def gate_a17(project: Project, partial: bool) -> List[Finding]:
                 findings.append(Finding(
                     "A17", DOC_FILES["04"], shot[0][0],
                     "镜头块缺「运镜：Mxx 库名（R行号）」（V3.20——写不出编号=没有选）"))
-            for name in ref_names:
+            if not re.search(r"\d+\s*mm|焦段|等效视角", text):
+                findings.append(Finding(
+                    "A17", DOC_FILES["04"], shot[0][0],
+                    "镜头块缺焦段（写 {N}mm 或等效视角；与 01 分镜表一致——V3.22.1）"))
+            for name in sorted(ref_names):
                 if name in text and not re.search(_normalize_ref_binding(name), text):
                     findings.append(Finding(
                         "A17", DOC_FILES["04"], shot[0][0],
                         "角色「%s」在本镜出现但名字后未绑定参考（写 角色名 @{{Ref N}}——硬规则20）"
                         % name))
-            for name in ref_props:
+            for name in sorted(ref_props):
                 if name in text and not re.search(_normalize_ref_binding(name), text):
                     findings.append(Finding(
                         "A17", DOC_FILES["04"], shot[0][0],
                         "道具「%s」在本镜出现但名字后未绑定参考（写 道具名 @{{Ref N}}——硬规则20）"
                         % name))
+            for name in sorted(ref_groups):
+                if name in text and not re.search(_normalize_ref_binding(name), text):
+                    findings.append(Finding(
+                        "A17", DOC_FILES["04"], shot[0][0],
+                        "群像「%s」在本镜出现但名字后未绑定参考（写 群像名 @{{Ref N}}——硬规则20/22）"
+                        % name))
     return findings
 
 
-OPTIONAL_GATES: List[Tuple[str, GateFn]] = [("A16", gate_a16), ("A17", gate_a17)]
+# ------------------------------------------------------------------ A18 图片提示词约束预算（opt-in 审计，V3.22）
+
+_CJK_RE = re.compile(r"[一-鿿]")
+_IMAGE_EXEMPT_RE = re.compile(
+    r"名单|姓名|榜文|诗句|字幕|文字|三视图|四视图|设计表|图案|排版|字体|"
+    r"reference sheet|character sheet|prop reference|pattern|text",
+    re.I)
+_CONSTRAINT_WORD_RE = re.compile(r"禁止|不要|不得|不能|必须|严禁|no\s+", re.I)
+
+
+def gate_a18(project: Project, partial: bool) -> List[Finding]:
+    """A18 图片提示词约束预算（V3.22，opt-in）。
+
+    GPT-image 提示词不是越全越好：约束过密/过长会压制想象力。
+    - 叙事图/情景图正文 >260 汉字 → 警告（技术参考图/文字排版类豁免）
+    - 约束词 >10 处 → 警告（改意图句+关键视觉）
+    """
+    lines = project.doc("03")
+    if lines is None:
+        return [_warn("A18", "03", "03 缺失，A18 未执行")]
+    blocks_: List[List[Tuple[int, str]]] = []
+    current: Optional[List[Tuple[int, str]]] = None
+    for no, ln in enumerate(lines, start=1):
+        if ln.strip().startswith("```"):
+            if current is None:
+                current = []
+            else:
+                blocks_.append(current)
+                current = None
+            continue
+        if current is not None:
+            current.append((no, ln))
+    if not blocks_:
+        return [_warn("A18", "03", "未找到代码围栏提示词，A18 未执行")]
+    findings: List[Finding] = []
+    for block in blocks_:
+        if not block:
+            continue
+        text = "\n".join(t for _no, t in block)
+        if not text.strip() or _IMAGE_EXEMPT_RE.search(text):
+            continue
+        cjk = len(_CJK_RE.findall(text))
+        if cjk > 260:
+            findings.append(Finding(
+                "A18", DOC_FILES["03"], block[0][0],
+                "图片提示词正文 %d 汉字（>260）：约束过密可能压制 GPT-image 想象力；"
+                "按 prompt-rules 0.12 先删无关装饰→再删重复维度→最后才动风格/光线锚" % cjk))
+        constraints = len(_CONSTRAINT_WORD_RE.findall(text))
+        if constraints > 10:
+            findings.append(Finding(
+                "A18", DOC_FILES["03"], block[0][0],
+                "图片提示词约束词 %d 处（>10）：改成「意图句+2-3 关键视觉」，负面只留承重项"
+                % constraints))
+    return findings
+
+
+OPTIONAL_GATES: List[Tuple[str, GateFn]] = [
+    ("A16", gate_a16), ("A17", gate_a17), ("A18", gate_a18),
+]
 
 
 GATES: List[Tuple[str, GateFn]] = [
@@ -2257,7 +2526,7 @@ def main(argv: List[str]) -> int:
               % (MINIMUM_PYTHON[0], MINIMUM_PYTHON[1], sys.version_info[0], sys.version_info[1]))
         return 2
 
-    ap = argparse.ArgumentParser(description="vigen 项目文件机械校验（K1-K17）")
+    ap = argparse.ArgumentParser(description="vigen 项目文件机械校验（K1-K17 + A16-A18 opt-in）")
     ap.add_argument("project_dir", help="项目目录（含 01-06 Markdown）")
     ap.add_argument("--partial", action="store_true",
                     help="只核对已有文档；缺文档的门静默跳过（全量要求 01-05 齐备）")
