@@ -1,172 +1,215 @@
-# vigen — AI 视频制作辅助 Skill
+# vigen — AI Video Production Assistant Skill
 
-把一句创意或一份剧本变成一套完整的、可直接复制到生成工具使用的视频制作方案。面向零影视基础的用户：分镜、运镜、转场、光影、提示词工程全部自动补全，只需回答需求问卷并在三个确认点（GATE0 / GATE1.5 / GATE1）做决定。
+**English** | [简体中文](README.zh-CN.md)
 
-> **本 README 只做介绍与导航，不重述规则细节**——规则全文的唯一权威在各 references 文件里（下方目录结构列明）。重述会漂移：这份文档过去就因逐条复述规则而落后于实际版本。
+Turn one idea or one script into a complete, copy-paste-ready video production plan. Built for people with no film background: shot design, camera movement, transitions, lighting, and prompt engineering are filled in automatically. You answer an intake questionnaire and make decisions at three gates (GATE0 / GATE1.5 / GATE1).
 
-## 它解决什么问题
+> This README is an introduction and navigation guide, not the rulebook. The authoritative rules live in the reference files (listed below).
 
-AI 视频制作的痛点不在"没有工具"，而在"不知道怎么指挥工具"。本 skill 解决六大类问题：
+## What it solves
 
-| 痛点 | 解法在哪 |
+The hard part of AI video is not "having tools"; it is "knowing how to direct them". This skill addresses:
+
+| Pain point | Where the fix lives |
 | --- | --- |
-| 图片有 AI 油腻感、单一死板 | "描述这张照片怎么拍出来的" + 画面张力四法 → [realism.md](references/realism.md) |
-| 分段生成色调漂移 | 全片色彩基调（3-5 个十六进制色号按面积分配，色号+落点进每条提示词）→ [styles.md](references/styles.md) |
-| 提示词不精准、模型听不懂 | 语义绑定三层法 + 正向引导>负面约束（分端裁决）→ [prompt-rules.md](references/prompt-rules.md) / [knowledge-index.md](references/knowledge-index.md) |
-| 复杂动作生成不出来 | 反先验动作先用首帧锁姿势，视频只写后续运动 → [prompt-rules.md](references/prompt-rules.md) |
-| 人物/场景/道具跨图不一致 | 四层锚定逐字复用 + 参考图六条硬标准 + 头身分离 + 互挂参考 + **同一对象唯一权威参考** + **服装锁定三档** + **事实继承原则** → [consistency.md](references/consistency.md) |
-| 道具状态混乱、前后镜头背着/没背 | 道具六条判定 + **多状态合图生成后裁切单张** + 组合道具拆单张 + **逐镜位置账** → [prompt-rules.md](references/prompt-rules.md) / [consistency.md](references/consistency.md) |
-| 多张参考图互相打架 | 同一对象只留一张权威图，其余显式降级或裁掉该对象 → [consistency.md](references/consistency.md) |
-| 复杂场景一段视频装不下 | 拆成多个骨架 B 单镜片段，剪辑端拼接 → [prompt-rules.md](references/prompt-rules.md) 骨架选择器 |
-| 动作违反物理常识 | 动作三段式 + ENDING FRAME + 秒级时序 → [prompt-rules.md](references/prompt-rules.md) |
-| 跨片段音色漂移 | 按模型选语音路线（happyhorse 自带语音 / H3 音色自提取 / cosyvoice 对轨）+ 发声描述公式 → [consistency.md](references/consistency.md) |
-| 一段视频只有一个镜头 | 骨架 A 多镜头段落公式为默认 → [prompt-rules.md](references/prompt-rules.md) |
-| 运镜单一、转场呆板 | 运镜功能决策表 R1-R7 + 40 运镜 + 8 生成端转场/5 剪辑端转场 + 峰值与强调手段（稀缺品）→ [cinematography.md](references/cinematography.md) |
-| 长剧遗忘细节 | 00_剧情状态.md 每集强制更新 + 尾帧续接 → [consistency.md](references/consistency.md) |
-| 剧情被擅自删改 | 情节点清单逐点登记，100% 覆盖校验 → [screenwriting-craft.md](references/screenwriting-craft.md) |
-| 做红果/抖音付费短剧，不知道排多少集、墙卡在哪 | 立项单（档位/集数/赛道/情绪契约/单元链/付费墙）+ 前三集节拍卡 → [short-drama-market.md](references/short-drama-market.md) |
-| 竖屏短剧台词观众听不懂、节奏拖 | 形态 B 覆盖规则（同轮直给/15 秒四拍/集内结算/独白配额）→ [screenwriting-craft.md](references/screenwriting-craft.md) 一·九 |
-| 短剧剧本踩内容红线 | 备案分类 + 11 条红线 + 敏感词替换 → [content-compliance.md](references/content-compliance.md) |
-| 生成资产浪费钱 | 资产引用矩阵先行，零引用不生成；**单次入画道具不建参考图** → [prompt-rules.md](references/prompt-rules.md) 一节4 |
-| 生成失败不知道怎么救 | 结构判定前置的回退阶梯 → [SKILL.md](SKILL.md) |
-| 提示词被内容审核拦截 | 反应式降级：已登记模式前置复用 + 拦截后降级阶梯（措辞→构图→拆独角→二分定位）→ [content-safety.md](references/content-safety.md) |
-| 负面词加了没效果/越加越糟 | 先查是否与正向冲突（正向要A又禁A / 负面引入正向未要求的对象）→ [knowledge-index.md](references/knowledge-index.md) 负面词裁决 |
-| 技能特效/法阵/剑气/粒子爆发 | Niagra 三层光效（emissive/分层/高光锚定）+ 法师/射手/剑修三类形态 + 动态轨迹 → [vfx-effects.md](references/vfx-effects.md) |
-| 中途要加镜头/改情节 | 活剧本修订（局部重排 + 稳定镜号），不重走全流程 → [SKILL.md](SKILL.md) |
-| 人物跨段瞬移/换位/消失 | 段走位账 + 04【走位总谱】+ 连续性铁律（每角色位置/坐站走/朝向）→ [consistency.md](references/consistency.md) |
-| 切点生硬、动作接不上 | 每个切点写动作桥（上镜结尾→本镜开头）→ [templates.md](assets/templates.md) 04 |
-| 群演每镜换一批人、服装乱色 | 群像锚定表 + 群像参考图（只锁服装形象，避开主角主色）→ [templates.md](assets/templates.md) 02/03 |
-| 负面词想用但不知道写哪 | 负面提示词两段式（全片通用+本段连续性，模型负向字段支持时）→ [templates-execution.md](assets/templates-execution.md) 七 |
-| 图片提示词越写越长、画面越来越死板 | 图片约束预算两档（技术参考图全量 / 叙事图精简意图版）→ [prompt-rules.md](references/prompt-rules.md) 0.12 |
-| 每段视频都要先出一张首帧图，成本高 | Seedance 项目免 L1 情景图（详细提示词+资产参考图直出；H3/happyhorse 维持必出）→ [prompt-rules.md](references/prompt-rules.md) 一节3 |
-| 提示词结构对但密度不够、镜头像大纲 | 逐镜动线+背景动作线 + 每镜焦段 mm + 四组负面词库 + 光影演变线 → [templates.md](assets/templates.md) 04 |
+| Images look AI-greasy, flat, or stiff | "Describe how this photo was shot" + four composition-tension methods → [realism.md](references/realism.md) |
+| Color drifts across segments | Film-wide palette (3-5 hex colors assigned by area; color + placement in every prompt) → [styles.md](references/styles.md) |
+| Prompts are vague; the model does not understand | Three-layer semantic binding + positive guidance over negative constraints (model-specific) → [prompt-rules.md](references/prompt-rules.md) / [knowledge-index.md](references/knowledge-index.md) |
+| Complex actions will not generate | Lock anti-prior poses with a first-frame image; the video prompt only writes subsequent motion → [prompt-rules.md](references/prompt-rules.md) |
+| Characters/scenes/props drift across images | Four-layer anchoring, six hard reference-image standards, head/body separation, cross-referencing, one authoritative reference per object, three-tier costume locking, fact inheritance → [consistency.md](references/consistency.md) |
+| Prop state confusion (carried / not carried) | Six prop rules, multi-state sheet → crop singles, split combination props, per-shot position ledger → [prompt-rules.md](references/prompt-rules.md) / [consistency.md](references/consistency.md) |
+| Reference images fight each other | Keep one authoritative image per object; downgrade or crop the rest → [consistency.md](references/consistency.md) |
+| A complex scene will not fit in one clip | Split into skeleton-B single-shot clips and join in editing → [prompt-rules.md](references/prompt-rules.md) |
+| Actions violate physics | Three-stage action + ENDING FRAME + second-level timing → [prompt-rules.md](references/prompt-rules.md) |
+| Voice timbre drifts across clips | Model-specific voice route (native voice / H3 timbre extraction / cosyvoice) + vocal description formula → [consistency.md](references/consistency.md) |
+| One clip contains only one shot | Skeleton A multi-shot segment formula is the default → [prompt-rules.md](references/prompt-rules.md) |
+| Repetitive camera moves, dull transitions | R1-R7 camera-function table + 40 moves + 8 generation-side / 5 editing-side transitions + peak-emphasis methods → [cinematography.md](references/cinematography.md) |
+| Long series forgets details | `00_story_state.md` updated every episode + tail-frame handoff → [consistency.md](references/consistency.md) |
+| Plot gets silently changed | Plot-point checklist with 100% coverage validation → [screenwriting-craft.md](references/screenwriting-craft.md) |
+| Paid short drama: episode count, paywall placement | Project brief (tier / episodes / track / emotion contract / unit chain / paywall) + first-three-episode beat cards → [short-drama-market.md](references/short-drama-market.md) |
+| Vertical-drama dialogue is hard to follow or slow | Form B coverage rules (same-round answer / 15-second four beats / episode settlement / monologue quota) → [screenwriting-craft.md](references/screenwriting-craft.md) §1.9 |
+| Script hits content red lines | Filing category + 11 red lines + sensitive-word replacement → [content-compliance.md](references/content-compliance.md) |
+| Wasting money on unnecessary assets | Asset reference matrix first; zero-reference assets are not generated; one-shot props get no reference image → [prompt-rules.md](references/prompt-rules.md) §1.4 |
+| Generation fails; no idea how to recover | Structure-first fallback ladder → [SKILL.md](SKILL.md) |
+| Prompts get blocked by moderation | Reactive downgrade: reuse registered patterns, then wording → composition → split solo → binary search → [content-safety.md](references/content-safety.md) |
+| Negative words do not work, or make it worse | Check for conflict with positive intent first → [knowledge-index.md](references/knowledge-index.md) |
+| Skill VFX / magic circles / sword aura / particles | Niagara three-layer lighting + mage / archer / swordsman forms + motion trails → [vfx-effects.md](references/vfx-effects.md) |
+| Add or change shots mid-project | Living-script revision (local reflow, stable shot IDs) → [SKILL.md](SKILL.md) |
+| Characters teleport / swap / disappear between segments | Segment blocking ledger + 04 blocking score + continuity iron rules → [consistency.md](references/consistency.md) |
+| Cuts feel harsh; actions do not connect | Action bridge at every cut (previous shot's ending → this shot's opening) → [templates.md](assets/templates.md) 04 |
+| Crowd extras change every shot; colors clash | Group anchor table + group reference sheet (costume only; avoid protagonist colors) → [templates.md](assets/templates.md) 02/03 |
+| Negative words: where do they go? | Two-part negative block (global + per-segment continuity, when the model supports a negative field) → [templates-execution.md](assets/templates-execution.md) §7 |
+| Image prompts get longer and the image gets deader | Two-tier image constraint budget (technical sheet full / narrative concise-intent) → [prompt-rules.md](references/prompt-rules.md) 0.12 |
+| Every segment needs a first-frame image (costly) | Seedance projects skip L1 scene images; H3/happyhorse still require them → [prompt-rules.md](references/prompt-rules.md) §1.3 |
+| Structure is right but density is low; shots read like an outline | Per-shot blocking + background action line + lens mm + four-group negative library + light-evolution line → [templates.md](assets/templates.md) 04 |
 
-## 工作流
+## Workflow
 
 ```
-GATE0 需求问卷+对齐
-  → 阶段1a 剧本创作 ─GATE1.5 剧本定稿─→ 阶段1b 分镜+锚定 ─GATE1 确认─
-  → 阶段2-4 图片提示词（先资产矩阵）→ 阶段5 视频提示词 + 台词表
-  → 阶段6 剪辑清单 →（系列：更新 00_剧情状态）
+GATE0 intake + alignment
+  → Phase 1a script writing ─GATE1.5 script lock─→ Phase 1b shot design + anchoring ─GATE1 confirm─
+  → Phases 2-4 image prompts (asset matrix first) → Phase 5 video prompts + dialogue table
+  → Phase 6 edit list → (series: update 00_story_state)
 ```
 
-三个停点：**GATE0**（问卷+需求对齐）、**GATE1.5**（剧本定稿——未定稿绝不进分镜）、**GATE1**（锚定确认）。定稿锁的是故事骨架与情节点清单，分镜表是活文档（后续增删镜头走活剧本修订的局部重排）。
+Three stops: **GATE0** (questionnaire + requirement alignment), **GATE1.5** (script lock — never move to shot design before this), **GATE1** (anchoring confirmation). The lock covers the story skeleton and plot-point checklist; the shot table remains a living document (later additions follow the living-script revision path).
 
-**执行契约（V3.16）**：每批写 03/04/05 前重读 02/01/05；每段填「批次生产卡」；每批在 01 追加「批次校验记录」（A1-A16 + 证据）；可选 `--gate A17` 机检留痕、`--gate A18` 机检图片预算；没有记录不得说"已完成"。
+**Execution contract (V3.16)**: before writing 03/04/05 in each batch, re-read 02/01/05; fill a "batch production card" per segment; append a "batch validation record" (A1-A16 + evidence) to 01; optional `--gate A17` mechanical audit and `--gate A18` image-budget audit. No record means you may not say "done".
 
-**项目结构**：单视频 `<项目名>/01-06`；系列 `<系列名>/00_剧情状态.md + ep01/…ep02/…`。
+**Project layout**: single video `<project>/01-06`; series `<series>/00_story_state.md + ep01/…ep02/…`.
 
-每个项目产出的文件（Markdown 即"创作真相"）：
+Files produced per project (Markdown is the creative source of truth):
 
-| 文件 | 内容 |
+| File | Contents |
 | --- | --- |
-| `00_剧情状态.md` | 系列专用：**立项单（竖屏短剧）** + 剧情摘要/角色状态/道具状态/上集尾帧/伏笔——每集完成后强制更新 |
-| `01_方案与剧本.md` | GATE0 对齐记录 + **立项单（单视频）** + **短剧集结构（结算/中段小钩/断章）** + GATE1.5 定稿记录 + 分场剧本 + 情节点清单 + 分镜总览表（活文档，稳定镜号）+ **批次生产卡 + 批次校验记录（V3.16 执行契约）** + 变更记录 |
-| `02_锚定表.md` | 目标模型 / 色彩基调 / 角色 / 场景（LOCATION MAP+四视图）/ 道具 / 风格圣经 |
-| `03_图片提示词.md` | 资产引用矩阵 + 人物/道具/场景/情景参考图（L1-L4 分级出图）+ 内容安全措辞规范（高危题材项目） |
-| `04_视频提示词.md` | 默认骨架 A 多镜头段落公式 / 骨架 B 单镜头（特例）；时长硬校验+尾帧续接 |
-| `05_语音台词表.md` | 台词总账 + 发声描述公式（前置身份两段+六参数）+ 音色参考资产 + SPEAKER LOCK |
-| `06_剪辑清单.md` | 拼接/转场实现/转场音频处理/BGM/调色/导出 |
+| `00_story_state.md` | Series only: project brief (vertical drama) + plot summary / character state / prop state / previous tail frame / foreshadowing — updated after every episode |
+| `01_plan_and_script.md` | GATE0 alignment record + project brief (single video) + short-drama episode structure (settlement / mid-episode hook / cliffhanger) + GATE1.5 lock record + scene script + plot-point checklist + shot overview table (living document, stable shot IDs) + batch production cards + batch validation records + change log |
+| `02_anchoring.md` | Target models / color palette / characters / scenes (LOCATION MAP + four views) / props / style bible |
+| `03_image_prompts.md` | Asset reference matrix + character / prop / scene / scene-image references (L1-L4 grading) + content-safety wording (high-risk projects) |
+| `04_video_prompts.md` | Skeleton A multi-shot segment formula by default / skeleton B single-shot (exception); duration hard checks + tail-frame handoff |
+| `05_voice_dialogue.md` | Dialogue ledger + vocal description formula (identity preamble + six parameters) + voice-reference assets + SPEAKER LOCK |
+| `06_edit_list.md` | Assembly / transition implementation / transition audio / BGM / grading / export |
 
-## 目录结构（规则全文的唯一权威）
+## Model capabilities and prompt strategy (2026-11)
+
+| Model | Generation mode | Segment-start scene image (L1) | Video/audio reference | Current state |
+| --- | --- | --- | --- | --- |
+| **Seedance / Jimeng (Seedance models)** | Reference-to-video (multimodal) | **Not required by default** | Yes (video / voice) | Highest text adherence in current tests; a 3-minute case study used 8 segments with zero scene images |
+| **MiniMax-H3** | t2va / first frame / first+last frame / Ref2VA | **Required**, including **environment-changing cut points** | Yes (images ≤9, video ≤3, audio ≤3, total ≤12) | Visual quality drops noticeably without scene images; use multi-frame alignment or split segments |
+| **happyhorse-1.1** | t2v / i2v / r2v (images only) | **Required** | No | No multi-frame alignment; split cross-environment cuts |
+
+### Seedance: scene images are optional
+
+Tested: Seedance reference-to-video plus a detailed video prompt and character / scene / prop reference images is enough. Segment-start scene images can be skipped. The 3-minute case study *Chang'an, Bright as Day* used 8 video segments with zero generated scene images; its "first frame" was a frame extracted from the previous segment's tail, not a newly generated image. Important: **L2 pose-lock images for anti-prior or contact actions are still required** — text cannot reliably lock a pose, regardless of how well the model follows prompts.
+
+### H3: scene images are part of image quality
+
+For H3, one first-frame image at the start of a segment is not enough. When a cut inside the segment changes the environment, lighting, or spatial layout, the absence of a matching scene image makes visual quality drop sharply. The procedure:
+
+1. Always generate the segment-start L1 image.
+2. For an **environment-changing cut point**, generate a cut-point frame and pin it to the second with the H3 multi-frame alignment recipe (`Picture k` at `t` seconds).
+3. If the provider does not support multi-frame alignment, **split the cross-environment cut into its own generation segment** (one environment per segment), making that shot the new segment's L1.
+4. Cuts within the same environment and axis (coverage / shot-reverse-shot) do not need an extra image. happyhorse has no multi-frame alignment; split cross-environment cuts the same way.
+
+### Making H3 approach Seedance through prompt optimization
+
+H3 and Seedance differ in reference-to-video capability and text adherence. **They can be brought closer; they cannot be made identical.** Eight practices close most of the gap:
+
+1. **Write the opening state in full.** Without a first frame, the segment-opening shot must specify camera position, shot size, composition, lighting, subject position, and lens mm in the 04 body — Seedance can start a frame from text; H3 needs the text to describe what the first frame looks like.
+2. **Upgrade the blocking ledger to per-shot routes + background action lines.** H3 segments contain more cuts; discontinuous character positions and background action amplify the "new cast every shot" feeling.
+3. **Write an action bridge at every cut.** At least one of action / eyeline / sound must carry over from the previous shot's last beat to this shot's first beat.
+4. **Add a light-evolution line.** Opening light → mid-segment change → closing light, preventing color/light jumps across cuts.
+5. **Generate cut-point scene images for environment changes.** Pin them to the second when multi-frame alignment is available; otherwise split the segment.
+6. **Use the four-group negative library.** Image quality/material, background motion/camera, continuity, music/subtitles. When the model has a dedicated negative field, write it as two parts: global list + per-segment continuity list.
+7. **Write density into every shot.** Lens mm, camera-move ID, three-stage action / second-level timing, sound evolution. The case study's "thickness" comes from complete per-shot information, not from stacked adjectives.
+8. **Do not compress the prompt structure.** H3's gap is not solved by deleting words; blocking, lighting, and continuity details all have to stay.
+
+> Bottom line: an optimized H3 can get visibly close to Seedance's finish, but it does not become the same model. The goal is to narrow the gap, not to claim equivalence.
+
+## Directory layout (the single source of truth for rules)
 
 ```
-├── SKILL.md              # GATE0 问卷（含叙事形态/平台）+ 工作流 + 意图路由（含活剧本修订）+ 23 条硬规则（要点+指针，含 K1-K17 check.py 门 + A16-A18 opt-in 审计 + 执行契约）+ 回退阶梯 + 停点收缩（真分叉才停）+ E2 挂图不阻塞 + 效率纪律
+├── SKILL.md              # GATE0 questionnaire + workflow + intent routing + 23 hard rules + K1-K17 checks + A16-A18 opt-in audits + execution contract + fallback ladder
 ├── references/
-│   ├── screenwriting-craft.md # 剧本创作：7 大漏洞自检（操作程序+证据引用）+ 台词行动理论（议程卡/五说/策略库/声音五维）+ 场景发动机与升级六问 + 当集兑现 + 反对七式 + 误会四判据 + 钩子悬念纪律 + 故事三层分离 + GATE1.5 + 故事板四格 + **一·九 形态 B（竖屏短剧）覆盖规则**
-│   ├── short-drama-market.md # 平台短剧立项与排集：档位/集数 + 40 赛道 + 流派/情绪契约/单元链 + 六档证据×反驳 + 付费墙 + 前三集节拍卡（仅竖屏短剧项目读）
-│   ├── content-compliance.md # 内容合规：备案分类 + 11 条红线 + 暴力/迷信专项 + 敏感词替换（与 content-safety 的两层分工；仅竖屏短剧项目读）
-│   ├── prompt-rules.md   # 四大底层认知 + 0.7 可生成性前置门（五类高风险+比划测试+改写五法）+ 0.8 技术动作语义锚 + 0.9 朝向三要素 + 0.10 方向锚图/目标状态图/姿态翻转 + **0.12 图片约束预算（技术参考图/叙事精简两档）** + 尺度三件套/入画即登记 + 混音工程语言 + 图片/视频骨架 A·B + 道具六条判定 + L1-L4 分级 + 发声描述公式 + 校验（16 关键门 A1-A16 + 13 抽查项 + K17 提示词卫生默认门 + A17 执行契约/A18 图片预算 opt-in）
-│   ├── models.md         # 模型能力档案 + 生成路径判定 + 换模型指引
-│   ├── cinematography.md # 运镜功能决策表（R1-R7，固定是最后一行）+ 动机五类词表 + 40 运镜 + 8 生成端转场/5 剪辑端转场 + 机位语义 + 对白场切法 + 工作景别 + 光影选型库 + 峰值与强调手段（稀缺品）+ 单镜时长/节奏 + 竖屏构图安全区 + 7 类场景镜头序列
-│   ├── realism.md        # 去AI味 + 张力四法 + 表面两档与塑形约束 + 三·七 解剖学约束（极端姿态）+ 朝代纪律 + 文字物理化
-│   ├── styles.md         # 16 风格库（含 Pixar 3D 动画电影）+ 色彩基调色板 + 风格提取解梦卡 + 项目风格隔离
-│   ├── consistency.md    # 〇 锁定清单（9类对象+五条纪律）+ 服装默认专属图 + 场景持续物/锁定三件套 + 身体-器械空间账 + **段走位账/群像锚定（V3.22）** + 错误示范 ref 处理 + 四层锚定 + 参考图六条/头身分离 + 角色路由/基准参考法 + 最小参考集 + 音色自提取 + 系列记忆 + 失效传播
-│   ├── content-safety.md # 内容安全反应式降级（拦截后必读；写高危题材前只查已登记模式）：措辞级解法库 + 构图级模式表 + 降级阶梯 + 显式否定旧设定 + 失败分类对策
-│   ├── knowledge-index.md# 扩展知识库路由表（命中才读，token 纪律守门文件）+ 负面词效力分端裁决
-│   ├── examples.md       # 完整示例
-│   ├── action-combat.md  # [扩展] 武打动作引擎：交手账（回合三格+胜负手）+ 打击呈现三件套 + 围攻方位纪律 + 三拍容器 + 打斗接触专条
-│   ├── vfx-effects.md    # [扩展] 技能特效：Niagra 三层光效 + 法师/射手/剑修三类形态 + 动态轨迹 + 失败模式负面清单（社区方法论，待实测）
-│   ├── cinema-grade-params.md # [扩展] 电影级参数块 + 国漫四视图
-│   ├── expressions.md / director-styles.md / extended-views.md / emotion-craft.md / ugc-realism.md / anime-to-real.md  # [扩展]
-│   ├── learning-guide.md # 学习指导（缺陷清单/使用边界/资料吸收台账）——不进日常执行链路
-│   ├── execution-pitfalls.md # 执行端操作坑清单（不进 Module Map/运行时）
-│   └── _archive-suspended-claims.md  # 停用主张归档（不读不用）
+│   ├── screenwriting-craft.md # Script craft: seven-hole self-check + dialogue-as-action + scene engine + payoff + seven opposition forms + four misunderstanding tests + hook discipline + three-layer story + GATE1.5 + Form B vertical drama
+│   ├── short-drama-market.md # Platform short-drama planning: tiers / episode counts / 40 tracks / genre / emotion contract / unit chain / paywall / first-three-episode beat cards (vertical drama only)
+│   ├── content-compliance.md # Filing category + 11 red lines + violence/superstition specifics + sensitive-word replacement (vertical drama only)
+│   ├── prompt-rules.md   # Four foundational models + 0.7 generability gate + 0.8 technical-action anchors + 0.9 orientation + 0.10 direction/target anchors + 0.12 image constraint budget + scale kit + mixing language + image/video skeletons A·B + six prop rules + L1-L4 grading + vocal formula + checks (A1-A16 + 13 spot checks + K17 + A17/A18 opt-in)
+│   ├── models.md         # Model capability profiles + generation-path decision + model-switch guide
+│   ├── cinematography.md # R1-R7 camera-function table + five motivation categories + 40 moves + 8 generation-side / 5 editing-side transitions + shot semantics + dialogue coverage + working shot sizes + lighting library + peak emphasis + shot duration/rhythm + vertical safe zones + 7 scene sequence types
+│   ├── realism.md        # De-AI look + four tension methods + surface tiers + anatomy constraints + period discipline + physicalized text
+│   ├── styles.md         # 16 style library (incl. Pixar 3D) + color palette + style extraction + project isolation
+│   ├── consistency.md    # Nine-item lock list + costume locking + persistent scene elements + body-prop spatial ledger + segment blocking / group anchoring + bad-reference handling + four-layer anchoring + reference-image standards + character routing / baseline-reference method + minimal reference set + voice extraction + series memory + failure propagation
+│   ├── content-safety.md # Reactive moderation downgrade: wording solutions + composition patterns + ladder + explicit negation + failure classification
+│   ├── knowledge-index.md# Extension-knowledge router (read on hit) + negative-word adjudication
+│   ├── examples.md       # Complete example
+│   ├── action-combat.md  # [extension] Combat engine: exchange ledger + impact presentation + siege orientation + three-beat container + contact rules
+│   ├── vfx-effects.md    # [extension] Skill VFX: Niagara three-layer lighting + mage/archer/swordsman forms + motion trails + failure-mode negative list
+│   ├── cinema-grade-params.md # [extension] Cinema parameter block + anime four-view sheets
+│   ├── expressions.md / director-styles.md / extended-views.md / emotion-craft.md / ugc-realism.md / anime-to-real.md  # [extensions]
+│   ├── learning-guide.md # Learning guide (defect list / usage boundaries / source ledger) — not in the daily execution path
+│   ├── execution-pitfalls.md # Execution-side pitfalls (not in Module Map/runtime)
+│   └── _archive-suspended-claims.md  # Archived suspended claims (do not read/use)
 ├── assets/
-│   ├── templates.md      # 00-06 项目文件标准模板（01 含变更"影响范围"列/入画道具列/**焦段列**；02 含服装锁定档位/场景持续在场/身体-器械空间账/**四组负面词库**；03 含方向锚图/目标状态图/竖屏安全区；04 含 PLAN/REF + PLAN-TAIL/挂图顺序表/**逐镜动线/背景动作线/焦段/光影演变**；06 含单镜时长/剪辑端转场/节奏/关键音效混音）
-│   ├── templates-character.md  # 人物参考图模板（0a 合图变体默认 / 分张退路 / 0c / 多人脸对照条 / 0d）
-│   └── templates-execution.md  # 执行契约模板（批次生产卡含时间账/状态三问/走位 / 段状态账 / 批次校验记录 A1-A16 / 段落锁定清单九项 / 无台词段 / 一页版段模板含走位总谱（逐镜动线/背景动作线）/光影演变/动作桥 / 负面提示词两段式）
+│   ├── templates.md      # Standard templates for project files 00-06 (01 includes impact scope / on-screen props / lens column; 02 includes costume tiers / persistent scene state / body-prop ledger / four-group negative library; 03 includes direction anchors / target-state images / vertical safe zones; 04 includes PLAN/REF + PLAN-TAIL / attachment order / per-shot routes / background action lines / lens / light evolution; 06 includes shot duration / editing transitions / rhythm / key sound mixing)
+│   ├── templates-character.md  # Character reference templates (0a combined sheet default / split fallback / 0c / multi-face strip / 0d)
+│   └── templates-execution.md  # Execution-contract templates (batch card / segment state ledger / A1-A16 validation record / nine-item segment lock / no-dialogue segment / one-page segment template with blocking score (per-shot routes / background action lines) / light evolution / action bridges / two-part negative block)
 ├── scripts/
-│   ├── check.py          # 薄校验层（K1-K17 机械门，纯标准库——硬规则 15；A16/A17/A18 为 opt-in）
-│   ├── check.mjs         # Node CLI + 门注册（默认 K1-K17；A16/A17/A18 为可选审计，与 check.py 行为对齐）
-│   ├── check-core.mjs    # check.mjs 共享 helpers（表格行/镜号/时长格式化）
-│   ├── check-gates-a.mjs # K1-K6 门
-│   ├── check-gates-b.mjs # K7-K12 门
-│   ├── check-gates-c.mjs # K13-K14 门（节拍认领/钩子与预算）
-│   ├── check-gates-d.mjs # K15-K16 门（短剧立项单/集结构）
-│   ├── check-gates-e.mjs # A16/A17/A18 可选审计（A16 锁定；A17 执行契约+走位/逐镜动线/背景动作线/动作桥/焦段/光影演变/群像/负面闭环；A18 图片约束预算）
-│   ├── check-gates-f.mjs # K17 提示词卫生（音乐类词/无台词声明/声音正向收尾；跳过【负面提示词】节）
-│   ├── vigen_md.py       # Python 解析层（表格按表头名取列/段落按任意二级标题切块/台词结构判据）
-│   ├── vigen-md.mjs      # Node 解析层（check.mjs 依赖，行为对齐 vigen_md.py）
-│   └── export.py         # 交付打包（快照 + manifest + checksums，不声称审批）
+│   ├── check.py          # Thin validation layer (K1-K17 mechanical gates, standard library only; A16/A17/A18 opt-in)
+│   ├── check.mjs         # Node CLI + gate registry (K1-K17 default; A16/A17/A18 optional, behavior-aligned with check.py)
+│   ├── check-core.mjs    # Shared helpers for check.mjs
+│   ├── check-gates-a.mjs # K1-K6 gates
+│   ├── check-gates-b.mjs # K7-K12 gates
+│   ├── check-gates-c.mjs # K13-K14 gates
+│   ├── check-gates-d.mjs # K15-K16 gates
+│   ├── check-gates-e.mjs # A16/A17/A18 optional audits
+│   ├── check-gates-f.mjs # K17 prompt hygiene
+│   ├── vigen_md.py       # Python parsing layer
+│   ├── vigen-md.mjs      # Node parsing layer (aligned with vigen_md.py)
+│   └── export.py         # Delivery packaging (snapshot + manifest + checksums; does not assert approval)
 └── tests/
-    ├── test_check.py       # check.py 单元测试（122 tests；含 test_export）
-    ├── check-mjs.test.mjs  # check.mjs K1-K17 + A16/A17/A18 parity（node --test tests/check-mjs.test.mjs）
-    ├── baseline-record.md  # TDD 测试记录
-    ├── baseline-checkpy-record.md  # 真实项目试跑误拦观察记录
-    └── fixtures/           # good/bad 样例项目
+    ├── test_check.py       # check.py unit tests (122 tests; includes test_export)
+    ├── check-mjs.test.mjs  # check.mjs K1-K17 + A16/A17/A18 parity (132 tests)
+    ├── baseline-record.md  # TDD record
+    ├── baseline-checkpy-record.md  # Real-project false-positive observations
+    └── fixtures/           # good/bad sample projects
 ```
 
-## 当前模型栈（2026-11）
+## Current model stack (2026-11)
 
-- 图片：gpt-image-2 / gpt-image-2.5（文生图、单图参考、多图参考；2.5 提示词上限 32,000 字符、编辑输入 1-16 张、支持 mask/markup）
-- 视频：happyhorse-1.1（3-15s）或 MiniMax-H3（4-15s）——提示词骨架统一，模型差异只在能力参数
-- 视频（可选）：Seedance / 即梦系——参考生视频，**不需要段首情景图**（实测；H3/happyhorse 仍需，见 prompt-rules 一节3）
-- 语音：默认视频模型自带语音；需严格音色一致时备选 cosyvoice TTS 对轨
-- 剪辑：剪映
+- Image: gpt-image-2 / gpt-image-2.5 (text-to-image, single-reference, multi-reference; 2.5 supports up to 32,000 prompt characters, 1-16 edit inputs, mask/markup)
+- Video: happyhorse-1.1 (3-15s) / MiniMax-H3 (4-15s) / Seedance·Jimeng (reference-to-video)
+- Voice: native video-model voice by default; cosyvoice TTS alignment when strict timbre consistency is required
+- Editing: CapCut / Jianying
 
-> models.md 只记支持能力（模式/时长/分辨率/参考素材限制）；调研所得"癖好"类主张已全部停用归档，用户实测有效的规则保留并标注依据。
+> models.md records supported capabilities only (mode / duration / resolution / reference-asset limits). "Model quirks" claims from research are archived as suspended; rules validated by user testing are retained with their evidence.
 
-## 安装
+## Install
 
 ```bash
-# Claude Code 个人技能目录（只拷运行所需文件）
+# Claude Code personal skill directory (copy runtime files only)
 cd vigen
 mkdir -p ~/.claude/skills/vigen
 cp SKILL.md ~/.claude/skills/vigen/
 cp -r references assets scripts ~/.claude/skills/vigen/
 ```
 
-> **脚本调用路径**：装好后 check.py 在 `~/.claude/skills/vigen/scripts/check.py`。你的项目目录里没有 `scripts/`，调用时必须用技能目录的绝对路径（或先解析技能根目录），不要写 `python scripts/check.py`。
-> 校验：`python ~/.claude/skills/vigen/scripts/check.py <项目目录> --partial`
-> 交付：`python ~/.claude/skills/vigen/scripts/export.py <项目目录> --out <项目外目录>`（快照 + manifest + checksums，不声称审批）
+> **Script path**: after installation, check.py lives at `~/.claude/skills/vigen/scripts/check.py`. Your project directory has no `scripts/`; always call the skill's absolute path (or resolve the skill root first). Do not write `python scripts/check.py`.
+> Validate: `python ~/.claude/skills/vigen/scripts/check.py <project> --partial`
+> Deliver: `python ~/.claude/skills/vigen/scripts/export.py <project> --out <outside-project-dir>` (snapshot + manifest + checksums; does not assert approval)
 
-安装后无需手动调用——对话中出现"帮我做一个短视频 / 分镜 / 视频提示词 / 多集短剧 / 王家卫感短片"等意图时自动触发；也可显式 `/vigen`。
+No manual invocation is needed after installation — intents such as "make me a short video / shot list / video prompts / multi-episode drama / Wong Kar-wai-style short" trigger it automatically; you can also call `/vigen` explicitly.
 
-## 开发过程文档
+## Development documents
 
-- [create.md](create.md) — 需求文档 + 设计方案 + 迭代记录
-- [research-notes.md](research-notes.md) — 历史调研笔记（结论已按"停用主张"处理，仅存档）
-- [references/execution-pitfalls.md](references/execution-pitfalls.md) — 执行端操作坑清单（参考图尺寸/画布重连/尾帧/setPrompt/文件操作；不进运行时）
+- [create.md](create.md) — requirements, design, and iteration log
+- [research-notes.md](research-notes.md) — historical research notes (conclusions handled as suspended claims; archive only)
+- [references/execution-pitfalls.md](references/execution-pitfalls.md) — execution-side pitfalls
 
-## 持续学习机制
+## Continuous learning
 
-以 **Seedance 2.5 提示词模式为当前质量标杆**，经 [learning-guide.md](references/learning-guide.md) 持续迭代：
+**Seedance 2.5 prompt patterns are the current quality benchmark**, improved through [learning-guide.md](references/learning-guide.md):
 
-- **四步学习法**：学习→提炼→总结→积累——新资料拆成可执行的规则/模板/例句三层，禁止笼统总结
-- **可信度分级入库**：`[官方文档]` > `[用户实测]` > `[成品样例]` > `[社区方法论]`；无出处的主张不入库
-- **单一事实源**：每条规则只在一个文件写全文，其余处只写"要点+指针"——重复即缺陷（V2.8 起强制执行）
-- **缺陷清单只增不删**：已修复的移入存档附证据
+- **Four-step learning**: study → distill → summarize → accumulate — split new material into executable rules / templates / examples; no vague summaries
+- **Credibility tiers**: `[official docs]` > `[user-tested]` > `[finished sample]` > `[community methodology]`; unsourced claims do not enter the library
+- **Single source of truth**: each rule is written in full in exactly one file; other places carry only "key point + pointer" — duplication is a defect (enforced since V2.8)
+- **Defect list only grows**: fixed defects move to the archive with evidence
 
-## 已知边界
+## Known boundaries
 
-- 只产提示词与项目文件，不调用生成 API、不做剪辑执行；check.py 只读校验项目 Markdown（K1-K17 机械门 + A16/A17/A18 opt-in），同样不调 API、不改文件
-- `check.mjs` 已 **K1-K17 全量**，与 check.py 同输出/同退出码；全量 parity 由 `tests/check-mjs.test.mjs` 覆盖。check.py 仍是权威实现，改门必须两边同步
-- **A16（先锁后写）是 opt-in 审计**：`--gate A16` 机检风格圣经逐字/入画 REF 登记/持续在场三项；技术动作与朝向三要素仍人工核对。默认 K1-K17 不包含 A16
-- **A17（执行契约留痕）是 opt-in 审计**：`--gate A17` 机检批次生产卡/批次校验记录 A1-A16/段状态账/参考契约（锁定/只取/仅参考 + 不复刻/不复制）/时间账/风格锁逐字/04 段锁定清单九项/**人物/道具/群像就地绑定**/**走位总谱+逐镜动线+背景动作线/动作桥/负面提示词闭环/每镜焦段/光影演变线**；不查内容质量。默认 K1-K17 不包含 A17
-- **A18（图片约束预算）是 opt-in 审计**：`--gate A18` 对 03 单张图提示词 >260 汉字或约束词 >10 处报警；技术参考图/文字排版类豁免。警告后按 prompt-rules 0.12 删减，不为过 A18 删承重锚
-- **K17（提示词卫生）是默认门**：04/03 正向正文禁音乐类词（音乐/配乐/旋律/节拍/和声/音符/伴奏/演唱/哼唱/吟唱/节奏性/BGM）；无台词段须含"无台词/无旁白/无人声"；有声音节须有"没有第二种声音，也没有任何持续声底"。**V3.22：明确标记的【负面提示词】节跳过音乐词检查**——负向字段与正向正文是两种机制
-- **04 分卷（V3.17）**：大项目可按 `04_视频提示词_卷NN.md` 拆分；`04_视频提示词.md` 只作索引，`check.py/check.mjs` 自动按文件名排序合并分卷校验
-- 平台商业层（赛道/集数/付费墙）是**立项参考**，不是平台官方规则；本 skill 不预测爆款、不承诺过审
-- 不做真人拍摄指导；剧本必须经 GATE1.5 用户定稿（skill 自检是辅助不是替代）
-- 内容安全走**反应式降级**（V2.9）：未登记模式不预防性降敏；被拦后按措辞级/构图级降级，解法登记进已验证模式库（剧情可保留、措辞与构图可调），不保证通过所有平台审核
+- Produces prompts and project files only; does not call generation APIs or perform editing. check.py / check.mjs only read project Markdown; they do not call APIs or modify files
+- `check.mjs` is at **full K1-K17 parity** with check.py (same output / exit code); full parity is covered by `tests/check-mjs.test.mjs`. check.py remains the authoritative implementation; gate changes must be mirrored on both sides
+- **A16 (lock-before-write)** is an opt-in audit: style-bible verbatim / on-screen REF registration / persistent presence. Technical actions and three-element orientation remain human-reviewed
+- **A17 (execution-contract evidence)** is an opt-in audit: batch cards / A1-A16 validation records / segment state ledger / reference contracts / time ledger / style-lock verbatim / nine-item segment lock / character-prop-group inline binding / blocking score + per-shot routes + background action lines / action bridges / negative-block closure / lens per shot / light-evolution line. It does not judge content quality
+- **A18 (image constraint budget)** is an opt-in audit: flags 03 image prompts over 260 CJK characters or more than 10 constraint words; technical sheets and text-layout images are exempt. Reduce prompts per prompt-rules 0.12 after a warning; never delete load-bearing anchors just to pass A18
+- **K17 (prompt hygiene)** is a default gate: 04/03 positive bodies must not contain music words; no-dialogue segments must declare "no dialogue / no narration / no voices"; sound sections need the positive closing line "no second sound, no continuous ambience". Explicitly marked negative-prompt sections are skipped
+- **04 split volumes (V3.17)**: large projects may split into `04_video_prompts_volNN.md`; `04_video_prompts.md` is only an index, and check.py/check.mjs merge volumes by filename order
+- **Test status**: Python 122 tests; Node 132 tests (including A17/A18 parity across all fixtures)
+- Platform commercial layers (tracks / episode counts / paywalls) are **planning references**, not official platform rules; this skill does not predict virality or guarantee approval
+- No real-actor filming guidance; scripts must be locked by the user at GATE1.5 (self-checks assist, they do not replace the user)
+- Content safety is **reactive**: unregistered patterns are not pre-emptively softened; after a block, downgrade by wording/composition and register the solution. Approval by every platform is not guaranteed
+- Model capabilities are registered per "model × provider"; the same model behind different gateways may differ. Verify against the current provider before generating
+
+## License
+
+This project is released under the **MIT License** — see [LICENSE](LICENSE).

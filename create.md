@@ -1241,3 +1241,17 @@ ai-video-maker/
 **验证**：Python 122 tests 全过；Node 132 tests 全过（A17/A18 全夹具 parity）；a17_audit_project A17 exit 0；good_project 默认门 exit 0。
 
 **改动文件**：scripts/{check.py, check-gates-e.mjs, check-gates-f.mjs} / assets/templates.md / SKILL.md / README.md / create.md / tests/{test_check.py, check-mjs.test.mjs}
+
+### V3.22.3（2026-11-13，文档：英文 README 默认 + 模型认知/边界 + MIT）
+
+**驱动**：用户要求 README 同步当前边界能力与模型认知（Seedance 免情景图 / H3 情景图与切点画质 / 优化提示词逼近 Seedance），英文 README 作为默认文档，采用 MIT 协议。
+
+- **README 双语拆分**：`README.md` 改为英文默认版；新增 `README.zh-CN.md` 保留中文完整版；两版顶部互链。
+- **模型认知更新**：新增「模型能力与提示词策略」节——Seedance 参考生视频默认可不出 L1；H3 段首+跨环境切点必出情境图，支持多帧对齐则钉秒、不支持则拆段；happyhorse 无多帧对齐，跨环境切镜拆段。
+- **H3 逼近 Seedance 八条**：开镜信息写全 / 逐镜动线+背景动作线 / 动作桥 / 光影演变 / 跨环境切点情景图 / 四组负面词库 / 每镜密度（焦段 mm·运镜 M 编号·秒级时序·声音演变）/ 不压缩结构；明确"能逼近、不能等同"。
+- **边界更新**：补充测试现状（Python 122 / Node 132）、A16/A17/A18 opt-in 语义、A18 警告不删承重锚、模型能力按供应商实测、04 分卷等。
+- **MIT**：新增 `LICENSE`（MIT，Copyright 2026 ottolsq）；两版 README 增加 License 节。
+
+**验证**：文档改动，不影响机检；Python 122 / Node 132 回归通过（提交前已跑）。
+
+**改动文件**：README.md / README.zh-CN.md / LICENSE / create.md
