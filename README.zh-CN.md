@@ -129,6 +129,7 @@ H3 与 Seedance 在参考生视频能力和文本遵从度上有代差，**能�
 │   ├── expressions.md / director-styles.md / extended-views.md / emotion-craft.md / ugc-realism.md / anime-to-real.md  # [扩展]
 │   ├── learning-guide.md # 学习指导（缺陷清单/使用边界/资料吸收台账）——不进日常执行链路
 │   ├── execution-pitfalls.md # 执行端操作坑清单（不进 Module Map/运行时）
+│   ├── production-workflow.md # 生产工作流细节：变更影响矩阵/局部重排/稳定镜号/段落制/画布同步/执行契约六条
 │   └── _archive-suspended-claims.md  # 停用主张归档（不读不用）
 ├── assets/
 │   ├── templates.md      # 00-06 项目文件标准模板（01 含项目状态卡/变更影响传播/道具状态事实/压缩账/入画道具/焦段；02 含母版事实清单/道具四字段/服装锁定档位/场景持续在场/四组负面词库；03 含方向锚图/目标状态图/竖屏安全区/Seedance 免情景图；04 含 PLAN/REF + PLAN-TAIL/挂图顺序表/逐镜动线/背景动作线/焦段/光影演变；06 含单镜时长/剪辑端转场/节奏/关键音效混音）

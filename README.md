@@ -129,6 +129,7 @@ H3 and Seedance differ in reference-to-video capability and text adherence. **Th
 │   ├── expressions.md / director-styles.md / extended-views.md / emotion-craft.md / ugc-realism.md / anime-to-real.md  # [extensions]
 │   ├── learning-guide.md # Learning guide (defect list / usage boundaries / source ledger) — not in the daily execution path
 │   ├── execution-pitfalls.md # Execution-side pitfalls (not in Module Map/runtime)
+│   ├── production-workflow.md # Production workflow details: change-impact matrix / live-script revision / stable shot IDs / segment units / canvas sync / six execution-contract rules
 │   └── _archive-suspended-claims.md  # Archived suspended claims (do not read/use)
 ├── assets/
 │   ├── templates.md      # Standard templates for project files 00-06 (01 includes project status card / change-impact list / prop state facts / compression ledger / on-screen props / lens column; 02 includes master-fact list / four prop fields / costume tiers / persistent scene state / four-group negative library; 03 includes direction anchors / target-state images / vertical safe zones / Seedance no-scene-image; 04 includes PLAN/REF + PLAN-TAIL / attachment order / per-shot routes / background action lines / lens / light evolution; 06 includes shot duration / editing transitions / rhythm / key sound mixing)
