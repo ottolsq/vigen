@@ -215,7 +215,7 @@ export function tableRows(lines, required, aliases = {}) {
   return null;
 }
 
-const SEGMENT_HEAD = /^##\s*(段落|段\d|段\s|镜头\s*S?\d)/;
+const SEGMENT_HEAD = /^##\s*(段落|段\d|段\s|镜头\s*(?:S|A)?\d+(?:v\d+)?[a-z]?)/;
 const TIME_RANGE = /^\s*\d+(?:\.\d+)?\s*s?\s*[–\-—~～至]\s*\d+(?:\.\d+)?\s*s?\s*[｜|]/;
 const TIME_RANGE_NUM = /^\s*(\d+(?:\.\d+)?)\s*s?\s*[–\-—~～至]\s*(\d+(?:\.\d+)?)\s*s?/;
 export function timeRangeSeconds(text) {

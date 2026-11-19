@@ -821,12 +821,19 @@ function containsAny(text, values) {
   });
 }
 
+function stripMasterMarker(text) {
+  return (text || "")
+    .replace(/\[MASTER:[^\]]+\]/g, "")
+    .replace(/母版事实标记\s*[：:]\s*/g, "");
+}
+
 export function gateA19(project) {
   const doc02 = project.doc("02");
   if (doc02 === null) {
     return [finding("A19", DOC_FILES["02"], 0, "警告：02 缺失，A19 未执行")];
   }
   const rules = [];
+  const badFiles = [];
   for (const [, header, body] of iterTables(doc02)) {
     const iFact = colIndex(header, "事实");
     const iVal = colIndex(header, "冻结值");
@@ -847,7 +854,11 @@ export function gateA19(project) {
       }
       let files = ["01", "03", "04"];
       if (iFiles >= 0 && iFiles < cells.length && cells[iFiles].trim()) {
-        files = cells[iFiles].split(/[,，]/).map((s) => s.trim()).filter(Boolean);
+        files = [];
+        for (const f of cells[iFiles].split(/[,，]/).map((s) => s.trim()).filter(Boolean)) {
+          if (Object.prototype.hasOwnProperty.call(DOC_FILES, f)) files.push(f);
+          else badFiles.push([fact, f]);
+        }
       }
       rules.push({ fact, variants, files, marker, line: no });
     }
@@ -858,9 +869,15 @@ export function gateA19(project) {
   }
 
   const findings = [];
+  for (const [fact, bad] of badFiles) {
+    findings.push(finding(
+      "A19", DOC_FILES["02"], 0,
+      `母版事实「${fact}」的适用文件「${bad}」不是 01/02/03/04/05/06 之一，已跳过该文件`,
+    ));
+  }
   const warned = new Set();
   const checkBlock = (key, line, text, fact, variants) => {
-    if (!containsAny(text, variants)) {
+    if (!containsAny(stripMasterMarker(text), variants)) {
       findings.push(finding(
         "A19", DOC_FILES[key], line,
         `母版事实「${fact}」应为「${variants[0]}」，但该块未出现（母版-提示词不一致）`,

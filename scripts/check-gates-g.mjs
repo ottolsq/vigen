@@ -52,29 +52,32 @@ function matchChain(body, items) {
   const positions = [];
   let hits = 0;
   for (const raw of items) {
-    const item = raw.split(/[（(]/, 1)[0].trim();
+    let item = raw.split(/[（(]/, 1)[0].trim();
+    if (item.includes("：") || item.includes(":")) {
+      const parts = item.split(/[：:]/);
+      item = parts[parts.length - 1].trim();
+    }
     const key = norm(item);
-    if (Array.from(key).length < 2) {
+    const chars = Array.from(key);
+    if (chars.length < 2) {
       missing.push(item);
       continue;
     }
-    let pos = -1;
-    let sizeHit = 0;
-    const chars = Array.from(key);
-    for (let size = chars.length; size >= 2; size -= 1) {
-      const idx = normBody.indexOf(chars.slice(0, size).join(""));
-      if (idx >= 0) {
-        pos = idx;
-        sizeHit = size;
+    const pos = normBody.indexOf(key);
+    if (pos >= 0) {
+      hits += 1;
+      positions.push([pos, chars.length]);
+      continue;
+    }
+    let found = false;
+    for (let size = chars.length - 1; size >= 2; size -= 1) {
+      if (normBody.indexOf(chars.slice(0, size).join("")) >= 0) {
+        found = true;
         break;
       }
     }
-    if (pos < 0) {
-      missing.push(item);
-    } else {
-      hits += 1;
-      positions.push([pos, sizeHit]);
-    }
+    if (found) hits += 1;
+    else missing.push(item);
   }
   return { missing, positions, hits };
 }
@@ -181,7 +184,7 @@ export function gateK18(project) {
         ));
       }
     } else {
-      const key = `k18-no-time|${unitLine}`;
+      const key = "k18-no-time";
       if (!warned.has(key)) {
         findings.push(warn("K18", "04", "本块无时间块（At/时间范围），K18 时间连续性未核对"));
         warned.add(key);
@@ -199,15 +202,35 @@ export function gateK18(project) {
         lockItems = m[1].split("→").map((x) => x.trim()).filter(Boolean);
       }
     });
-    if (lockItems.length >= 2) {
-      const bodyLines = [];
-      let neg = false;
+    const propBodyLines = [];
+    let negProp = false;
+    for (const ln of lines) {
+      if (ACTION_LOCK_RE.test(ln) || PROP_LOCK_RE.test(ln)) continue;
+      if (NEG_HDR_RE.test(ln)) negProp = true;
+      if (!negProp) propBodyLines.push(ln);
+    }
+    const propBody = norm(propBodyLines.join("\n"));
+    const actionBodyLines = [];
+    if (lockLine >= 0) {
+      const lockLabelRe = /^\s*(身份锁|表情锁|表演锁|说话人锁|道具锁|空间锁|风格锁|声音锁|动作锁)\s*[：:]/;
+      let startIdx = lockLine + 1;
       lines.forEach((ln, i) => {
-        if (i === lockLine) return;
-        if (NEG_HDR_RE.test(ln)) neg = true;
-        if (!neg) bodyLines.push(ln);
+        if (lockLabelRe.test(ln)) startIdx = Math.max(startIdx, i + 1);
+        else if (ln.trim().startsWith("detailed_description")) startIdx = Math.max(startIdx, i + 1);
       });
-      const { missing, positions } = matchChain(bodyLines.join("\n"), lockItems);
+      let negAct = false;
+      for (let i = startIdx; i < lines.length; i += 1) {
+        const ln = lines[i];
+        if (/^\s*(overall_soundscape|non_diegetic_music|CONTINUITY RULE)/i.test(ln)) break;
+        if (NEG_HDR_RE.test(ln)) negAct = true;
+        if (!negAct) actionBodyLines.push(ln);
+      }
+      if (!actionBodyLines.some((ln) => ln.trim())) {
+        actionBodyLines.push(...propBodyLines);
+      }
+    }
+    if (lockItems.length >= 2) {
+      const { missing, positions } = matchChain(actionBodyLines.join("\n"), lockItems);
       const missRatio = missing.length / lockItems.length;
       if (missRatio > 0.5) {
         findings.push(warn(
@@ -221,14 +244,16 @@ export function gateK18(project) {
             `动作锁项「${item}」未在正文找到（可能改写或遗漏，人工确认）`,
           ));
         }
-        const strong = positions.filter(([, size]) => size >= 3);
-        for (let i = 0; i + 1 < strong.length; i += 1) {
-          if (strong[i + 1][0] < strong[i][0]) {
-            findings.push(finding(
-              "K18", DOC_FILES["04"], unitLine,
-              "动作锁顺序与正文不一致（可能改写或遗漏，人工确认）",
-            ));
-            break;
+        const strong = positions;
+        if (!missing.length && positions.length === lockItems.length) {
+          for (let i = 0; i + 1 < strong.length; i += 1) {
+            if (strong[i + 1][0] < strong[i][0]) {
+              findings.push(finding(
+                "K18", DOC_FILES["04"], unitLine,
+                "动作锁顺序与正文不一致（可能改写或遗漏，人工确认）",
+              ));
+              break;
+            }
           }
         }
       }
@@ -255,11 +280,11 @@ export function gateK18(project) {
         const joined = parts.join(" ");
         const normName = norm(name);
         if (joined.includes("不入画")) {
-          if (normName && norm(lines.join("\n")).includes(normName)) {
+          if (normName && propBody.includes(normName)) {
             findings.push(warn("K18", "04", `道具「${name}」标记不入画，但正文出现（人工确认）`));
           }
         } else if (joined.includes("入画")) {
-          if (normName && !norm(lines.join("\n")).includes(normName)) {
+          if (normName && !propBody.includes(normName)) {
             findings.push(finding(
               "K18", DOC_FILES["04"], unitLine,
               `道具「${name}」标记入画，但正文未出现`,

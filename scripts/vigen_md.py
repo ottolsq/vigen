@@ -221,7 +221,7 @@ def table_rows(lines: Optional[List[str]], required: Tuple[str, ...],
 
 # ------------------------------------------------------------------ 块
 
-_SEGMENT_HEAD = re.compile(r"^##\s*(段落|段\d|段\s|镜头\s*S?\d)")
+_SEGMENT_HEAD = re.compile(r"^##\s*(段落|段\d|段\s|镜头\s*(?:S|A)?\d+(?:v\d+)?[a-z]?)")
 _TIME_RANGE = re.compile(
     r"^\s*\d+(?:\.\d+)?\s*s?\s*[–\-—~～至]\s*\d+(?:\.\d+)?\s*s?\s*[｜|]")
 _TIME_RANGE_NUM = re.compile(

@@ -40,7 +40,7 @@ export function gateK7(project) {
   const findings = [];
   for (const block of blocks_) {
     const text = blockText(block);
-    const m = /镜头\s*(S?\d+[a-z]?)/.exec(block[0][1]);
+    const m = /镜头\s*((?:S|A)?\d+(?:v\d+)?[a-z]?)/.exec(block[0][1]);
     const sid = m ? m[1] : "?";
     if (!ENV_MOTION_WORDS.some((w) => text.includes(w))) {
       findings.push(finding(
@@ -103,7 +103,7 @@ export function gateK8(project) {
   }
   if (seenA === 0) findings.push(warn("K8", "04", "未找到骨架 A code block，K8 未执行"));
 
-  if (/^##\s*镜头\s*S?\d/m.test(lines.join("\n"))) {
+  if (/^##\s*镜头\s*(?:S|A)?\d+(?:v\d+)?[a-z]?/m.test(lines.join("\n"))) {
     const doc01 = (project.doc("01") || []).join("\n");
     const note = project.section("01", "分镜总览表").map(([, t]) => t).join("\n");
     const ok =

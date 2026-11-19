@@ -167,9 +167,6 @@ export function main(argv = process.argv.slice(2)) {
     console.log("项目目录内无 01/04 文件——未按 vigen 01-06 契约组织，跳过");
     return 2;
   }
-  for (const note of project.notes) {
-    console.log(`提示：${note}`);
-  }
 
   let selected = null;
   if (args.gate) {
@@ -209,6 +206,9 @@ export function main(argv = process.argv.slice(2)) {
 
   const findings = [];
   let rcExtra = 0;
+  for (const note of project.notes) {
+    findings.push(finding("PRE", DOC_FILES["04"], 0, note));
+  }
   if (!args.partial) {
     const profile = projectProfile(project);
     const required = profile === "light" ? ["01", "03", "04"] : ["01", "02", "03", "04", "05"];

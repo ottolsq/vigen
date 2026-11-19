@@ -19,18 +19,19 @@ description: Use when the user wants to create AI-generated videos from an idea 
 
 | 概念 | 家 |
 | --- | --- |
-| 骨架 A/B 槽位、道具六条判定、L1-L4 分级出图、参考图六条硬标准、参考图取舍次序、秒级时序、禁止序列、发声描述公式、校验规则 | references/prompt-rules.md |
+| 骨架 A/B 槽位、道具六条判定、L1-L4 分级出图、参考图六条硬标准、参考图取舍次序、秒级时序、禁止序列、发声描述公式、校验规则、**动作描述密度（0.13）**、**参考图挂图三段式/语法对照（三·六）** | references/prompt-rules.md |
 | 四层锚定、风格圣经、头身分离、角色路由、参考图权重纪律、基准参考法、最小参考集、音色自提取、系列记忆、失效传播、**母版事实清单** | references/consistency.md |
 | 40 运镜、8 生成端转场 + 5 剪辑端转场、机位语义、段长分档、功能决策表、峰值与强调手段、节奏模板 | references/cinematography.md |
 | 16 风格库（含 Pixar 3D）、色彩基调色板、风格提取解梦卡、项目风格隔离 | references/styles.md |
-| 去AI味、张力四法、表面两档与塑形约束、朝代纪律、文字物理化 | references/realism.md |
+| 去AI味、张力四法、表面两档与塑形约束、朝代纪律、文字物理化、**动物物理层（七）** | references/realism.md |
 | 模型能力、生成路径、参考图上限、时长上限 | references/models.md |
-| 7 大漏洞自检、钩子悬念纪律、故事三层分离、GATE1.5 规则、故事板四格、形态 B 覆盖规则 | references/screenwriting-craft.md |
+| 7 大漏洞自检、钩子悬念纪律、故事三层分离、GATE1.5 规则、故事板四格、形态 B 覆盖规则、**原文改编压缩账（一·十）** | references/screenwriting-craft.md |
 | 平台短剧立项、档位集数、40 赛道、流派/情绪契约、单元链、六档证据、付费墙、前三集 | references/short-drama-market.md |
 | 内容合规（备案分类/11 条红线/敏感词替换）——与「提示词被拦」是两层 | references/content-compliance.md |
 | 技能特效（三层光效/法师射手剑修三类形态/动态轨迹/失败模式负面清单） | references/vfx-effects.md |
 | 负面词效力与冲突检查裁决 | references/knowledge-index.md |
-| 00-06 文件结构与填空槽位、人物参考图模板、执行契约表格、**项目状态卡/变更影响传播清单/道具状态事实表** | assets/templates.md · templates-character.md · templates-execution.md |
+| 00-06 文件结构与填空槽位、人物参考图模板、执行契约表格、**项目状态卡/变更影响传播清单/道具状态事实表**、**环境动效账/段任务包/冻结字段速查卡/质量缺陷台账** | assets/templates.md · templates-character.md · templates-execution.md |
+| **独立评审任务书/评分卡/评审记录表（评审门）** | assets/templates-review.md |
 
 **重复即缺陷**：同一条规则写进两个文件，迟早不一致——V2.4 修过的"动作容量随时长缩放"因存在三份拷贝，两份旧拷贝漂移到 V2.8 才被清掉。发现重复时保留归属表里的那个家，其余改为指针。
 

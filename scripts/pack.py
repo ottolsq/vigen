@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -22,6 +23,8 @@ from typing import Dict, List, Optional, Tuple
 from vigen_md import (
     DOC_FILES,
     Project,
+    blocks,
+    block_text,
     cell,
     iter_tables,
     shot_blocks,
@@ -31,6 +34,24 @@ from vigen_md import (
 
 SKILL_ROOT = Path(__file__).resolve().parent.parent
 PROMPT_RULES = SKILL_ROOT / "references" / "prompt-rules.md"
+_ID_RE = re.compile(r"^((?:S|A)?)(\d+)([a-z]?)(?:v(\d+))?$")
+
+
+def _has_id(text: str, sid: str) -> bool:
+    """整词匹配镜号，避免 S1 命中 S1a/S10。"""
+    return re.search(r"(?<![0-9A-Za-z])" + re.escape(sid) + r"(?![0-9A-Za-z])", text or "") is not None
+
+
+def _seg_match(cell_text: str, segment: str) -> bool:
+    def norm(value: str) -> str:
+        value = value.strip()
+        value = re.sub(r"^#+\s*", "", value)
+        value = re.split(r"[（(]", value, maxsplit=1)[0].strip()
+        if value.startswith("段落"):
+            value = "段" + value[len("段落"):]
+        return value
+
+    return norm(cell_text) == norm(segment)
 
 
 def _err(msg: str) -> int:
@@ -108,6 +129,19 @@ def _field(lines: List[str], *names: str) -> str:
     return ""
 
 
+def _value_in_sections(project: Project, headings: Tuple[str, ...], *keys: str) -> Tuple[int, str]:
+    """在指定节的「项|值」表里取值（不读项目状态卡快照）。"""
+    for heading in headings:
+        start, _end, lines = _section_range(project, "01", heading)
+        for _head_no, header, body in iter_tables(lines):
+            if len(header) < 2 or "项" not in header[0] or "值" not in header[1]:
+                continue
+            for no, cells in body:
+                if len(cells) >= 2 and any(k in cells[0] for k in keys):
+                    return start + no - 1, cells[1].strip()
+    return 0, ""
+
+
 def build_freeze_card(project: Project) -> str:
     doc02 = project.doc("02")
     if doc02 is None:
@@ -117,6 +151,17 @@ def build_freeze_card(project: Project) -> str:
     out.append("## 目标模型")
     for no, cells in _find_table(doc02, "用途", "模型")[2] if _find_table(doc02, "用途", "模型") else []:
         out.append("- %s：%s（02:%d）" % (cells[0] if cells else "", cells[1] if len(cells) > 1 else "", no))
+
+    doc01 = project.doc("01")
+    if doc01 is not None:
+        lines_out = []
+        for label in ("画幅", "时长模式", "时长上限", "成片时长", "总时长"):
+            no, value = _value_in_sections(project, ("整体方案", "时长预算"), label)
+            if value:
+                lines_out.append("- %s：%s（01:%d）" % (label, value, no))
+        if lines_out:
+            out.append("\n## 项目口径")
+            out.extend(lines_out)
 
     start, end, lines = _section_range(project, "02", "风格圣经")
     text = " ".join(x.strip() for x in _clean_section(lines, keep_tables=False))
@@ -136,7 +181,8 @@ def build_freeze_card(project: Project) -> str:
         for no, cells in tbl[2]:
             out.append("- %s（02:%d）" % (" / ".join(c for c in cells if c), no))
 
-    for heading, label in (("角色锚定表", "角色锚定"), ("服装锚定表", "服装锚定"), ("道具锚定表", "道具锚定")):
+    for heading, label in (("角色锚定表", "角色锚定"), ("服装锚定表", "服装锚定"),
+                           ("道具锚定表", "道具锚定"), ("群像锚定表", "群像锚定")):
         subs = _subsections(project, "02", heading)
         if not subs:
             continue
@@ -145,6 +191,11 @@ def build_freeze_card(project: Project) -> str:
             phrase = _field(lines, "锚定短语") or _field(lines, "服装锚定短语") or _field(lines, "道具锚定短语")
             if phrase:
                 out.append("- %s：%s（02:%d）" % (name, phrase, no))
+            if heading == "道具锚定表":
+                for fname in ("唯一实例定义", "开场状态", "状态转换点", "终态", "携带位置账"):
+                    value = _field(lines, fname)
+                    if value:
+                        out.append("  - %s：%s" % (fname, value))
 
     start, end, lines = _section_range(project, "02", "全片负面清单")
     neg = [ln.strip() for ln in lines if ln.strip() and not ln.strip().startswith(">") and not ln.strip().startswith("#")]
@@ -170,9 +221,12 @@ def _expand_shots(spec: str) -> List[str]:
             continue
         if "-" in part:
             a, b = [x.strip() for x in part.split("-", 1)]
-            if a.lstrip("S").isdigit() and b.lstrip("S").isdigit():
-                for i in range(int(a.lstrip("S")), int(b.lstrip("S")) + 1):
-                    out.append("S%d" % i)
+            ma, mb = _ID_RE.match(a), _ID_RE.match(b)
+            if (ma and mb and ma.group(1) == mb.group(1)
+                    and not ma.group(3) and not mb.group(3)
+                    and ma.group(4) is None and mb.group(4) is None):
+                for i in range(int(ma.group(2)), int(mb.group(2)) + 1):
+                    out.append(ma.group(1) + str(i))
                 continue
         out.append(part)
     return out
@@ -199,6 +253,27 @@ def _extract_skeleton(which: str) -> str:
     return "\n".join(lines[start:end]).strip()
 
 
+def _previous_ending_frame(doc04: List[str], segment: str, shots: List[str]) -> str:
+    """取本段之前一段的结尾帧；未定位到本段时不冒充。"""
+    units = blocks(doc04, only_segments=True)
+    if not units:
+        units = [[(1, text)] for text in ["\n".join(doc04)]]
+    texts = [block_text(b) for b in units]
+    idx = -1
+    for i, text in enumerate(texts):
+        heading = text.splitlines()[0] if text.splitlines() else ""
+        if (segment and _seg_match(heading, segment)) or any(_has_id(text, s) for s in shots):
+            idx = i
+            break
+    if idx > 0:
+        lines = [ln.strip() for ln in texts[idx - 1].splitlines()
+                 if "结尾帧" in ln or "ENDING FRAME" in ln]
+        return lines[-1] if lines else "（上一段未写结尾帧——人工确认）"
+    if idx == 0:
+        return "（本段为首段，无上一段尾帧）"
+    return "（未能定位本段在 04 中的位置——不取未来段尾帧，人工确认）"
+
+
 def build_segment_packet(project: Project, segment: str, shots_spec: Optional[str], skeleton: str) -> str:
     doc01 = project.doc("01")
     if doc01 is None:
@@ -207,16 +282,19 @@ def build_segment_packet(project: Project, segment: str, shots_spec: Optional[st
     cards = []
     if card_rows:
         for r in card_rows:
-            if segment and segment not in cell(r, "段号"):
+            if segment and not _seg_match(cell(r, "段号"), segment):
                 continue
             cards.append(r)
     shots: List[str] = []
     if shots_spec:
         shots = _expand_shots(shots_spec)
-    for r in cards:
-        for s in _expand_shots(cell(r, "镜号")):
-            if s not in shots:
-                shots.append(s)
+    if segment:
+        for r in cards:
+            for s in _expand_shots(cell(r, "镜号")):
+                if s not in shots:
+                    shots.append(s)
+    else:
+        cards = [r for r in cards if any(_has_id(cell(r, "镜号"), s) for s in shots)]
     if not shots:
         raise ValueError("未找到段「%s」的镜号；请提供 --shots" % segment)
 
@@ -224,19 +302,19 @@ def build_segment_packet(project: Project, segment: str, shots_spec: Optional[st
     story_rows = []
     if storyboard:
         for r in storyboard:
-            if any(s in cell(r, "镜号") for s in shots):
+            if any(_has_id(cell(r, "镜号"), s) for s in shots):
                 story_rows.append(r)
     beat_rows = table_rows(doc01, ("节拍号", "认领镜号"))
     beats = []
     if beat_rows:
         for r in beat_rows:
-            if any(s in cell(r, "认领镜号") for s in shots):
+            if any(_has_id(cell(r, "认领镜号"), s) for s in shots):
                 beats.append(r)
     plot_rows = table_rows(doc01, ("情节点", "覆盖镜号"))
     plots = []
     if plot_rows:
         for r in plot_rows:
-            if any(s in cell(r, "覆盖镜号") for s in shots):
+            if any(_has_id(cell(r, "覆盖镜号"), s) for s in shots):
                 plots.append(r)
 
     out: List[str] = []
@@ -301,7 +379,7 @@ def build_segment_packet(project: Project, segment: str, shots_spec: Optional[st
         if tbl:
             out.append("## 4. 05 台词摘录")
             for no, cells in tbl[2]:
-                if any(s in " ".join(cells) for s in shots):
+                if any(_has_id(" ".join(cells), s) for s in shots):
                     out.append("- 05:%d：%s" % (no, "｜".join(c for c in cells if c)))
             out.append("")
     else:
@@ -310,12 +388,9 @@ def build_segment_packet(project: Project, segment: str, shots_spec: Optional[st
         out.append("")
     doc04 = project.doc("04")
     if doc04 is not None:
-        ending = ""
-        for ln in doc04:
-            if "结尾帧" in ln or "ENDING FRAME" in ln:
-                ending = ln.strip()
+        ending = _previous_ending_frame(doc04, segment, shots)
         out.append("## 5. 上一段结尾帧（ENDING FRAME）")
-        out.append(ending or "（未找到上一段结尾帧；若为首段可忽略）")
+        out.append(ending)
         out.append("")
     out.append("## 6. 骨架 %s 全文" % skeleton)
     out.append(_extract_skeleton(skeleton))

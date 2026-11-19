@@ -20,17 +20,32 @@ import {
 const BEAT_ID_RE = /^B([1-9]\d*)([a-z]?)$/;
 const REF_SHOT_ONE = /(?:镜|镜头)\s*((?:S|A)?\d+(?:v\d+)?[a-z]?)/;
 
+function sectionLines(project, heading) {
+  const out = new Set();
+  for (const [no] of project.section("01", heading)) out.add(no);
+  return out;
+}
+
 function kvValue(project, ...keys) {
-  for (const [, header, body] of iterTables(project.doc("01") || [])) {
-    if (header.length < 2 || !header[0].includes("项") || !header[1].includes("值")) {
-      continue;
+  const doc = project.doc("01") || [];
+  const preferred = new Set([...sectionLines(project, "整体方案"), ...sectionLines(project, "时长预算")]);
+  const excluded = sectionLines(project, "项目状态卡");
+  const scan = (ranges, skip) => {
+    for (const [headNo, header, body] of iterTables(doc)) {
+      if (header.length < 2 || !header[0].includes("项") || !header[1].includes("值")) continue;
+      if (ranges !== null && !ranges.has(headNo)) continue;
+      if (skip && skip.has(headNo)) continue;
+      for (const [, cells] of body) {
+        if (cells.length < 2) continue;
+        if (keys.some((k) => cells[0].includes(k))) return cells[1].trim();
+      }
     }
-    for (const [, cells] of body) {
-      if (cells.length < 2) continue;
-      if (keys.some((k) => cells[0].includes(k))) return cells[1].trim();
-    }
-  }
-  return "";
+    return null;
+  };
+  const value = scan(preferred, null);
+  if (value !== null) return value;
+  const fallback = scan(null, excluded);
+  return fallback !== null ? fallback : "";
 }
 
 function beatEnabled(project) {

@@ -616,7 +616,7 @@ def gate_k7(project: Project, partial: bool) -> List[Finding]:
     findings: List[Finding] = []
     for block in blocks_:
         text = block_text(block)
-        m = re.search(r"镜头\s*(S?\d+[a-z]?)", block[0][1])
+        m = re.search(r"镜头\s*((?:S|A)?\d+(?:v\d+)?[a-z]?)", block[0][1])
         sid = m.group(1) if m else "?"
         if not any(w in text for w in ENV_MOTION_WORDS):
             findings.append(Finding(
@@ -667,7 +667,7 @@ def gate_k8(project: Project, partial: bool) -> List[Finding]:
     if seen_a == 0:
         findings.append(_warn("K8", "04", "未找到骨架 A code block，K8 未执行"))
 
-    if re.search(r"^##\s*镜头\s*S?\d", "\n".join(lines), re.M):
+    if re.search(r"^##\s*镜头\s*(?:S|A)?\d+(?:v\d+)?[a-z]?", "\n".join(lines), re.M):
         note = "\n".join(t for _, t in project.section("01", "分镜总览表"))
         ok = re.search(r"骨架\s*B[^\n]{0,40}(理由|：|—|-)", note) or re.search(
             r"骨架\s*B[^\n]{0,40}(理由|：|—|-)", "\n".join(project.doc("01") or []))
@@ -871,16 +871,36 @@ _BEAT_ID_RE = re.compile(r"^B([1-9]\d*)([a-z]?)$")
 
 
 def _kv_value(project: Project, *keys: str) -> str:
-    """在 01 的「项 | 值」类表格里按首列关键字取值（整体方案/GATE0/时长预算）。"""
-    for _no, header, body in iter_tables(project.doc("01") or []):
-        if len(header) < 2 or "项" not in header[0] or "值" not in header[1]:
-            continue
-        for _ln, cells in body:
-            if len(cells) < 2:
+    """在 01 的「项 | 值」类表格里按首列关键字取值。
+
+    V3.23.1：优先「整体方案」「时长预算」节，其余表格排除「项目状态卡」快照——
+    状态卡是变更入口，不能覆盖整体方案里的权威口径（实测：卡里的时长模式会翻转 K14）。
+    """
+    doc = project.doc("01") or []
+    preferred = {n for n, _t in project.section("01", "整体方案")}
+    preferred |= {n for n, _t in project.section("01", "时长预算")}
+    excluded = {n for n, _t in project.section("01", "项目状态卡")}
+
+    def scan(ranges, skip) -> Optional[str]:
+        for head_no, header, body in iter_tables(doc):
+            if len(header) < 2 or "项" not in header[0] or "值" not in header[1]:
                 continue
-            if any(k in cells[0] for k in keys):
-                return cells[1].strip()
-    return ""
+            if ranges is not None and head_no not in ranges:
+                continue
+            if skip and head_no in skip:
+                continue
+            for _ln, cells in body:
+                if len(cells) < 2:
+                    continue
+                if any(k in cells[0] for k in keys):
+                    return cells[1].strip()
+        return None
+
+    value = scan(preferred, None)
+    if value is not None:
+        return value
+    value = scan(None, excluded)
+    return value if value is not None else ""
 
 
 def _beat_enabled(project: Project) -> bool:
@@ -2632,6 +2652,12 @@ def _contains_any(text: str, values: List[str]) -> bool:
     return any(_norm_ws_lower(v) in norm for v in values if _norm_ws_lower(v))
 
 
+def _strip_master_marker(text: str) -> str:
+    """去掉母版标记与其标签行，防止「9x16」这类值从标记本身命中。"""
+    text = re.sub(r"\[MASTER:[^\]]+\]", "", text)
+    return re.sub(r"母版事实标记\s*[：:]\s*", "", text)
+
+
 def gate_a19(project: Project, partial: bool) -> List[Finding]:
     """A19 母版事实一致性（V3.23，opt-in）。
 
@@ -2643,6 +2669,7 @@ def gate_a19(project: Project, partial: bool) -> List[Finding]:
     if doc02 is None:
         return [_warn("A19", "02", "02 缺失，A19 未执行")]
     rules: List[Tuple[str, List[str], List[str], str, int]] = []
+    bad_files: List[Tuple[str, str]] = []
     for _head_no, header, body in iter_tables(doc02):
         i_fact = col_index(header, "事实")
         i_val = col_index(header, "冻结值")
@@ -2664,16 +2691,29 @@ def gate_a19(project: Project, partial: bool) -> List[Finding]:
             if i_files >= 0 and i_files < len(cells):
                 raw = cells[i_files].strip()
                 if raw:
-                    files = [f.strip() for f in re.split(r"[,，]", raw) if f.strip()]
+                    files = []
+                    for f in re.split(r"[,，]", raw):
+                        f = f.strip()
+                        if not f:
+                            continue
+                        if f in DOC_FILES:
+                            files.append(f)
+                        else:
+                            bad_files.append((fact, f))
             rules.append((fact, variants, files, marker, no))
     if not rules:
         return [_warn("A19", "02",
                       "未找到母版事实清单（表头含 事实/冻结值/母版事实标记），A19 未执行")]
 
     findings: List[Finding] = []
+    for fact, bad in bad_files:
+        findings.append(Finding(
+            "A19", DOC_FILES["02"], 0,
+            "母版事实「%s」的适用文件「%s」不是 01/02/03/04/05/06 之一，已跳过该文件" % (fact, bad)))
     warned: set = set()
 
     def check_block(key: str, line: int, text: str, fact: str, variants: List[str]) -> None:
+        text = _strip_master_marker(text)
         if not _contains_any(text, variants):
             findings.append(Finding(
                 "A19", DOC_FILES[key], line,
@@ -2758,30 +2798,37 @@ def _k18_units(doc: List[str]) -> List[Tuple[int, str]]:
 
 
 def _k18_match_action_chain(body: str, items: List[str]) -> Tuple[List[str], List[Tuple[int, int]], int]:
-    """返回 (缺失项, [(命中位置, 命中长度)], 命中数)；宽松前缀匹配（最短 2 字）。"""
+    """返回 (缺失项, [(精确命中位置, 长度)], 命中数)。
+
+    存在性用宽松前缀（最短 2 字）；**顺序只在整项逐字命中时判定**——
+    改写措辞的动作锁不做顺序判定，避免"老虎"这类高频词造成误报。
+    """
     norm_body = _k18_norm(body)
     missing: List[str] = []
     positions: List[Tuple[int, int]] = []
     hits = 0
     for raw in items:
         item = re.split(r"[（(]", raw, maxsplit=1)[0].strip()
+        if "：" in item or ":" in item:
+            item = re.split(r"[：:]", item)[-1].strip()
         key = _k18_norm(item)
         if len(key) < 2:
             missing.append(item)
             continue
-        pos = -1
-        size_hit = 0
-        for size in range(len(key), 1, -1):
-            idx = norm_body.find(key[:size])
-            if idx >= 0:
-                pos = idx
-                size_hit = size
-                break
-        if pos < 0:
-            missing.append(item)
-        else:
+        pos = norm_body.find(key)
+        if pos >= 0:
             hits += 1
-            positions.append((pos, size_hit))
+            positions.append((pos, len(key)))
+            continue
+        found = False
+        for size in range(len(key) - 1, 1, -1):
+            if norm_body.find(key[:size]) >= 0:
+                found = True
+                break
+        if found:
+            hits += 1
+        else:
+            missing.append(item)
     return missing, positions, hits
 
 
@@ -2872,9 +2919,9 @@ def gate_k18(project: Project, partial: bool) -> List[Finding]:
                     "末个时间块 %.1fs > 生成时长 %.1fs + 0.2s"
                     % (range_blocks[-1][1], duration)))
         else:
-            if ("k18-no-time", unit_line) not in warned:
+            if "k18-no-time" not in warned:
                 findings.append(_warn("K18", "04", "本块无时间块（At/时间范围），K18 时间连续性未核对"))
-                warned.add(("k18-no-time", unit_line))
+                warned.add("k18-no-time")
 
         # ---- 动作锁 ----
         lock_line = -1
@@ -2885,17 +2932,40 @@ def gate_k18(project: Project, partial: bool) -> List[Finding]:
                 lock_line = i
                 lock_items = [x.strip() for x in m.group(2).split("→") if x.strip()]
                 break
-        if lock_items and len(lock_items) >= 2:
-            body_lines = []
-            neg = False
+        prop_body_lines: List[str] = []
+        neg = False
+        for ln in lines:
+            if _K18_ACTION_LOCK_RE.match(ln) or _K18_PROP_LOCK_RE.match(ln):
+                continue
+            if _K18_NEG_HDR_RE.match(ln):
+                neg = True
+            if not neg:
+                prop_body_lines.append(ln)
+        prop_body = _k18_norm("\n".join(prop_body_lines))
+        action_body_lines: List[str] = []
+        if lock_line >= 0:
+            lock_label_re = re.compile(
+                r"^\s*(身份锁|表情锁|表演锁|说话人锁|道具锁|空间锁|风格锁|声音锁|动作锁)\s*[：:]")
+            start_idx = lock_line + 1
             for i, ln in enumerate(lines):
-                if i == lock_line:
-                    continue
+                if lock_label_re.match(ln):
+                    start_idx = max(start_idx, i + 1)
+                elif ln.strip().startswith("detailed_description"):
+                    start_idx = max(start_idx, i + 1)
+            neg = False
+            for ln in lines[start_idx:]:
+                if re.match(r"^\s*(overall_soundscape|non_diegetic_music|CONTINUITY RULE)", ln, re.I):
+                    break
                 if _K18_NEG_HDR_RE.match(ln):
                     neg = True
                 if not neg:
-                    body_lines.append(ln)
-            missing, positions, hits = _k18_match_action_chain("\n".join(body_lines), lock_items)
+                    action_body_lines.append(ln)
+            if not any(ln.strip() for ln in action_body_lines):
+                action_body_lines = prop_body_lines
+        if lock_items and len(lock_items) >= 2:
+            missing, positions, hits = _k18_match_action_chain("\n".join(action_body_lines), lock_items)
+        if lock_items and len(lock_items) >= 2:
+            missing, positions, hits = _k18_match_action_chain("\n".join(action_body_lines), lock_items)
             miss_ratio = len(missing) / float(len(lock_items))
             if miss_ratio > 0.5:
                 findings.append(_warn(
@@ -2907,13 +2977,14 @@ def gate_k18(project: Project, partial: bool) -> List[Finding]:
                     findings.append(Finding(
                         "K18", DOC_FILES["04"], unit_line,
                         "动作锁项「%s」未在正文找到（可能改写或遗漏，人工确认）" % item))
-                strong = [(pos, size) for pos, size in positions if size >= 3]
-                for (a, _sa), (b, _sb) in zip(strong, strong[1:]):
-                    if b < a:
-                        findings.append(Finding(
-                            "K18", DOC_FILES["04"], unit_line,
-                            "动作锁顺序与正文不一致（可能改写或遗漏，人工确认）"))
-                        break
+                strong = positions
+                if not missing and len(positions) == len(lock_items):
+                    for (a, _sa), (b, _sb) in zip(strong, strong[1:]):
+                        if b < a:
+                            findings.append(Finding(
+                                "K18", DOC_FILES["04"], unit_line,
+                                "动作锁顺序与正文不一致（可能改写或遗漏，人工确认）"))
+                            break
 
         # ---- 道具状态账 ----
         prop_line = ""
@@ -2934,12 +3005,13 @@ def gate_k18(project: Project, partial: bool) -> List[Finding]:
                 parsed = True
                 name = parts[0]
                 joined = " ".join(parts)
+                name_norm = _k18_norm(name)
                 if "不入画" in joined:
-                    if _k18_norm(name) and _k18_norm(name) in _k18_norm("\n".join(lines)):
+                    if name_norm and name_norm in prop_body:
                         findings.append(_warn(
                             "K18", "04", "道具「%s」标记不入画，但正文出现（人工确认）" % name))
                 elif "入画" in joined:
-                    if _k18_norm(name) and _k18_norm(name) not in _k18_norm("\n".join(lines)):
+                    if name_norm and name_norm not in prop_body:
                         findings.append(Finding(
                             "K18", DOC_FILES["04"], unit_line,
                             "道具「%s」标记入画，但正文未出现" % name))
@@ -3039,8 +3111,6 @@ def main(argv: List[str]) -> int:
     if doc01 is None and doc04 is None:
         print("项目目录内无 01/04 文件——未按 vigen 01-06 契约组织，跳过")
         return 2
-    for note in project.notes:
-        print("提示：" + note)
     all_gates = GATES + OPTIONAL_GATES
     valid = {g for g, _ in all_gates}
     selected: Optional[set] = None
@@ -3065,6 +3135,8 @@ def main(argv: List[str]) -> int:
 
     findings: List[Finding] = []
     rc_extra = 0
+    for note in project.notes:
+        findings.append(Finding("PRE", DOC_FILES["04"], 0, note))
     if not args.partial:
         profile = _project_profile(project)
         required = LIGHT_REQUIRED if profile == "light" else REQUIRED_FOR_FULL
@@ -3073,7 +3145,7 @@ def main(argv: List[str]) -> int:
         variant_files = sorted(project.root.glob("视频生成提示词_*.md"))
         for key in required:
             if key == "04" and project.doc(key) is None and variant_files:
-                # 有变体但未选择（提示已输出）——不算缺文件
+                # 变体未选择已在 notes 转为 PRE finding——不重复报缺文件
                 continue
             if project.doc(key) is None:
                 findings.append(Finding("PRE", DOC_FILES[key], 0,
