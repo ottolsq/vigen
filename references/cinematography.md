@@ -165,6 +165,27 @@
 | 升镜俯拍 | 镜头**从腰部高度向上升，变成从屋顶往下看的俯拍**，两人在画面中央变小 | 交代结局，人一下就变小了（宿命感） |
 | 后拉 | 镜头**在人物身后一路向后退，画面越来越宽**，她的背影越走越小 | 故事收尾（抽离） |
 
+### Seedance 官方运镜例句（V3.25——46 条官方模板中的独特写法）
+
+> 来源：seedance.tv 官方《镜头运动》提示词库 `[官方文档]`（46 条，分类：静止1/摇镜俯仰8/变焦对焦7/轨道跟拍17/航拍摇臂6/特殊运镜7）。完整英文模板见官方页；下表只收 vigen 现有 40 运镜未覆盖或需补参数的写法，并映射到 M 编号。
+
+| 官方运镜 | 关键英文句（可替换方括号） | 映射 |
+| --- | --- | --- |
+| 绝对静止 | `Zero motion — no drift, no shake, no breathing, no stabilization float, no micro-drift; absolute rock-solid stillness throughout. Angle, elevation, distance and composition are frozen... every ounce of motion comes from the scene itself, never from the camera.` | M17 |
+| 希区柯克变焦（同步公式） | `The camera physically dollies forward from [6] meters to [2.5] meters while the lens simultaneously zooms out from [18] to [84] degrees field of view, in one continuous, perfectly synchronized ramp. The subject's head size stays EXACTLY constant in frame... the background visibly stretches and recedes.` | M03 |
+| 急速变焦（硬停） | `Hold the wide [84]-degree frame perfectly static; then ONE sharp continuous zoom to [18] degrees — a single decisive ramp of about 1.2 seconds with no steps and no wobble; then hold the tight frame perfectly static to the end.` | M14/M22 |
+| 撞焦拉出（crush zoom） | `A violent optical crash zoom OUT — about 0.4 seconds, zoom-ring only, with real motion blur and a hard stop — landing on a locked wide frame held perfectly static.` | M23 变体 |
+| 甩镜（过冲回稳） | `ONE violent horizontal whip pan to the left — a 0.4-second full-blur smear — landing hard on composition B with a 2-degree overshoot-and-settle, then holds perfectly static.` | M10 |
+| 三层视差跟拍 | `Strict 90-degree side view... three clean parallax layers: nearest — [posts] sweeping fast past the lens, briefly occluding the subject; middle — the subject, constant size; farthest — [background row] sliding by slower.` | M05 |
+| 擦肩推进（push past） | `Forward travel on a lane offset about 0.6 meters to the subject's right — the subject grows in frame, then exits cleanly at the left frame edge while the camera continues WITHOUT stopping toward the reveal beyond, focus racking from the subject to the far point at the moment of the pass.` | M06 变体 |
+| 绑定视角（Snorricam） | `A rigid chest-mounted rig facing back at the subject — their face and torso locked to the frame center for the entire shot, unable to leave it; the subject's walk transfers to the WORLD as a slow gentle bob and sway.` | M18 |
+| 子弹时间 | `Time inside the scene slams to a near-freeze — the subject hangs suspended mid-action, droplets and debris locked motionless — while the camera alone keeps moving at normal speed along a smooth circular arc.` | M39 |
+| 延时双时速 | `Two speeds of time in one frame: the world runs in time-lapse — [day → night → morning → rainy twilight] — while the subject moves in real time at normal human speed.` | M17 + 时间流速变体 |
+| 升降柱（不摇不俯） | `The whole camera body sinks straight down along a clean vertical line from lens height [2.2] to [0.8] meters... the lens stays perfectly horizontal and locked on its original heading — no tilting, no crane arc.` | M07/M08 变体 |
+| 短滑轨（40cm） | `Eases sideways over about [40] centimeters on a smooth slider track, lens axis locked straight ahead, soft ease-in/out; depth planes separate cleanly.` | M05 变体 |
+
+> 用法：官方句是"参数级模板"，替换方括号后可直接进 04；与 M 编号并存写（`M10 甩镜（官方：0.4s 全模糊+2° 过冲回稳）`），A12 仍按五类词动机校验。整库不搬入，避免与现有 40 运镜重复。
+
 ### 机位语义表（高度决定心理含义——写机位时按此选型）
 
 | 机位 | 写法 | 展现什么 |
