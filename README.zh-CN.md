@@ -150,6 +150,7 @@ H3 与 Seedance 在参考生视频能力和文本遵从度上有代差，**能�
 │   ├── check-gates-g.mjs # A20 动作链诊断（opt-in，原名 K18）
 │   ├── vigen_md.py       # Python 解析层
 │   ├── vigen-md.mjs      # Node 解析层（行为对齐 vigen_md.py）
+│   ├── lint_docs.py      # 文档归属/门名一致性 lint（开发自检）
 │   └── export.py         # 交付打包（快照 + manifest + checksums，不声称审批）
 └── tests/
     ├── test_check.py       # check.py 单元测试（122 tests；含 test_export）

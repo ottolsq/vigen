@@ -150,6 +150,7 @@ H3 and Seedance differ in reference-to-video capability and text adherence. **Th
 │   ├── check-gates-g.mjs # A20 action-chain diagnostic (opt-in; renamed from K18)
 │   ├── vigen_md.py       # Python parsing layer
 │   ├── vigen-md.mjs      # Node parsing layer (aligned with vigen_md.py)
+│   ├── lint_docs.py      # Doc ownership / gate-name consistency lint (dev self-check)
 │   └── export.py         # Delivery packaging (snapshot + manifest + checksums; does not assert approval)
 └── tests/
     ├── test_check.py       # check.py unit tests (122 tests; includes test_export)
