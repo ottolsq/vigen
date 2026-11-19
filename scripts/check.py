@@ -39,6 +39,8 @@ enforce 的条款（与 vigen_md 解析层配套）：
       → 警告约束过密（技术参考图/文字排版类豁免）
   A19 母版事实一致性（opt-in，V3.23）：02 母版事实清单逐字出现在
       01/03/04 带「母版事实标记」的块中；多语言/多画幅按标记区分
+  K18 动作链诊断（opt-in，V3.23）：时间块连续（At/时间范围两种格式）+
+      动作锁顺序（宽松前缀）+ 道具状态账；改写措辞允许人工确认后忽略
 
 用法（CT6）：
     python check.py <项目目录> [--partial] [--gate K5[,K6]] [--video-variant 9x16]
@@ -2728,8 +2730,227 @@ def gate_a19(project: Project, partial: bool) -> List[Finding]:
     return findings
 
 
+# ------------------------------------------------------------------ K18 动作链（opt-in 诊断，V3.23）
+
+_K18_AT_RE = re.compile(r"^\s*(?:[-*]\s*)?At\s+(\d{1,3}):(\d{2})(?:\.(\d{1,3}))?\s*[：:,]?")
+_K18_RANGE_RE = re.compile(
+    r"^\s*(\d+(?:\.\d+)?)\s*s?\s*[–\-—~～至]\s*(\d+(?:\.\d+)?)\s*s?\s*(?:[｜|]\s*)?(.*)$")
+_K18_DUR_RE = re.compile(r"生成\s*(\d+(?:\.\d+)?)\s*s")
+_K18_ACTION_LOCK_RE = re.compile(r"^\s*[-*]?\s*(自然)?动作锁\s*[：:]\s*(.+)$")
+_K18_PROP_LOCK_RE = re.compile(r"^\s*[-*]?\s*道具锁\s*[：:]\s*(.+)$")
+_K18_NEG_HDR_RE = re.compile(r"^\s*(禁止|NO|【负面提示词】)")
+_K18_PUNCT_RE = re.compile(r"[\s，。；、：:,.!?！？（）()\"'“”「」\-—…]+")
+
+
+def _k18_norm(text: str) -> str:
+    return _K18_PUNCT_RE.sub("", text or "")
+
+
+def _k18_units(doc: List[str]) -> List[Tuple[int, str]]:
+    segs = blocks(doc, only_segments=True)
+    if segs:
+        return [(b[0][0], block_text(b)) for b in segs]
+    fenced = _fenced_blocks(doc)
+    if fenced:
+        return fenced
+    return [(1, "\n".join(doc))]
+
+
+def _k18_match_action_chain(body: str, items: List[str]) -> Tuple[List[str], List[Tuple[int, int]], int]:
+    """返回 (缺失项, [(命中位置, 命中长度)], 命中数)；宽松前缀匹配（最短 2 字）。"""
+    norm_body = _k18_norm(body)
+    missing: List[str] = []
+    positions: List[Tuple[int, int]] = []
+    hits = 0
+    for raw in items:
+        item = re.split(r"[（(]", raw, maxsplit=1)[0].strip()
+        key = _k18_norm(item)
+        if len(key) < 2:
+            missing.append(item)
+            continue
+        pos = -1
+        size_hit = 0
+        for size in range(len(key), 1, -1):
+            idx = norm_body.find(key[:size])
+            if idx >= 0:
+                pos = idx
+                size_hit = size
+                break
+        if pos < 0:
+            missing.append(item)
+        else:
+            hits += 1
+            positions.append((pos, size_hit))
+    return missing, positions, hits
+
+
+def gate_k18(project: Project, partial: bool) -> List[Finding]:
+    """K18 动作链自检（V3.23，opt-in 诊断门）。
+
+    - 时间块连续性：`At 0:03.600：` 与 `0.0s–1.4s` 两种格式都识别
+    - 动作锁顺序：宽松前缀匹配；>50% 缺失只报一条警告（防改写措辞刷屏）
+    - 道具状态账：入画未出现 → finding；不入画出现 → 警告
+    """
+    doc = project.doc("04")
+    if doc is None:
+        return [_warn("K18", "04", "04 缺失，K18 未执行")]
+    findings: List[Finding] = []
+    warned: set = set()
+    units = _k18_units(doc)
+    for unit_line, text in units:
+        lines = text.splitlines()
+        dur_m = _K18_DUR_RE.search(text)
+        duration = float(dur_m.group(1)) if dur_m else None
+
+        # ---- 时间块 ----
+        at_blocks: List[Tuple[float, str]] = []
+        for ln in lines:
+            m = _K18_AT_RE.search(ln)
+            if m:
+                sec = int(m.group(1)) * 60 + int(m.group(2)) + (int(m.group(3) or 0) / 1000.0)
+                content = ln[m.end():].strip()
+                at_blocks.append((sec, content))
+        range_blocks: List[Tuple[float, float, str]] = []
+        for i, ln in enumerate(lines):
+            m = _K18_RANGE_RE.match(ln)
+            if m:
+                start, end = float(m.group(1)), float(m.group(2))
+                content = m.group(3).strip()
+                if not content:
+                    look = i + 1
+                    while look < len(lines) and not _K18_RANGE_RE.match(lines[look]) and not _K18_AT_RE.search(lines[look]):
+                        if lines[look].strip():
+                            content = lines[look].strip()
+                            break
+                        look += 1
+                range_blocks.append((start, end, content))
+        if at_blocks:
+            if at_blocks[0][0] > 0.5:
+                findings.append(Finding(
+                    "K18", DOC_FILES["04"], unit_line,
+                    "首个时间块起始 %.1fs > 0.5s（时间轴须从 0 附近开始）" % at_blocks[0][0]))
+            prev = -1.0
+            for sec, content in at_blocks:
+                if sec <= prev:
+                    findings.append(Finding(
+                        "K18", DOC_FILES["04"], unit_line,
+                        "时间块 %.1fs 未严格递增（上一块 %.1fs）" % (sec, prev)))
+                if not content:
+                    findings.append(Finding(
+                        "K18", DOC_FILES["04"], unit_line,
+                        "时间块 %.1fs 后无内容（空时间块）" % sec))
+                prev = sec
+            if duration is not None and at_blocks[-1][0] > duration + 0.2:
+                findings.append(Finding(
+                    "K18", DOC_FILES["04"], unit_line,
+                    "末个时间块 %.1fs > 生成时长 %.1fs + 0.2s" % (at_blocks[-1][0], duration)))
+        elif range_blocks:
+            if range_blocks[0][0] > 0.5:
+                findings.append(Finding(
+                    "K18", DOC_FILES["04"], unit_line,
+                    "首个时间块起始 %.1fs > 0.5s（时间轴须从 0 附近开始）" % range_blocks[0][0]))
+            prev_start, prev_end = -1.0, -1.0
+            for start, end, content in range_blocks:
+                if start < prev_start:
+                    findings.append(Finding(
+                        "K18", DOC_FILES["04"], unit_line,
+                        "时间块 %.1fs–%.1fs 乱序（前一拍从 %.1fs 开始）" % (start, end, prev_start)))
+                elif prev_end >= 0 and start > prev_end + 1.0:
+                    findings.append(Finding(
+                        "K18", DOC_FILES["04"], unit_line,
+                        "时间块断档：%.1fs–%.1fs 之后下一拍从 %.1fs 开始（>%.1fs 间隙）"
+                        % (prev_start, prev_end, start, prev_end + 1.0)))
+                if not content:
+                    findings.append(Finding(
+                        "K18", DOC_FILES["04"], unit_line,
+                        "时间块 %.1fs–%.1fs 后无内容（空时间块）" % (start, end)))
+                prev_start, prev_end = start, end
+            if duration is not None and range_blocks[-1][1] > duration + 0.2:
+                findings.append(Finding(
+                    "K18", DOC_FILES["04"], unit_line,
+                    "末个时间块 %.1fs > 生成时长 %.1fs + 0.2s"
+                    % (range_blocks[-1][1], duration)))
+        else:
+            if ("k18-no-time", unit_line) not in warned:
+                findings.append(_warn("K18", "04", "本块无时间块（At/时间范围），K18 时间连续性未核对"))
+                warned.add(("k18-no-time", unit_line))
+
+        # ---- 动作锁 ----
+        lock_line = -1
+        lock_items: List[str] = []
+        for i, ln in enumerate(lines):
+            m = _K18_ACTION_LOCK_RE.match(ln)
+            if m:
+                lock_line = i
+                lock_items = [x.strip() for x in m.group(2).split("→") if x.strip()]
+                break
+        if lock_items and len(lock_items) >= 2:
+            body_lines = []
+            neg = False
+            for i, ln in enumerate(lines):
+                if i == lock_line:
+                    continue
+                if _K18_NEG_HDR_RE.match(ln):
+                    neg = True
+                if not neg:
+                    body_lines.append(ln)
+            missing, positions, hits = _k18_match_action_chain("\n".join(body_lines), lock_items)
+            miss_ratio = len(missing) / float(len(lock_items))
+            if miss_ratio > 0.5:
+                findings.append(_warn(
+                    "K18", "04",
+                    "动作锁与正文措辞差异较大（%d/%d 项未匹配），跳过顺序检查（人工确认）"
+                    % (len(missing), len(lock_items))))
+            else:
+                for item in missing:
+                    findings.append(Finding(
+                        "K18", DOC_FILES["04"], unit_line,
+                        "动作锁项「%s」未在正文找到（可能改写或遗漏，人工确认）" % item))
+                strong = [(pos, size) for pos, size in positions if size >= 3]
+                for (a, _sa), (b, _sb) in zip(strong, strong[1:]):
+                    if b < a:
+                        findings.append(Finding(
+                            "K18", DOC_FILES["04"], unit_line,
+                            "动作锁顺序与正文不一致（可能改写或遗漏，人工确认）"))
+                        break
+
+        # ---- 道具状态账 ----
+        prop_line = ""
+        for ln in lines:
+            m = _K18_PROP_LOCK_RE.match(ln)
+            if m:
+                prop_line = m.group(1)
+                break
+        if prop_line:
+            entries = [e.strip() for e in re.split(r"[；;]", prop_line) if e.strip()]
+            parsed = False
+            for entry in entries:
+                if "｜" not in entry and "|" not in entry:
+                    continue
+                parts = [p.strip() for p in re.split(r"[｜|]", entry)]
+                if len(parts) < 2:
+                    continue
+                parsed = True
+                name = parts[0]
+                joined = " ".join(parts)
+                if "不入画" in joined:
+                    if _k18_norm(name) and _k18_norm(name) in _k18_norm("\n".join(lines)):
+                        findings.append(_warn(
+                            "K18", "04", "道具「%s」标记不入画，但正文出现（人工确认）" % name))
+                elif "入画" in joined:
+                    if _k18_norm(name) and _k18_norm(name) not in _k18_norm("\n".join(lines)):
+                        findings.append(Finding(
+                            "K18", DOC_FILES["04"], unit_line,
+                            "道具「%s」标记入画，但正文未出现" % name))
+            if not parsed and ("k18-prop-fmt", unit_line) not in warned:
+                findings.append(_warn("K18", "04", "道具锁格式未识别（缺 ｜ 分隔），K18 道具账未核对"))
+                warned.add(("k18-prop-fmt", unit_line))
+    return findings
+
+
 OPTIONAL_GATES: List[Tuple[str, GateFn]] = [
     ("A16", gate_a16), ("A17", gate_a17), ("A18", gate_a18), ("A19", gate_a19),
+    ("K18", gate_k18),
 ]
 
 
