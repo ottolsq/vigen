@@ -137,7 +137,7 @@ H3 与 Seedance 在参考生视频能力和文本遵从度上有代差，**能�
 │   └── templates-review.md     # 独立评审门（评审子代理任务书 + 剧本/02/03/04/05 评分卡 + 评审记录表）
 ├── scripts/
 │   ├── check.py          # 薄校验层（K1-K17 机械门，纯标准库；A16/A17/A18/A19/K18 为 opt-in；轻量 profile + --video-variant + --batch）
-│   ├── check.mjs         # Node CLI + 门注册（默认 K1-K17；A16-A19/K18 可选，与 check.py 行为对齐）
+│   ├── check.mjs         # Node CLI（有 Python 自动委托 check.py 全量；无 Python 时 K1-K17 子集）
 │   ├── pack.py           # 批次生产效率工具（segment 段任务包 / freeze 冻结字段速查卡）
 │   ├── batch-gates.json  # 批次门映射唯一源（03/04/05/milestone）
 │   ├── check-core.mjs    # check.mjs 共享 helpers
@@ -212,13 +212,13 @@ cp -r references assets scripts ~/.claude/skills/vigen/
 ## 已知边界
 
 - 只产提示词与项目文件，不调用生成 API、不做剪辑执行；check.py / check.mjs 只读校验项目 Markdown，同样不调 API、不改文件
-- `check.mjs` 已 **K1-K17 全量**，与 check.py 同输出/同退出码；全量 parity 由 `tests/check-mjs.test.mjs` 覆盖。check.py 仍是权威实现，改门必须两边同步
+- `check.mjs`（V3.24）：**有 Python 时自动委托 check.py（权威全量）并返回其退出码；无 Python 时只跑默认 K1-K17 子集**。A16-A19/K18 为可选审计，仅在 Python 侧可用；`VIGEN_NODE_NO_DELEGATE=1` 强制本地子集，`VIGEN_PYTHON`/`VIGEN_CHECK_PY` 可覆盖解释器与委托脚本（测试用）。现有 Node 可选门代码保留为遗留实现、不再注册
 - **A16（先锁后写）是 opt-in 审计**：`--gate A16` 机检风格圣经逐字/入画 REF 登记/持续在场三项；技术动作与朝向三要素仍人工核对
 - **A17（执行契约留痕）是 opt-in 审计**：`--gate A17` 机检批次生产卡/批次校验记录 A1-A16/段状态账/参考契约/时间账/风格锁逐字/04 段锁定清单九项/人物道具群像就地绑定/走位总谱+逐镜动线+背景动作线/动作桥/负面提示词闭环/每镜焦段/光影演变线；不查内容质量
 - **A18（图片约束预算）是 opt-in 审计**：`--gate A18` 对 03 单张图提示词 >260 汉字或约束词 >10 处报警；技术参考图/文字排版类豁免。警告后按 prompt-rules 0.12 删减，不为过 A18 删承重锚
 - **K17（提示词卫生）是默认门**：04/03 正向正文禁音乐类词；无台词段须含"无台词/无旁白/无人声"；有声音节须有"没有第二种声音，也没有任何持续声底"。明确标记的【负面提示词】节跳过音乐词检查
 - **04 分卷（V3.17）**：大项目可按 `04_视频提示词_卷NN.md` 拆分；`04_视频提示词.md` 只作索引，check.py/check.mjs 自动按文件名排序合并分卷校验
-- **测试现状**：Python 122 tests；Node 132 tests（含 A17/A18 全夹具 parity）
+- **测试现状**：`tests/` 为本地归档，不在本仓库检出；以真实项目回归（check.py 与 check.mjs 委托模式逐行一致）为准
 - 平台商业层（赛道/集数/付费墙）是**立项参考**，不是平台官方规则；本 skill 不预测爆款、不承诺过审
 - 不做真人拍摄指导；剧本必须经 GATE1.5 用户定稿（skill 自检是辅助不是替代）
 - 内容安全走**反应式降级**：未登记模式不预防性降敏；被拦后按措辞级/构图级降级，解法登记进已验证模式库，不保证通过所有平台审核

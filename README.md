@@ -137,7 +137,7 @@ H3 and Seedance differ in reference-to-video capability and text adherence. **Th
 │   └── templates-review.md     # Independent review gate (reviewer brief + script/02/03/04/05 scorecards + review record)
 ├── scripts/
 │   ├── check.py          # Thin validation layer (K1-K17 mechanical gates; A16/A17/A18/A19/K18 opt-in; light profile + --video-variant + --batch)
-│   ├── check.mjs         # Node CLI + gate registry (K1-K17 default; A16-A19/K18 optional, behavior-aligned with check.py)
+│   ├── check.mjs         # Node CLI (with Python: delegates to check.py; without Python: K1-K17 subset)
 │   ├── pack.py           # Batch-production efficiency tool (segment packet / freeze card)
 │   ├── batch-gates.json  # Single source for batch gate mapping (03/04/05/milestone)
 │   ├── check-core.mjs    # Shared helpers for check.mjs
@@ -212,13 +212,13 @@ No manual invocation is needed after installation — intents such as "make me a
 ## Known boundaries
 
 - Produces prompts and project files only; does not call generation APIs or perform editing. check.py / check.mjs only read project Markdown; they do not call APIs or modify files
-- `check.mjs` is at **full K1-K17 parity** with check.py (same output / exit code); full parity is covered by `tests/check-mjs.test.mjs`. check.py remains the authoritative implementation; gate changes must be mirrored on both sides
+- `check.mjs` (V3.24): **with Python it delegates to check.py (authoritative, full set) and returns its exit code; without Python it runs only the default K1-K17 subset**. A16-A19/K18 opt-in audits require Python; `VIGEN_NODE_NO_DELEGATE=1` forces the local subset; `VIGEN_PYTHON` / `VIGEN_CHECK_PY` override the interpreter and delegated script (tests). The old Node opt-in implementations remain as unregistered legacy code
 - **A16 (lock-before-write)** is an opt-in audit: style-bible verbatim / on-screen REF registration / persistent presence. Technical actions and three-element orientation remain human-reviewed
 - **A17 (execution-contract evidence)** is an opt-in audit: batch cards / A1-A16 validation records / segment state ledger / reference contracts / time ledger / style-lock verbatim / nine-item segment lock / character-prop-group inline binding / blocking score + per-shot routes + background action lines / action bridges / negative-block closure / lens per shot / light-evolution line. It does not judge content quality
 - **A18 (image constraint budget)** is an opt-in audit: flags 03 image prompts over 260 CJK characters or more than 10 constraint words; technical sheets and text-layout images are exempt. Reduce prompts per prompt-rules 0.12 after a warning; never delete load-bearing anchors just to pass A18
 - **K17 (prompt hygiene)** is a default gate: 04/03 positive bodies must not contain music words; no-dialogue segments must declare "no dialogue / no narration / no voices"; sound sections need the positive closing line "no second sound, no continuous ambience". Explicitly marked negative-prompt sections are skipped
 - **04 split volumes (V3.17)**: large projects may split into `04_video_prompts_volNN.md`; `04_video_prompts.md` is only an index, and check.py/check.mjs merge volumes by filename order
-- **Test status**: Python 122 tests; Node 132 tests (including A17/A18 parity across all fixtures)
+- **Test status**: `tests/` is a local archive and is not checked out in this repository; real-project regression (check.py vs delegated check.mjs, line-for-line) is the reference
 - Platform commercial layers (tracks / episode counts / paywalls) are **planning references**, not official platform rules; this skill does not predict virality or guarantee approval
 - No real-actor filming guidance; scripts must be locked by the user at GATE1.5 (self-checks assist, they do not replace the user)
 - Content safety is **reactive**: unregistered patterns are not pre-emptively softened; after a block, downgrade by wording/composition and register the solution. Approval by every platform is not guaranteed

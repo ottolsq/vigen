@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-// vigen check.mjs — CLI + 门注册（行为对齐 check.py；Phase 2c：K1-K17 全量）。
+// vigen check.mjs — Node CLI（V3.24：有 Python 时委托 check.py 全量；否则 K1-K17 子集）。
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { DOC_FILES, Project, finding } from "./vigen-md.mjs";
@@ -12,10 +13,13 @@ import { gateA16, gateA17, gateA18, gateA19 } from "./check-gates-e.mjs";
 import { gateK17 } from "./check-gates-f.mjs";
 import { gateK18 } from "./check-gates-g.mjs";
 
-const ALL_GATES = [
-  "K1", "K2", "K3", "K4", "K5", "K6", "K7", "K8",
-  "K9", "K10", "K11", "K12", "K13", "K14", "K15", "K16", "K17", "A16", "A17", "A18", "A19", "K18",
+// V3.24：Node 只承诺默认 K1-K17；有 Python 时 main 会先委托 check.py（全量）。
+const NODE_SUPPORTED = [
+  "K1", "K2", "K3", "K4", "K5", "K6", "K7", "K8", "K9", "K10",
+  "K11", "K12", "K13", "K14", "K15", "K16", "K17",
 ];
+const KNOWN_OPTIONAL = new Set(["A16", "A17", "A18", "A19", "K18"]);
+const ALL_GATES = [...NODE_SUPPORTED];
 const IMPLEMENTED = new Set(ALL_GATES);
 const GATES = [
   ["K1", gateK1], ["K2", gateK2], ["K3", gateK3], ["K4", gateK4],
@@ -28,6 +32,33 @@ const OPTIONAL_GATES = [
   ["A16", gateA16], ["A17", gateA17], ["A18", gateA18], ["A19", gateA19], ["K18", gateK18],
 ];
 const ALL_GATE_FNS = [...GATES, ...OPTIONAL_GATES];
+
+function detectPython() {
+  if (process.env.VIGEN_PYTHON) return process.env.VIGEN_PYTHON;
+  for (const cmd of ["python", "python3"]) {
+    try {
+      const r = spawnSync(cmd, ["--version"], { timeout: 2000, stdio: "ignore" });
+      if (r.status === 0) return cmd;
+    } catch {
+      // 继续试下一个
+    }
+  }
+  return null;
+}
+
+function delegate(python, args) {
+  const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+  const checkPy = process.env.VIGEN_CHECK_PY || path.join(scriptDir, "check.py");
+  const r = spawnSync(python, [checkPy, ...args], {
+    stdio: "inherit",
+    env: { ...process.env, VIGEN_DELEGATED: "1" },
+  });
+  if (r.error) {
+    console.log(`Node 委托 check.py 失败（${r.error.message}），回退本地 K1-K17 子集`);
+    return null;
+  }
+  return r.status === null ? 1 : r.status;
+}
 
 function loadBatchGates() {
   try {
@@ -48,7 +79,8 @@ function usage() {
   return [
     "usage: check.mjs [-h] [--partial] [--gate GATE] [--batch BATCH] [--batch-list] [--video-variant SUFFIX] project_dir",
     "",
-    "vigen 项目文件机械校验（默认 K1-K17；A16-A19/K18 为可选审计：A16 锁定审计，A17 执行契约留痕，A18 图片约束预算，A19 母版事实一致性，K18 动作链诊断）",
+    "vigen 项目文件机械校验。有 Python 时自动委托 check.py（全量）；无 Python 时 K1-K17 子集。",
+    "环境变量：VIGEN_NODE_NO_DELEGATE=1 强制本地子集；VIGEN_PYTHON=<路径> 指定解释器；VIGEN_CHECK_PY=<路径> 覆盖委托脚本（测试用）。",
     "",
     "positional arguments:",
     "  project_dir   项目目录（含 01-06 Markdown）",
@@ -138,6 +170,13 @@ export function main(argv = process.argv.slice(2)) {
     console.log(usage());
     return 0;
   }
+  if (process.env.VIGEN_NODE_NO_DELEGATE !== "1" && process.env.VIGEN_DELEGATED !== "1") {
+    const python = detectPython();
+    if (python) {
+      const code = delegate(python, argv);
+      if (code !== null) return code;
+    }
+  }
   const batchMap = loadBatchGates();
   if (args.batchList) {
     for (const [name, gates] of Object.entries(batchMap)) {
@@ -173,14 +212,14 @@ export function main(argv = process.argv.slice(2)) {
     const wanted = new Set(
       args.gate.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean),
     );
-    const bad = [...wanted].filter((gid) => !ALL_GATES.includes(gid)).sort();
+    const bad = [...wanted].filter((gid) => !NODE_SUPPORTED.includes(gid) && !KNOWN_OPTIONAL.has(gid)).sort();
     if (bad.length) {
-      console.log(`未知门：${bad.join(", ")}（合法取值：${ALL_GATES.join(", ")}）`);
+      console.log(`未知门：${bad.join(", ")}（Node 子集支持：${NODE_SUPPORTED.join(", ")}）`);
       return 2;
     }
-    const missing = [...wanted].filter((gid) => !IMPLEMENTED.has(gid)).sort();
-    if (missing.length) {
-      console.log(`check.mjs 未移植门：${missing.join(", ")}（请用 check.py 跑全量）`);
+    const unsupported = [...wanted].filter((gid) => !NODE_SUPPORTED.includes(gid)).sort();
+    if (unsupported.length) {
+      console.log(`Node 子集不支持：${unsupported.join(", ")}（请用 check.py 跑全量）`);
       return 2;
     }
     selected = wanted;
@@ -190,7 +229,13 @@ export function main(argv = process.argv.slice(2)) {
       console.log(`未知批次：${args.batch}（合法取值：${Object.keys(batchMap).join(", ")}）`);
       return 2;
     }
-    const wanted = new Set(gates.map((g) => g.trim().toUpperCase()).filter(Boolean));
+    const wanted = new Set(
+      gates.map((g) => g.trim().toUpperCase()).filter((gid) => NODE_SUPPORTED.includes(gid)),
+    );
+    const skipped = gates.map((g) => g.trim().toUpperCase()).filter((gid) => !NODE_SUPPORTED.includes(gid));
+    if (skipped.length) {
+      console.log(`Node 子集跳过：${skipped.join(", ")}（请用 check.py 跑全量）`);
+    }
     const bad = [...wanted].filter((gid) => !ALL_GATES.includes(gid)).sort();
     if (bad.length) {
       console.log(`批次 ${args.batch} 含未知门：${bad.join(", ")}`);
