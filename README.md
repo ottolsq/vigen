@@ -109,17 +109,17 @@ H3 and Seedance differ in reference-to-video capability and text adherence. **Th
 ## Directory layout (the single source of truth for rules)
 
 ```
-├── SKILL.md              # GATE0 questionnaire + workflow + intent routing + 23 hard rules + K1-K17 checks + A16-A18 opt-in audits + execution contract + fallback ladder
+├── SKILL.md              # GATE0 questionnaire + workflow + intent routing (live-script revision / change-impact propagation) + 23 hard rules + K1-K17 checks + A16-A19/K18 opt-in audits + master-fact list + execution contract + independent review / two-round escalation / defect propagation + fallback ladder + efficiency kit (segment packet / freeze card / batch gates)
 ├── references/
-│   ├── screenwriting-craft.md # Script craft: seven-hole self-check + dialogue-as-action + scene engine + payoff + seven opposition forms + four misunderstanding tests + hook discipline + three-layer story + GATE1.5 + Form B vertical drama
+│   ├── screenwriting-craft.md # Script craft: seven-hole self-check + dialogue-as-action + scene engine + payoff + seven opposition forms + four misunderstanding tests + hook discipline + three-layer story + GATE1.5 + Form B vertical drama + source-compression ledger
 │   ├── short-drama-market.md # Platform short-drama planning: tiers / episode counts / 40 tracks / genre / emotion contract / unit chain / paywall / first-three-episode beat cards (vertical drama only)
 │   ├── content-compliance.md # Filing category + 11 red lines + violence/superstition specifics + sensitive-word replacement (vertical drama only)
-│   ├── prompt-rules.md   # Four foundational models + 0.7 generability gate + 0.8 technical-action anchors + 0.9 orientation + 0.10 direction/target anchors + 0.12 image constraint budget + scale kit + mixing language + image/video skeletons A·B + six prop rules + L1-L4 grading + vocal formula + checks (A1-A16 + 13 spot checks + K17 + A17/A18 opt-in)
-│   ├── models.md         # Model capability profiles + generation-path decision + model-switch guide
+│   ├── prompt-rules.md   # Four foundational models + 0.7 generability gate + 0.8 technical-action anchors + 0.9 orientation + 0.10 direction/target anchors + 0.12 image constraint budget + 0.13 action-density tiers + scale kit + mixing language + image/video skeletons A·B + six prop rules + L1-L4 grading (Seedance skips scene images) + vocal formula + 3·6 reference-image three-part attachment + checks (A1-A16 + 13 spot checks + K17 + A17/A18/A19 opt-in)
+│   ├── models.md         # Model capability profiles + generation-path decision + model-switch guide (Seedance/H3 action-density rows)
 │   ├── cinematography.md # R1-R7 camera-function table + five motivation categories + 40 moves + 8 generation-side / 5 editing-side transitions + shot semantics + dialogue coverage + working shot sizes + lighting library + peak emphasis + shot duration/rhythm + vertical safe zones + 7 scene sequence types
-│   ├── realism.md        # De-AI look + four tension methods + surface tiers + anatomy constraints + period discipline + physicalized text
+│   ├── realism.md        # De-AI look + four tension methods + surface tiers + anatomy constraints + animal physicality layer + period discipline + physicalized text
 │   ├── styles.md         # 16 style library (incl. Pixar 3D) + color palette + style extraction + project isolation
-│   ├── consistency.md    # Nine-item lock list + costume locking + persistent scene elements + body-prop spatial ledger + segment blocking / group anchoring + bad-reference handling + four-layer anchoring + reference-image standards + character routing / baseline-reference method + minimal reference set + voice extraction + series memory + failure propagation
+│   ├── consistency.md    # Nine-item lock list + costume locking + persistent scene elements + master-fact list + four prop time-arc fields (unique instance / opening state / transition points / end state) + body-prop spatial ledger + segment blocking / group anchoring + bad-reference handling + four-layer anchoring + reference-image standards + character routing / baseline-reference method + minimal reference set + voice extraction + series memory + failure propagation
 │   ├── content-safety.md # Reactive moderation downgrade: wording solutions + composition patterns + ladder + explicit negation + failure classification
 │   ├── knowledge-index.md# Extension-knowledge router (read on hit) + negative-word adjudication
 │   ├── examples.md       # Complete example
@@ -131,19 +131,23 @@ H3 and Seedance differ in reference-to-video capability and text adherence. **Th
 │   ├── execution-pitfalls.md # Execution-side pitfalls (not in Module Map/runtime)
 │   └── _archive-suspended-claims.md  # Archived suspended claims (do not read/use)
 ├── assets/
-│   ├── templates.md      # Standard templates for project files 00-06 (01 includes impact scope / on-screen props / lens column; 02 includes costume tiers / persistent scene state / body-prop ledger / four-group negative library; 03 includes direction anchors / target-state images / vertical safe zones; 04 includes PLAN/REF + PLAN-TAIL / attachment order / per-shot routes / background action lines / lens / light evolution; 06 includes shot duration / editing transitions / rhythm / key sound mixing)
+│   ├── templates.md      # Standard templates for project files 00-06 (01 includes project status card / change-impact list / prop state facts / compression ledger / on-screen props / lens column; 02 includes master-fact list / four prop fields / costume tiers / persistent scene state / four-group negative library; 03 includes direction anchors / target-state images / vertical safe zones / Seedance no-scene-image; 04 includes PLAN/REF + PLAN-TAIL / attachment order / per-shot routes / background action lines / lens / light evolution; 06 includes shot duration / editing transitions / rhythm / key sound mixing)
 │   ├── templates-character.md  # Character reference templates (0a combined sheet default / split fallback / 0c / multi-face strip / 0d)
-│   └── templates-execution.md  # Execution-contract templates (batch card / segment state ledger / A1-A16 validation record / nine-item segment lock / no-dialogue segment / one-page segment template with blocking score (per-shot routes / background action lines) / light evolution / action bridges / two-part negative block)
+│   ├── templates-execution.md  # Execution-contract templates (batch card / segment state ledger / A1-A16 validation record / nine-item segment lock / no-dialogue segment / one-page segment template with blocking score / light evolution / action bridges / two-part negative block / environment-effect ledger / segment packet / freeze card / quality defect ledger)
+│   └── templates-review.md     # Independent review gate (reviewer brief + script/02/03/04/05 scorecards + review record)
 ├── scripts/
-│   ├── check.py          # Thin validation layer (K1-K17 mechanical gates, standard library only; A16/A17/A18 opt-in)
-│   ├── check.mjs         # Node CLI + gate registry (K1-K17 default; A16/A17/A18 optional, behavior-aligned with check.py)
+│   ├── check.py          # Thin validation layer (K1-K17 mechanical gates; A16/A17/A18/A19/K18 opt-in; light profile + --video-variant + --batch)
+│   ├── check.mjs         # Node CLI + gate registry (K1-K17 default; A16-A19/K18 optional, behavior-aligned with check.py)
+│   ├── pack.py           # Batch-production efficiency tool (segment packet / freeze card)
+│   ├── batch-gates.json  # Single source for batch gate mapping (03/04/05/milestone)
 │   ├── check-core.mjs    # Shared helpers for check.mjs
 │   ├── check-gates-a.mjs # K1-K6 gates
 │   ├── check-gates-b.mjs # K7-K12 gates
 │   ├── check-gates-c.mjs # K13-K14 gates
 │   ├── check-gates-d.mjs # K15-K16 gates
-│   ├── check-gates-e.mjs # A16/A17/A18 optional audits
+│   ├── check-gates-e.mjs # A16/A17/A18/A19 optional audits
 │   ├── check-gates-f.mjs # K17 prompt hygiene
+│   ├── check-gates-g.mjs # K18 action-chain diagnostic (opt-in)
 │   ├── vigen_md.py       # Python parsing layer
 │   ├── vigen-md.mjs      # Node parsing layer (aligned with vigen_md.py)
 │   └── export.py         # Delivery packaging (snapshot + manifest + checksums; does not assert approval)
@@ -163,6 +167,16 @@ H3 and Seedance differ in reference-to-video capability and text adherence. **Th
 - Editing: CapCut / Jianying
 
 > models.md records supported capabilities only (mode / duration / resolution / reference-asset limits). "Model quirks" claims from research are archived as suspended; rules validated by user testing are retained with their evidence.
+
+## V3.23 changes (2026-11)
+
+- **Master-fact list + A19**: 02 records camera height/angle/figure scale/key object positions with a `master-fact marker`; 01/03/04 repeat them verbatim; `--gate A19` checks it (opt-in).
+- **Change-impact propagation + project status card**: before switching model/duration/aspect/master, fill the 01 list and status card, then update downstream.
+- **K14 fix**: validation uses `actual timeline > Σestimated seconds > legacy formula`; `estimated total` stays on the budget basis; changing fields to pass checks is forbidden.
+- **Shot ID / light profile**: `A1v3`-style IDs parse; `图片生成提示词.md` / `视频生成提示词.md` aliases are recognized; variants use `--video-variant`.
+- **Seedance defaults**: intent-level action density (0.13); skip the scene-image step entirely (fallback: one L2 pose image on failure); H3/happyhorse keep L1-L4.
+- **Quality pack**: independent review gate (templates-review) + two-round escalation + defect propagation; **efficiency pack**: `pack.py segment/freeze` + `--batch` layered checks.
+- **K18 action-chain diagnostic** (opt-in): time-block continuity / action-lock order / prop state ledger.
 
 ## Install
 
