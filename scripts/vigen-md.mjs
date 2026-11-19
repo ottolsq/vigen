@@ -22,8 +22,11 @@ export function row(line, cells) {
 }
 
 export class Project {
-  constructor(root) {
+  constructor(root, videoVariant = null) {
     this.root = path.resolve(root);
+    this.videoVariant = videoVariant;
+    this.videoVariantMissing = false;
+    this.notes = [];
     this.cache = new Map();
   }
 
@@ -31,9 +34,20 @@ export class Project {
     return path.join(this.root, DOC_FILES[key]);
   }
 
+  read(filePath) {
+    try {
+      if (existsSync(filePath) && statSync(filePath).isFile()) {
+        return readFileSync(filePath, "utf8").split(/\r\n|\r|\n/);
+      }
+    } catch {
+      // 读取失败按缺失处理（与 check.py 一致）
+    }
+    return null;
+  }
+
   doc(key) {
     if (this.cache.has(key)) return this.cache.get(key);
-    // 04 分卷（V3.17）：有 04_视频提示词_*.md 时按文件名排序合并；base 只作索引。
+    // 04 解析顺序（V3.23）：04_视频提示词_*.md 分卷 → --video-variant 指定 → 标准 → 别名 → 唯一变体
     if (key === "04") {
       let volumes = [];
       try {
@@ -46,29 +60,60 @@ export class Project {
       if (volumes.length) {
         const lines = [];
         for (const name of volumes) {
-          try {
-            lines.push(...readFileSync(path.join(this.root, name), "utf8").split(/\r\n|\r|\n/));
-          } catch {
-            // 单卷读取失败时跳过该卷；其余卷仍可校验
-          }
+          const got = this.read(path.join(this.root, name));
+          if (got) lines.push(...got);
         }
         const value = lines.length ? lines : null;
         this.cache.set(key, value);
         return value;
       }
-    }
-    const p = this.path(key);
-    let lines = null;
-    try {
-      if (existsSync(p) && statSync(p).isFile()) {
-        const text = readFileSync(p, "utf8");
-        lines = text.split(/\r\n|\r|\n/);
+      if (this.videoVariant) {
+        const variantPath = path.join(this.root, `视频生成提示词_${this.videoVariant}.md`);
+        if (existsSync(variantPath)) {
+          const value = this.read(variantPath);
+          this.cache.set(key, value);
+          return value;
+        }
+        this.videoVariantMissing = true;
+        this.cache.set(key, null);
+        return null;
       }
-    } catch {
-      lines = null;
+      for (const candidate of [this.path("04"), path.join(this.root, "视频生成提示词.md")]) {
+        if (existsSync(candidate) && statSync(candidate).isFile()) {
+          const value = this.read(candidate);
+          this.cache.set(key, value);
+          return value;
+        }
+      }
+      let variants = [];
+      try {
+        variants = readdirSync(this.root)
+          .filter((name) => /^视频生成提示词_.*\.md$/.test(name))
+          .sort();
+      } catch {
+        variants = [];
+      }
+      if (variants.length === 1) {
+        const value = this.read(path.join(this.root, variants[0]));
+        this.cache.set(key, value);
+        return value;
+      }
+      if (variants.length > 1) {
+        this.notes.push(
+          `发现多个视频提示词变体（${variants.join("、")}），不自动合并；请用 --video-variant <后缀> 选择，或改名为 04_视频提示词_卷NN.md`,
+        );
+        this.cache.set(key, null);
+        return null;
+      }
+      this.cache.set(key, null);
+      return null;
     }
-    this.cache.set(key, lines);
-    return lines;
+    let p = this.path(key);
+    if (key === "03" && !(existsSync(p) && statSync(p).isFile())) {
+      p = path.join(this.root, "图片生成提示词.md");
+    }
+    this.cache.set(key, this.read(p));
+    return this.cache.get(key);
   }
 
   section(key, heading) {
@@ -200,7 +245,7 @@ export function blocks(lines, onlySegments = false) {
   return onlySegments ? out.filter((b) => isSegmentHeading(b[0][1])) : out;
 }
 
-const SHOT_HEAD = /^##\s*镜头\s*S?\d/;
+const SHOT_HEAD = /^##\s*镜头\s*(?:S|A)?\d+(?:v\d+)?[a-z]?/;
 
 export function shotBlocks(lines) {
   const out = [];
@@ -425,9 +470,9 @@ export const REVEAL_FAMILY = /摇|后拉|拉远|俯仰/;
 export const CT1_RE = /^(reveal|pressure|alignment|relationship|transition)\(R[1-7]\)：\S/;
 export const HEX_RE = /#[0-9A-Fa-f]{6}/g;
 export const DURATION_RE = /(\d+(?:\.\d+)?)\s*s/g;
-export const SHOT_ID_RE = /^(S?\d+[a-z]?)(?:（[^）]*）)?$/;
-export const VOIDED_RE = /^~~(S?\d+[a-z]?)~~/;
-export const REF_SHOT_RE = /(?:镜|镜头)\s*(S?\d+[a-z]?)/g;
+export const SHOT_ID_RE = /^((?:S|A)?\d+(?:v\d+)?[a-z]?)(?:（[^）]*）)?$/;
+export const VOIDED_RE = /^~~((?:S|A)?\d+(?:v\d+)?[a-z]?)~~/;
+export const REF_SHOT_RE = /(?:镜|镜头)\s*((?:S|A)?\d+(?:v\d+)?[a-z]?)/g;
 export const BEAT_RE = /(?<![A-Za-z0-9])B(\d+[a-z]?)(?:\s*[-–—~至]\s*B?(\d+[a-z]?))?/g;
 
 export function beatIds(text) {

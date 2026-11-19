@@ -18,7 +18,7 @@ import {
 } from "./check-core.mjs";
 
 const BEAT_ID_RE = /^B([1-9]\d*)([a-z]?)$/;
-const REF_SHOT_ONE = /(?:镜|镜头)\s*(S?\d+[a-z]?)/;
+const REF_SHOT_ONE = /(?:镜|镜头)\s*((?:S|A)?\d+(?:v\d+)?[a-z]?)/;
 
 function kvValue(project, ...keys) {
   for (const [, header, body] of iterTables(project.doc("01") || [])) {
@@ -300,6 +300,9 @@ export function gateK14(project) {
   let chars = 0;
   let action = 0;
   const beatSecs = new Map();
+  let estSum = 0;
+  let actionEst = 0;
+  let estOk = rows.length > 0;
   for (const r of rows) {
     const rawChars = cell(r, "台词字数").trim();
     const n = Number(rawChars || 0);
@@ -311,16 +314,38 @@ export function gateK14(project) {
     } else {
       chars += Math.trunc(n);
     }
-    if (cell(r, "类型").includes("动作")) action += 1;
+    const isAction = cell(r, "类型").includes("动作");
+    if (isAction) action += 1;
     const sec = parseFloatText(cell(r, "估算秒"));
-    if (sec !== null) {
+    if (sec === null) {
+      estOk = false;
+    } else {
+      estSum += sec;
+      if (isAction) actionEst += sec;
       const sid = [...cell(r, "认领镜号").matchAll(REF_SHOT_G())].map((m) => m[1]).join(" ");
       beatSecs.set(sid, (beatSecs.get(sid) || 0) + sec);
     }
   }
+  const hasEst = estOk && rows.length > 0;
   const dialogueSec = Math.ceil(chars / 4.0);
   const actionSec = action * 2.5;
-  const estimated = dialogueSec + actionSec;
+  const formulaEstimate = dialogueSec + actionSec;
+  // 预算合计（核对「预计总时长」声明）：只按预算口径，不使用实际时间轴
+  const budgetEstimate = hasEst ? estSum : formulaEstimate;
+  // 校验合计（上限/目标校验）：实际时间轴 > 估算秒合计 > 旧公式
+  const actualTimeline = parseSeconds(kvValue(project, "实际时间轴合计"));
+  let checkEstimate;
+  let estimateSource;
+  if (actualTimeline !== null) {
+    checkEstimate = actualTimeline;
+    estimateSource = "实际时间轴";
+  } else if (hasEst) {
+    checkEstimate = estSum;
+    estimateSource = "估算秒合计";
+  } else {
+    checkEstimate = formulaEstimate;
+    estimateSource = "公式";
+  }
   const rawTol = kvValue(project, "时长容差");
   const pctM = /(\d+(?:\.\d+)?)\s*%/.exec(rawTol);
   const pct = pctM ? Number(pctM[1]) : 15.0;
@@ -328,16 +353,26 @@ export function gateK14(project) {
   const mode = kvValue(project, "时长模式");
   const upperOnly = mode.includes("上限") || mode.includes("范围");
   if (upperOnly) {
-    if (estimated > target + 1.0) {
+    let limit = parseSeconds(kvValue(project, "时长上限"));
+    if (limit === null) limit = target;
+    if (checkEstimate > limit + 1.0) {
       findings.push(finding(
         "K14", DOC_FILES["01"], 0,
-        `时长超上限：台词 ${dialogueSec.toFixed(0)}s + 动作 ${actionSec.toFixed(1)}s = ${estimated.toFixed(1)}s > 上限 ${target.toFixed(1)}s（上限档只查不超，不要求凑满）`,
+        `时长超上限：${estimateSource} ${checkEstimate.toFixed(1)}s > 上限 ${limit.toFixed(1)}s（上限档只查不超，不要求凑满）`,
       ));
     }
-  } else if (Math.abs(estimated - target) > tolerance) {
+    const finalSec = parseSeconds(kvValue(project, "成片时长"));
+    const forcedCap = parseSeconds(kvValue(project, "时长上限"));
+    if (finalSec !== null && forcedCap !== null && finalSec > forcedCap + 0.5) {
+      findings.push(finding(
+        "K14", DOC_FILES["01"], 0,
+        `成片时长 ${finalSec.toFixed(1)}s > 时长上限 ${forcedCap.toFixed(1)}s + 0.5s（上限档成片须不超上限）`,
+      ));
+    }
+  } else if (Math.abs(checkEstimate - target) > tolerance) {
     findings.push(finding(
       "K14", DOC_FILES["01"], 0,
-      `时长预算不通过：台词 ${dialogueSec.toFixed(0)}s + 动作 ${actionSec.toFixed(1)}s = ${estimated.toFixed(1)}s，目标 ${target.toFixed(1)}s，差 ${Math.abs(estimated - target).toFixed(1)}s > 容差 ${tolerance.toFixed(1)}s`,
+      `时长预算不通过：${estimateSource} ${checkEstimate.toFixed(1)}s，目标 ${target.toFixed(1)}s，差 ${Math.abs(checkEstimate - target).toFixed(1)}s > 容差 ${tolerance.toFixed(1)}s`,
     ));
   }
 
@@ -346,7 +381,11 @@ export function gateK14(project) {
     动作秒数: parseFloatText(kvValue(project, "动作秒数")),
     预计总时长: parseFloatText(kvValue(project, "预计总时长")),
   };
-  const actual = { 台词秒数: dialogueSec, 动作秒数: actionSec, 预计总时长: estimated };
+  const actual = {
+    台词秒数: dialogueSec,
+    动作秒数: hasEst ? actionEst : actionSec,
+    预计总时长: budgetEstimate,
+  };
   for (const [key, value] of Object.entries(declared)) {
     if (value !== null && Math.abs(value - actual[key]) > 1.0) {
       findings.push(finding(

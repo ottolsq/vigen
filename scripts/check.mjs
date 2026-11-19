@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // vigen check.mjs — CLI + 门注册（行为对齐 check.py；Phase 2c：K1-K17 全量）。
-import { existsSync, statSync } from "node:fs";
+import { existsSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { DOC_FILES, Project, finding } from "./vigen-md.mjs";
@@ -28,7 +28,7 @@ const ALL_GATE_FNS = [...GATES, ...OPTIONAL_GATES];
 
 function usage() {
   return [
-    "usage: check.mjs [-h] [--partial] [--gate GATE] project_dir",
+    "usage: check.mjs [-h] [--partial] [--gate GATE] [--video-variant SUFFIX] project_dir",
     "",
     "vigen 项目文件机械校验（默认 K1-K17；A16-A19 为可选审计：A16 锁定审计，A17 执行契约留痕，A18 图片约束预算，A19 母版事实一致性）",
     "",
@@ -39,11 +39,12 @@ function usage() {
     "  -h, --help    show this help message and exit",
     "  --partial     只核对已有文档；缺文档的门静默跳过",
     "  --gate GATE   只跑指定门，可用逗号分隔，如 K1,K5",
+    "  --video-variant SUFFIX  轻量项目：选择 视频生成提示词_<后缀>.md（如 9x16）",
   ].join("\n");
 }
 
 function parseArgs(argv) {
-  const out = { projectDir: null, partial: false, gate: null, help: false, error: null };
+  const out = { projectDir: null, partial: false, gate: null, videoVariant: null, help: false, error: null };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
     if (a === "-h" || a === "--help") {
@@ -59,6 +60,15 @@ function parseArgs(argv) {
       i += 1;
     } else if (a.startsWith("--gate=")) {
       out.gate = a.slice("--gate=".length);
+    } else if (a === "--video-variant") {
+      if (i + 1 >= argv.length) {
+        out.error = "argument --video-variant: expected one argument";
+        break;
+      }
+      out.videoVariant = argv[i + 1];
+      i += 1;
+    } else if (a.startsWith("--video-variant=")) {
+      out.videoVariant = a.slice("--video-variant=".length);
     } else if (a.startsWith("-")) {
       out.error = `unrecognized arguments: ${a}`;
       break;
@@ -70,6 +80,22 @@ function parseArgs(argv) {
     }
   }
   return out;
+}
+
+function projectProfile(project) {
+  const text = (project.doc("01") || []).join("\n");
+  if (text.includes("交付形态：轻量") || text.includes("交付形态: 轻量")) return "light";
+  const hasAlias = existsSync(path.join(project.root, "图片生成提示词.md"))
+    || existsSync(path.join(project.root, "视频生成提示词.md"))
+    || (() => {
+      try {
+        return readdirSync(project.root).some((n) => /^视频生成提示词_.*\.md$/.test(n));
+      } catch {
+        return false;
+      }
+    })();
+  if (hasAlias && project.doc("02") === null && project.doc("05") === null) return "light";
+  return "standard";
 }
 
 export function main(argv = process.argv.slice(2)) {
@@ -89,10 +115,19 @@ export function main(argv = process.argv.slice(2)) {
     console.log(`项目目录不存在：${args.projectDir}`);
     return 2;
   }
-  const project = new Project(root);
-  if (project.doc("01") === null && project.doc("04") === null) {
+  const project = new Project(root, args.videoVariant);
+  const doc01 = project.doc("01");
+  const doc04 = project.doc("04");
+  if (project.videoVariantMissing) {
+    console.log(`未找到视频生成提示词_${args.videoVariant}.md——检查 --video-variant 后缀`);
+    return 2;
+  }
+  if (doc01 === null && doc04 === null) {
     console.log("项目目录内无 01/04 文件——未按 vigen 01-06 契约组织，跳过");
     return 2;
+  }
+  for (const note of project.notes) {
+    console.log(`提示：${note}`);
   }
 
   let selected = null;
@@ -116,7 +151,19 @@ export function main(argv = process.argv.slice(2)) {
   const findings = [];
   let rcExtra = 0;
   if (!args.partial) {
-    for (const key of ["01", "02", "03", "04", "05"]) {
+    const profile = projectProfile(project);
+    const required = profile === "light" ? ["01", "03", "04"] : ["01", "02", "03", "04", "05"];
+    if (profile === "light") {
+      console.log("profile: 轻量（03/04 使用别名；02/05 可缺省）");
+    }
+    let variantFiles = [];
+    try {
+      variantFiles = readdirSync(project.root).filter((n) => /^视频生成提示词_.*\.md$/.test(n));
+    } catch {
+      variantFiles = [];
+    }
+    for (const key of required) {
+      if (key === "04" && project.doc(key) === null && variantFiles.length) continue;
       if (project.doc(key) === null) {
         findings.push(finding(
           "PRE", DOC_FILES[key], 0,

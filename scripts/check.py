@@ -41,7 +41,10 @@ enforce 的条款（与 vigen_md 解析层配套）：
       01/03/04 带「母版事实标记」的块中；多语言/多画幅按标记区分
 
 用法（CT6）：
-    python check.py <项目目录> [--partial] [--gate K5[,K6]]
+    python check.py <项目目录> [--partial] [--gate K5[,K6]] [--video-variant 9x16]
+    轻量 profile（V3.23）：03/04 可用 图片生成提示词.md / 视频生成提示词.md 别名；
+    多个 视频生成提示词_<后缀>.md 变体用 --video-variant 选择，不自动合并；
+    轻量项目全量校验只要求 01+03/04，02/05 可缺省。
 exit: 0=全过 1=有findings 2=用法/IO错（含门内部错误）
 输出： `[K1] 04_视频提示词.md:123: <具体缺什么>`
 """
@@ -1120,6 +1123,9 @@ def gate_k14(project: Project, partial: bool) -> List[Finding]:
     chars = 0
     action = 0
     beat_secs: Dict[str, float] = {}
+    est_sum = 0.0
+    action_est = 0.0
+    est_ok = bool(rows)
     for row in rows:
         raw_chars = cell(row, "台词字数").strip()
         try:
@@ -1129,15 +1135,32 @@ def gate_k14(project: Project, partial: bool) -> List[Finding]:
                 "K14", DOC_FILES["01"], row.line,
                 "节拍%s 的台词字数不是数字（%s）"
                 % (cell(row, "节拍号").strip(), raw_chars)))
-        if "动作" in cell(row, "类型"):
+        is_action = "动作" in cell(row, "类型")
+        if is_action:
             action += 1
         sec = _parse_float(cell(row, "估算秒"))
-        if sec is not None:
+        if sec is None:
+            est_ok = False
+        else:
+            est_sum += sec
+            if is_action:
+                action_est += sec
             sid = " ".join(REF_SHOT_RE.findall(cell(row, "认领镜号")))
             beat_secs[sid] = beat_secs.get(sid, 0.0) + sec
+    has_est = est_ok and bool(rows)
     dialogue_sec = float(math.ceil(chars / 4.0))
     action_sec = action * 2.5
-    estimated = dialogue_sec + action_sec
+    formula_estimate = dialogue_sec + action_sec
+    # 预算合计（核对「预计总时长」声明）：只按预算口径，不使用实际时间轴
+    budget_estimate = est_sum if has_est else formula_estimate
+    # 校验合计（上限/目标校验）：实际时间轴 > 估算秒合计 > 旧公式
+    actual_timeline = _parse_seconds(_kv_value(project, "实际时间轴合计"))
+    if actual_timeline is not None:
+        check_estimate, estimate_source = actual_timeline, "实际时间轴"
+    elif has_est:
+        check_estimate, estimate_source = est_sum, "估算秒合计"
+    else:
+        check_estimate, estimate_source = formula_estimate, "公式"
     raw_tol = _kv_value(project, "时长容差")
     pct_m = re.search(r"(\d+(?:\.\d+)?)\s*%", raw_tol)
     pct = float(pct_m.group(1)) if pct_m else 15.0
@@ -1145,25 +1168,38 @@ def gate_k14(project: Project, partial: bool) -> List[Finding]:
     mode = _kv_value(project, "时长模式") or ""
     upper_only = ("上限" in mode) or ("范围" in mode)
     if upper_only:
-        # 上限档（V3.16）：只要求不超上限，不强制卡到目标值——防为凑时长删情节
-        if estimated > target + 1.0:
+        # 上限档（V3.16/V3.23）：只要求不超上限，不强制卡到目标值——防为凑时长删情节
+        limit = _parse_seconds(_kv_value(project, "时长上限"))
+        if limit is None:
+            limit = target
+        if check_estimate > limit + 1.0:
             findings.append(Finding(
                 "K14", DOC_FILES["01"], 0,
-                "时长超上限：台词 %.0fs + 动作 %.1fs = %.1fs > 上限 %.1fs（上限档只查不超，不要求凑满）"
-                % (dialogue_sec, action_sec, estimated, target)))
-    elif abs(estimated - target) > tolerance:
+                "时长超上限：%s %.1fs > 上限 %.1fs（上限档只查不超，不要求凑满）"
+                % (estimate_source, check_estimate, limit)))
+        final_sec = _parse_seconds(_kv_value(project, "成片时长"))
+        forced_cap = _parse_seconds(_kv_value(project, "时长上限"))
+        if final_sec is not None and forced_cap is not None and final_sec > forced_cap + 0.5:
+            findings.append(Finding(
+                "K14", DOC_FILES["01"], 0,
+                "成片时长 %.1fs > 时长上限 %.1fs + 0.5s（上限档成片须不超上限）"
+                % (final_sec, forced_cap)))
+    elif abs(check_estimate - target) > tolerance:
         findings.append(Finding(
             "K14", DOC_FILES["01"], 0,
-            "时长预算不通过：台词 %.0fs + 动作 %.1fs = %.1fs，目标 %.1fs，"
-            "差 %.1fs > 容差 %.1fs"
-            % (dialogue_sec, action_sec, estimated, target,
-               abs(estimated - target), tolerance)))
+            "时长预算不通过：%s %.1fs，目标 %.1fs，差 %.1fs > 容差 %.1fs"
+            % (estimate_source, check_estimate, target,
+               abs(check_estimate - target), tolerance)))
     declared = {
         "台词秒数": _parse_float(_kv_value(project, "台词秒数")),
         "动作秒数": _parse_float(_kv_value(project, "动作秒数")),
         "预计总时长": _parse_float(_kv_value(project, "预计总时长")),
     }
-    actual = {"台词秒数": dialogue_sec, "动作秒数": action_sec, "预计总时长": estimated}
+    actual = {
+        "台词秒数": dialogue_sec,
+        "动作秒数": action_est if has_est else action_sec,
+        "预计总时长": budget_estimate,
+    }
     for key, value in declared.items():
         if value is not None and abs(value - actual[key]) > 1.0:
             findings.append(Finding(
@@ -2706,6 +2742,25 @@ GATES: List[Tuple[str, GateFn]] = [
 ]
 
 REQUIRED_FOR_FULL = ("01", "02", "03", "04", "05")
+LIGHT_REQUIRED = ("01", "03", "04")
+
+
+def _project_profile(project: Project) -> str:
+    """standard / light（V3.23 轻量 profile）。
+
+    判定：01 显式写「交付形态：轻量」，或检测到 03/04 轻量别名且 02/05 缺失。
+    """
+    text = "\n".join(project.doc("01") or [])
+    if "交付形态：轻量" in text or "交付形态: 轻量" in text:
+        return "light"
+    has_alias = (
+        (project.root / "图片生成提示词.md").is_file()
+        or (project.root / "视频生成提示词.md").is_file()
+        or bool(list(project.root.glob("视频生成提示词_*.md")))
+    )
+    if has_alias and project.doc("02") is None and project.doc("05") is None:
+        return "light"
+    return "standard"
 
 
 def main(argv: List[str]) -> int:
@@ -2724,17 +2779,25 @@ def main(argv: List[str]) -> int:
     ap.add_argument("--partial", action="store_true",
                     help="只核对已有文档；缺文档的门静默跳过（全量要求 01-05 齐备）")
     ap.add_argument("--gate", default=None, help="只跑指定门，可用逗号分隔，如 K1,K5")
+    ap.add_argument("--video-variant", default=None,
+                    help="轻量项目：选择 视频生成提示词_<后缀>.md（如 9x16）")
     args = ap.parse_args(argv[1:])
 
     root = Path(args.project_dir)
     if not root.is_dir():
         print("项目目录不存在：%s" % root)
         return 2
-    project = Project(root)
-    if project.doc("01") is None and project.doc("04") is None:
+    project = Project(root, args.video_variant)
+    doc01 = project.doc("01")
+    doc04 = project.doc("04")
+    if project.video_variant_missing:
+        print("未找到视频生成提示词_%s.md——检查 --video-variant 后缀" % args.video_variant)
+        return 2
+    if doc01 is None and doc04 is None:
         print("项目目录内无 01/04 文件——未按 vigen 01-06 契约组织，跳过")
         return 2
-
+    for note in project.notes:
+        print("提示：" + note)
     all_gates = GATES + OPTIONAL_GATES
     valid = {g for g, _ in all_gates}
     selected: Optional[set] = None
@@ -2749,7 +2812,15 @@ def main(argv: List[str]) -> int:
     findings: List[Finding] = []
     rc_extra = 0
     if not args.partial:
-        for key in REQUIRED_FOR_FULL:
+        profile = _project_profile(project)
+        required = LIGHT_REQUIRED if profile == "light" else REQUIRED_FOR_FULL
+        if profile == "light":
+            print("profile: 轻量（03/04 使用别名；02/05 可缺省）")
+        variant_files = sorted(project.root.glob("视频生成提示词_*.md"))
+        for key in required:
+            if key == "04" and project.doc(key) is None and variant_files:
+                # 有变体但未选择（提示已输出）——不算缺文件
+                continue
             if project.doc(key) is None:
                 findings.append(Finding("PRE", DOC_FILES[key], 0,
                                         "全量校验缺文件 %s（只跑部分文档请用 --partial）" % DOC_FILES[key]))

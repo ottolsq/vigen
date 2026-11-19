@@ -16,7 +16,7 @@ export const STORY_ALIASES = {
 
 export const DUR_ONE = (s) => /(\d+(?:\.\d+)?)\s*s/.exec(s);
 export const DUR_G = () => /(\d+(?:\.\d+)?)\s*s/g;
-export const REF_SHOT_G = () => /(?:镜|镜头)\s*(S?\d+[a-z]?)/g;
+export const REF_SHOT_G = () => /(?:镜|镜头)\s*((?:S|A)?\d+(?:v\d+)?[a-z]?)/g;
 export const TECH_LINE = /fps|快门|帧率|镜头运动|运镜库/;
 export const NEG_LINE = /^\s*[*\-—·]?\s*(禁止|不要|不得|避免|无|没有|不)/;
 export const SECTION_LABELS = new Set([

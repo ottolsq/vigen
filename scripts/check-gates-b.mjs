@@ -26,7 +26,7 @@ import {
   warn,
 } from "./check-core.mjs";
 
-const PLANREF_G = () => /(PLAN|REF)-([A-Z0-9]+(?:-[A-Z0-9]+)*)/g;
+const PLANREF_G = () => /(PLAN|REF)-([A-Za-z0-9]+(?:-[A-Za-z0-9]+)*)/g;
 const QUOTE_G = () => /"([^"]+)"|“([^”]+)”|「([^」]+)」/g;
 const PRONOUN_G = () => /(?<!其)(对方|那个人|两人|二人|双方|他|她|它)(?!人)/g;
 const BODY_G = () => /(左手|右手|左臂|右臂|左肩|右肩|左腿|右腿|左脚|右脚|左腰侧|右腰侧|左脸颊|右脸颊)(?!边)/g;

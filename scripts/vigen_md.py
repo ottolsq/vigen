@@ -44,18 +44,30 @@ class Row:
 class Project:
     """项目目录加载与解析缓存。"""
 
-    def __init__(self, root: Path):
+    def __init__(self, root: Path, video_variant: Optional[str] = None):
         self.root = Path(root)
+        self.video_variant = video_variant
+        self.video_variant_missing = False
+        self.notes: List[str] = []
         self._cache: Dict[str, Optional[List[str]]] = {}
 
     def path(self, key: str) -> Path:
         return self.root / DOC_FILES[key]
 
+    def _read(self, path: Path) -> Optional[List[str]]:
+        try:
+            return path.read_text(encoding="utf-8").splitlines()
+        except (OSError, UnicodeDecodeError):
+            return None
+
     def doc(self, key: str) -> Optional[List[str]]:
         """key ∈ {"00".."06"}；文件不存在返回 None（--partial 容忍）。
 
-        04 分卷（V3.17）：存在 `04_视频提示词_*.md` 时，按文件名排序合并为逻辑 04；
-        此时 `04_视频提示词.md` 只作索引，不参与扫描，避免索引标题干扰门。
+        04 解析顺序（V3.23）：`04_视频提示词_*.md` 分卷（按文件名排序合并，base 只作索引）
+        → `--video-variant` 指定的 `视频生成提示词_<后缀>.md`
+        → `04_视频提示词.md` → `视频生成提示词.md`
+        → 唯一的 `视频生成提示词_*.md`；多个变体不自动合并（由 CLI 警告并提示选 variant）。
+        03 轻量别名：`03_图片提示词.md` 缺失时回退 `图片生成提示词.md`。
         """
         if key in self._cache:
             return self._cache[key]
@@ -64,24 +76,44 @@ class Project:
             if volumes:
                 lines: List[str] = []
                 for volume in volumes:
-                    try:
-                        lines.extend(volume.read_text(encoding="utf-8").splitlines())
-                    except (OSError, UnicodeDecodeError):
-                        continue
+                    got = self._read(volume)
+                    if got:
+                        lines.extend(got)
                 self._cache[key] = lines or None
                 return self._cache[key]
+            if self.video_variant:
+                variant_path = self.root / ("视频生成提示词_%s.md" % self.video_variant)
+                if variant_path.is_file():
+                    self._cache[key] = self._read(variant_path)
+                    return self._cache[key]
+                self.video_variant_missing = True
+                self._cache[key] = None
+                return None
+            for candidate in (self.path("04"), self.root / "视频生成提示词.md"):
+                if candidate.is_file():
+                    self._cache[key] = self._read(candidate)
+                    return self._cache[key]
+            variants = sorted(self.root.glob("视频生成提示词_*.md"))
+            if len(variants) == 1:
+                self._cache[key] = self._read(variants[0])
+                return self._cache[key]
+            if len(variants) > 1:
+                self.notes.append(
+                    "发现多个视频提示词变体（%s），不自动合并；请用 --video-variant <后缀> 选择，"
+                    "或改名为 04_视频提示词_卷NN.md"
+                    % "、".join(p.name for p in variants))
+                self._cache[key] = None
+                return None
+            self._cache[key] = None
+            return None
         p = self.path(key)
+        if key == "03" and not p.is_file():
+            p = self.root / "图片生成提示词.md"
         if not p.is_file():
             self._cache[key] = None
             return None
-        try:
-            text = p.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
-            self._cache[key] = None
-            return None
-        lines = text.splitlines()
-        self._cache[key] = lines
-        return lines
+        self._cache[key] = self._read(p)
+        return self._cache[key]
 
     def section(self, key: str, heading: str) -> List[Tuple[int, str]]:
         """'## heading'（前缀匹配）到下一个 '## ' 之间的行，元素 (1-based 行号, 文本)。"""
@@ -222,7 +254,7 @@ def model_native_min(project: Project) -> Optional[float]:
             if key in low:
                 return lowv
     return None
-_SHOT_HEAD = re.compile(r"^##\s*镜头\s*S?\d")
+_SHOT_HEAD = re.compile(r"^##\s*镜头\s*(?:S|A)?\d+(?:v\d+)?[a-z]?")
 _GEN_SECONDS = re.compile(r"生成\s*(\d+(?:\.\d+)?)\s*s")
 
 
@@ -464,11 +496,11 @@ CT1_RE = re.compile(
 HEX_RE = re.compile(r"#[0-9A-Fa-f]{6}")
 DURATION_RE = re.compile(r"(\d+(?:\.\d+)?)\s*s")
 
-PLANREF_RE = re.compile(r"(PLAN|REF)-([A-Z0-9]+(?:-[A-Z0-9]+)*)")
+PLANREF_RE = re.compile(r"(PLAN|REF)-([A-Za-z0-9]+(?:-[A-Za-z0-9]+)*)")
 
-SHOT_ID_RE = re.compile(r"^(S?\d+[a-z]?)(?:（[^）]*）)?$")
-VOIDED_RE = re.compile(r"^~~(S?\d+[a-z]?)~~")
-REF_SHOT_RE = re.compile(r"(?:镜|镜头)\s*(S?\d+[a-z]?)")
+SHOT_ID_RE = re.compile(r"^((?:S|A)?\d+(?:v\d+)?[a-z]?)(?:（[^）]*）)?$")
+VOIDED_RE = re.compile(r"^~~((?:S|A)?\d+(?:v\d+)?[a-z]?)~~")
+REF_SHOT_RE = re.compile(r"(?:镜|镜头)\s*((?:S|A)?\d+(?:v\d+)?[a-z]?)")
 BEAT_RE = re.compile(
     r"(?<![A-Za-z0-9])B(\d+[a-z]?)(?:\s*[-–—~至]\s*B?(\d+[a-z]?))?")
 
