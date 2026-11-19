@@ -37,6 +37,8 @@ enforce 的条款（与 vigen_md 解析层配套）：
       （V3.22：【负面提示词】节跳过——负向字段不是正向正文）
   A18 图片约束预算（opt-in，V3.22）：03 单张提示词 >260 汉字或约束词 >10 处
       → 警告约束过密（技术参考图/文字排版类豁免）
+  A19 母版事实一致性（opt-in，V3.23）：02 母版事实清单逐字出现在
+      01/03/04 带「母版事实标记」的块中；多语言/多画幅按标记区分
 
 用法（CT6）：
     python check.py <项目目录> [--partial] [--gate K5[,K6]]
@@ -2559,8 +2561,139 @@ def gate_a18(project: Project, partial: bool) -> List[Finding]:
     return findings
 
 
+# ------------------------------------------------------------------ A19 母版一致性（opt-in 审计，V3.23）
+
+
+def _norm_ws_lower(text: str) -> str:
+    return re.sub(r"\s+", "", text or "").lower()
+
+
+def _fenced_blocks(lines: List[str]) -> List[Tuple[int, str]]:
+    out: List[Tuple[int, str]] = []
+    cur: Optional[List[str]] = None
+    start = 0
+    for no, ln in enumerate(lines, start=1):
+        if ln.strip().startswith("```"):
+            if cur is None:
+                cur = []
+                start = no
+            else:
+                out.append((start, "\n".join(cur)))
+                cur = None
+            continue
+        if cur is not None:
+            cur.append(ln)
+    if cur is not None:
+        out.append((start, "\n".join(cur)))
+    return out
+
+
+def _contains_any(text: str, values: List[str]) -> bool:
+    norm = _norm_ws_lower(text)
+    return any(_norm_ws_lower(v) in norm for v in values if _norm_ws_lower(v))
+
+
+def gate_a19(project: Project, partial: bool) -> List[Finding]:
+    """A19 母版事实一致性（V3.23，opt-in）。
+
+    02「母版事实清单」是唯一事实源；01/03/04 中带「母版事实标记」的块必须逐字出现。
+    只查带标记的块，避免角色/道具参考块误报；多语言/多画幅由不同标记区分。
+    允许变体列用「 / 」（带空格）分隔，避免把 1/14 这类比例切断。
+    """
+    doc02 = project.doc("02")
+    if doc02 is None:
+        return [_warn("A19", "02", "02 缺失，A19 未执行")]
+    rules: List[Tuple[str, List[str], List[str], str, int]] = []
+    for _head_no, header, body in iter_tables(doc02):
+        i_fact = col_index(header, "事实")
+        i_val = col_index(header, "冻结值")
+        i_mark = col_index(header, "母版事实标记")
+        if i_fact < 0 or i_val < 0 or i_mark < 0:
+            continue
+        i_var = col_index(header, "允许变体")
+        i_files = col_index(header, "适用文件")
+        for no, cells in body:
+            fact = (cells[i_fact] if i_fact < len(cells) else "").strip()
+            value = (cells[i_val] if i_val < len(cells) else "").strip()
+            marker = (cells[i_mark] if i_mark < len(cells) else "").strip()
+            if not fact or not value or not marker:
+                continue
+            variants = [value]
+            if i_var >= 0 and i_var < len(cells):
+                variants += [v.strip() for v in re.split(r"\s+/\s+", cells[i_var]) if v.strip()]
+            files = ["01", "03", "04"]
+            if i_files >= 0 and i_files < len(cells):
+                raw = cells[i_files].strip()
+                if raw:
+                    files = [f.strip() for f in re.split(r"[,，]", raw) if f.strip()]
+            rules.append((fact, variants, files, marker, no))
+    if not rules:
+        return [_warn("A19", "02",
+                      "未找到母版事实清单（表头含 事实/冻结值/母版事实标记），A19 未执行")]
+
+    findings: List[Finding] = []
+    warned: set = set()
+
+    def check_block(key: str, line: int, text: str, fact: str, variants: List[str]) -> None:
+        if not _contains_any(text, variants):
+            findings.append(Finding(
+                "A19", DOC_FILES[key], line,
+                "母版事实「%s」应为「%s」，但该块未出现（母版-提示词不一致）"
+                % (fact, variants[0])))
+
+    for fact, variants, files, marker, _rule_line in rules:
+        for key in files:
+            doc = project.doc(key)
+            if doc is None:
+                continue
+            if key == "01":
+                rows = table_rows(doc, ("镜号", "运镜"), aliases=STORY_ALIASES)
+                if rows is None:
+                    if (key, marker) not in warned:
+                        findings.append(_warn("A19", key, "未找到分镜总览表（镜号+运镜），A19 未核对"))
+                        warned.add((key, marker))
+                    continue
+                matched = [r for r in rows if marker in " ".join(r.cells.values())]
+                if not matched:
+                    if (key, marker) not in warned:
+                        findings.append(_warn("A19", key, "未找到母版事实标记 %s，A19 未核对" % marker))
+                        warned.add((key, marker))
+                    continue
+                for r in matched:
+                    check_block(key, r.line, " ".join(r.cells.values()), fact, variants)
+            elif key == "03":
+                blocks_ = _fenced_blocks(doc)
+                if not blocks_:
+                    blocks_ = [(1, "\n".join(doc))]
+                matched = [(no, text) for no, text in blocks_ if marker in text]
+                if not matched:
+                    if (key, marker) not in warned:
+                        findings.append(_warn("A19", key, "未找到母版事实标记 %s，A19 未核对" % marker))
+                        warned.add((key, marker))
+                    continue
+                for no, text in matched:
+                    check_block(key, no, text, fact, variants)
+            elif key == "04":
+                segs = blocks(doc, only_segments=True)
+                if segs:
+                    units = [(b[0][0], block_text(b)) for b in segs]
+                else:
+                    units = _fenced_blocks(doc)
+                    if not units:
+                        units = [(1, "\n".join(doc))]
+                matched = [(no, text) for no, text in units if marker in text]
+                if not matched:
+                    if (key, marker) not in warned:
+                        findings.append(_warn("A19", key, "未找到母版事实标记 %s，A19 未核对" % marker))
+                        warned.add((key, marker))
+                    continue
+                for no, text in matched:
+                    check_block(key, no, text, fact, variants)
+    return findings
+
+
 OPTIONAL_GATES: List[Tuple[str, GateFn]] = [
-    ("A16", gate_a16), ("A17", gate_a17), ("A18", gate_a18),
+    ("A16", gate_a16), ("A17", gate_a17), ("A18", gate_a18), ("A19", gate_a19),
 ]
 
 
@@ -2586,7 +2719,7 @@ def main(argv: List[str]) -> int:
               % (MINIMUM_PYTHON[0], MINIMUM_PYTHON[1], sys.version_info[0], sys.version_info[1]))
         return 2
 
-    ap = argparse.ArgumentParser(description="vigen 项目文件机械校验（K1-K17 + A16-A18 opt-in）")
+    ap = argparse.ArgumentParser(description="vigen 项目文件机械校验（K1-K17 + A16-A19 opt-in）")
     ap.add_argument("project_dir", help="项目目录（含 01-06 Markdown）")
     ap.add_argument("--partial", action="store_true",
                     help="只核对已有文档；缺文档的门静默跳过（全量要求 01-05 齐备）")

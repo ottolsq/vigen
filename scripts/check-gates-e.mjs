@@ -3,6 +3,7 @@ import {
   DOC_FILES,
   blocks,
   cell,
+  colIndex,
   finding,
   iterTables,
   shotBlocks,
@@ -779,6 +780,142 @@ export function gateA18(project) {
         "A18", DOC_FILES["03"], block[0][0],
         `图片提示词约束词 ${constraints} 处（>10）：改成「意图句+2-3 关键视觉」，负面只留承重项`,
       ));
+    }
+  }
+  return findings;
+}
+
+// ------------------------------------------------------------------ A19 母版一致性（opt-in 审计，V3.23）
+
+function normWsLower(text) {
+  return (text || "").replace(/\s+/g, "").toLowerCase();
+}
+
+function fencedBlocks(lines) {
+  const out = [];
+  let cur = null;
+  let start = 0;
+  lines.forEach((ln, i) => {
+    const no = i + 1;
+    if (ln.trim().startsWith("```")) {
+      if (cur === null) {
+        cur = [];
+        start = no;
+      } else {
+        out.push([start, cur.join("\n")]);
+        cur = null;
+      }
+      return;
+    }
+    if (cur !== null) cur.push(ln);
+  });
+  if (cur !== null) out.push([start, cur.join("\n")]);
+  return out;
+}
+
+function containsAny(text, values) {
+  const norm = normWsLower(text);
+  return values.some((v) => {
+    const nv = normWsLower(v);
+    return nv && norm.includes(nv);
+  });
+}
+
+export function gateA19(project) {
+  const doc02 = project.doc("02");
+  if (doc02 === null) {
+    return [finding("A19", DOC_FILES["02"], 0, "警告：02 缺失，A19 未执行")];
+  }
+  const rules = [];
+  for (const [, header, body] of iterTables(doc02)) {
+    const iFact = colIndex(header, "事实");
+    const iVal = colIndex(header, "冻结值");
+    const iMark = colIndex(header, "母版事实标记");
+    if (iFact < 0 || iVal < 0 || iMark < 0) continue;
+    const iVar = colIndex(header, "允许变体");
+    const iFiles = colIndex(header, "适用文件");
+    for (const [no, cells] of body) {
+      const fact = (iFact < cells.length ? cells[iFact] : "").trim();
+      const value = (iVal < cells.length ? cells[iVal] : "").trim();
+      const marker = (iMark < cells.length ? cells[iMark] : "").trim();
+      if (!fact || !value || !marker) continue;
+      const variants = [value];
+      if (iVar >= 0 && iVar < cells.length) {
+        for (const v of cells[iVar].split(/\s+\/\s+/)) {
+          if (v.trim()) variants.push(v.trim());
+        }
+      }
+      let files = ["01", "03", "04"];
+      if (iFiles >= 0 && iFiles < cells.length && cells[iFiles].trim()) {
+        files = cells[iFiles].split(/[,，]/).map((s) => s.trim()).filter(Boolean);
+      }
+      rules.push({ fact, variants, files, marker, line: no });
+    }
+  }
+  if (!rules.length) {
+    return [finding("A19", DOC_FILES["02"], 0,
+      "警告：未找到母版事实清单（表头含 事实/冻结值/母版事实标记），A19 未执行")];
+  }
+
+  const findings = [];
+  const warned = new Set();
+  const checkBlock = (key, line, text, fact, variants) => {
+    if (!containsAny(text, variants)) {
+      findings.push(finding(
+        "A19", DOC_FILES[key], line,
+        `母版事实「${fact}」应为「${variants[0]}」，但该块未出现（母版-提示词不一致）`,
+      ));
+    }
+  };
+  const warnOnce = (key, marker, msg) => {
+    const k = `${key}|${marker}`;
+    if (warned.has(k)) return;
+    warned.add(k);
+    findings.push(finding("A19", DOC_FILES[key], 0, "警告：" + msg));
+  };
+
+  for (const rule of rules) {
+    for (const key of rule.files) {
+      const doc = project.doc(key);
+      if (doc === null) continue;
+      if (key === "01") {
+        const rows = tableRows(doc, ["镜号", "运镜"], STORY_ALIASES);
+        if (rows === null) {
+          warnOnce(key, rule.marker, "未找到分镜总览表（镜号+运镜），A19 未核对");
+          continue;
+        }
+        const matched = rows.filter((r) => Object.values(r.cells).join(" ").includes(rule.marker));
+        if (!matched.length) {
+          warnOnce(key, rule.marker, `未找到母版事实标记 ${rule.marker}，A19 未核对`);
+          continue;
+        }
+        for (const r of matched) {
+          checkBlock(key, r.line, Object.values(r.cells).join(" "), rule.fact, rule.variants);
+        }
+      } else if (key === "03") {
+        let units = fencedBlocks(doc);
+        if (!units.length) units = [[1, doc.join("\n")]];
+        const matched = units.filter(([, text]) => text.includes(rule.marker));
+        if (!matched.length) {
+          warnOnce(key, rule.marker, `未找到母版事实标记 ${rule.marker}，A19 未核对`);
+          continue;
+        }
+        for (const [no, text] of matched) {
+          checkBlock(key, no, text, rule.fact, rule.variants);
+        }
+      } else if (key === "04") {
+        let units = blocks(doc, true).map((b) => [b[0][0], b.map(([, t]) => t).join("\n")]);
+        if (!units.length) units = fencedBlocks(doc);
+        if (!units.length) units = [[1, doc.join("\n")]];
+        const matched = units.filter(([, text]) => text.includes(rule.marker));
+        if (!matched.length) {
+          warnOnce(key, rule.marker, `未找到母版事实标记 ${rule.marker}，A19 未核对`);
+          continue;
+        }
+        for (const [no, text] of matched) {
+          checkBlock(key, no, text, rule.fact, rule.variants);
+        }
+      }
     }
   }
   return findings;
