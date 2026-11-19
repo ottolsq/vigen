@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // vigen check.mjs — CLI + 门注册（行为对齐 check.py；Phase 2c：K1-K17 全量）。
-import { existsSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { DOC_FILES, Project, finding } from "./vigen-md.mjs";
@@ -29,9 +29,24 @@ const OPTIONAL_GATES = [
 ];
 const ALL_GATE_FNS = [...GATES, ...OPTIONAL_GATES];
 
+function loadBatchGates() {
+  try {
+    const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+    const raw = readFileSync(path.join(scriptDir, "batch-gates.json"), "utf8");
+    const data = JSON.parse(raw);
+    const out = {};
+    for (const [name, gates] of Object.entries(data)) {
+      if (Array.isArray(gates)) out[name] = gates.map(String);
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
 function usage() {
   return [
-    "usage: check.mjs [-h] [--partial] [--gate GATE] [--video-variant SUFFIX] project_dir",
+    "usage: check.mjs [-h] [--partial] [--gate GATE] [--batch BATCH] [--batch-list] [--video-variant SUFFIX] project_dir",
     "",
     "vigen 项目文件机械校验（默认 K1-K17；A16-A19/K18 为可选审计：A16 锁定审计，A17 执行契约留痕，A18 图片约束预算，A19 母版事实一致性，K18 动作链诊断）",
     "",
@@ -42,18 +57,25 @@ function usage() {
     "  -h, --help    show this help message and exit",
     "  --partial     只核对已有文档；缺文档的门静默跳过",
     "  --gate GATE   只跑指定门，可用逗号分隔，如 K1,K5",
+    "  --batch BATCH 中间批只跑映射门（03/04/05/milestone）；--gate 优先",
+    "  --batch-list  打印批次门映射",
     "  --video-variant SUFFIX  轻量项目：选择 视频生成提示词_<后缀>.md（如 9x16）",
   ].join("\n");
 }
 
 function parseArgs(argv) {
-  const out = { projectDir: null, partial: false, gate: null, videoVariant: null, help: false, error: null };
+  const out = {
+    projectDir: null, partial: false, gate: null, batch: null, batchList: false,
+    videoVariant: null, help: false, error: null,
+  };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
     if (a === "-h" || a === "--help") {
       out.help = true;
     } else if (a === "--partial") {
       out.partial = true;
+    } else if (a === "--batch-list") {
+      out.batchList = true;
     } else if (a === "--gate") {
       if (i + 1 >= argv.length) {
         out.error = "argument --gate: expected one argument";
@@ -63,6 +85,15 @@ function parseArgs(argv) {
       i += 1;
     } else if (a.startsWith("--gate=")) {
       out.gate = a.slice("--gate=".length);
+    } else if (a === "--batch") {
+      if (i + 1 >= argv.length) {
+        out.error = "argument --batch: expected one argument";
+        break;
+      }
+      out.batch = argv[i + 1];
+      i += 1;
+    } else if (a.startsWith("--batch=")) {
+      out.batch = a.slice("--batch=".length);
     } else if (a === "--video-variant") {
       if (i + 1 >= argv.length) {
         out.error = "argument --video-variant: expected one argument";
@@ -107,6 +138,13 @@ export function main(argv = process.argv.slice(2)) {
     console.log(usage());
     return 0;
   }
+  const batchMap = loadBatchGates();
+  if (args.batchList) {
+    for (const [name, gates] of Object.entries(batchMap)) {
+      console.log(`${name}: ${gates.join(", ")}`);
+    }
+    return 0;
+  }
   if (args.error || !args.projectDir) {
     if (args.error) console.error(usage() + "\n\ncheck.mjs: error: " + args.error);
     else console.error(usage() + "\n\ncheck.mjs: error: the following arguments are required: project_dir");
@@ -141,6 +179,24 @@ export function main(argv = process.argv.slice(2)) {
     const bad = [...wanted].filter((gid) => !ALL_GATES.includes(gid)).sort();
     if (bad.length) {
       console.log(`未知门：${bad.join(", ")}（合法取值：${ALL_GATES.join(", ")}）`);
+      return 2;
+    }
+    const missing = [...wanted].filter((gid) => !IMPLEMENTED.has(gid)).sort();
+    if (missing.length) {
+      console.log(`check.mjs 未移植门：${missing.join(", ")}（请用 check.py 跑全量）`);
+      return 2;
+    }
+    selected = wanted;
+  } else if (args.batch) {
+    const gates = batchMap[args.batch];
+    if (!gates) {
+      console.log(`未知批次：${args.batch}（合法取值：${Object.keys(batchMap).join(", ")}）`);
+      return 2;
+    }
+    const wanted = new Set(gates.map((g) => g.trim().toUpperCase()).filter(Boolean));
+    const bad = [...wanted].filter((gid) => !ALL_GATES.includes(gid)).sort();
+    if (bad.length) {
+      console.log(`批次 ${args.batch} 含未知门：${bad.join(", ")}`);
       return 2;
     }
     const missing = [...wanted].filter((gid) => !IMPLEMENTED.has(gid)).sort();

@@ -44,6 +44,7 @@ ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s
 - `check.py` 需要本机 Python；沙盒里的 `python3` 可能挂死。
 - 当前执行口径：全量用 `check.py`（权威），或 `node "{技能目录}/scripts/check.mjs" <项目目录> --partial`（K1-K17 全量，与 `check.py` 同输出/同退出码）。无 Python 时用后者。
 - 锁定审计（A16）：另加 `--gate A16`；机检风格圣经逐字/入画 REF 登记/持续在场三项，技术动作与朝向三要素仍人工核对。
+- **中间批分层校验（V3.23）**：`--batch 03` / `--batch 04` / `--batch 05` 只跑该批映射门（源：`scripts/batch-gates.json`，`--batch-list` 打印）；GATE/阶段末跑 `--batch milestone`（等价全量）。`--gate` 优先于 `--batch`。
 - **画布→文档同步脚本不做**：用户后续可能更换画布软件，不同软件 API 不通用；只保留通用操作纪律（参考图全量重连 / 版本账 / 尺寸校验），不绑定具体画布。
 
 ## 7. 画布 JSON 外部写入（V3.23 实测）

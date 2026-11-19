@@ -53,6 +53,7 @@ exit: 0=全过 1=有findings 2=用法/IO错（含门内部错误）
 from __future__ import annotations
 
 import argparse
+import json
 import math
 import re
 import sys
@@ -2966,6 +2967,16 @@ REQUIRED_FOR_FULL = ("01", "02", "03", "04", "05")
 LIGHT_REQUIRED = ("01", "03", "04")
 
 
+def _load_batch_gates() -> Dict[str, List[str]]:
+    """批次门映射（唯一源：scripts/batch-gates.json）；读取失败返回空映射。"""
+    try:
+        raw = (Path(__file__).resolve().parent / "batch-gates.json").read_text(encoding="utf-8")
+        data = json.loads(raw)
+        return {str(k): [str(x) for x in v] for k, v in data.items() if isinstance(v, list)}
+    except (OSError, ValueError):
+        return {}
+
+
 def _project_profile(project: Project) -> str:
     """standard / light（V3.23 轻量 profile）。
 
@@ -2995,14 +3006,25 @@ def main(argv: List[str]) -> int:
               % (MINIMUM_PYTHON[0], MINIMUM_PYTHON[1], sys.version_info[0], sys.version_info[1]))
         return 2
 
-    ap = argparse.ArgumentParser(description="vigen 项目文件机械校验（K1-K17 + A16-A19 opt-in）")
-    ap.add_argument("project_dir", help="项目目录（含 01-06 Markdown）")
+    ap = argparse.ArgumentParser(description="vigen 项目文件机械校验（K1-K17 + A16-A19/K18 opt-in）")
+    ap.add_argument("project_dir", nargs="?", help="项目目录（含 01-06 Markdown）")
     ap.add_argument("--partial", action="store_true",
                     help="只核对已有文档；缺文档的门静默跳过（全量要求 01-05 齐备）")
     ap.add_argument("--gate", default=None, help="只跑指定门，可用逗号分隔，如 K1,K5")
     ap.add_argument("--video-variant", default=None,
                     help="轻量项目：选择 视频生成提示词_<后缀>.md（如 9x16）")
+    ap.add_argument("--batch", default=None,
+                    help="中间批只跑映射门（03/04/05/milestone）；--gate 优先")
+    ap.add_argument("--batch-list", action="store_true", help="打印批次门映射")
     args = ap.parse_args(argv[1:])
+
+    batch_map = _load_batch_gates()
+    if args.batch_list:
+        for name, gates in batch_map.items():
+            print("%s: %s" % (name, ", ".join(gates)))
+        return 0
+    if not args.project_dir:
+        ap.error("the following arguments are required: project_dir")
 
     root = Path(args.project_dir)
     if not root.is_dir():
@@ -3027,6 +3049,17 @@ def main(argv: List[str]) -> int:
         bad = wanted - valid
         if bad:
             print("未知门：%s（合法取值：%s）" % (", ".join(sorted(bad)), ", ".join(g for g, _ in all_gates)))
+            return 2
+        selected = wanted
+    elif args.batch:
+        gates = batch_map.get(args.batch)
+        if gates is None:
+            print("未知批次：%s（合法取值：%s）" % (args.batch, ", ".join(batch_map)))
+            return 2
+        wanted = {g.strip().upper() for g in gates if g.strip()}
+        bad = wanted - valid
+        if bad:
+            print("批次 %s 含未知门：%s" % (args.batch, ", ".join(sorted(bad))))
             return 2
         selected = wanted
 
