@@ -32,6 +32,7 @@ description: Use when the user wants to create AI-generated videos from an idea 
 | 技能特效（三层光效/法师射手剑修三类形态/动态轨迹/失败模式负面清单） | references/vfx-effects.md |
 | 负面词效力与冲突检查裁决 | references/knowledge-index.md |
 | 00-06 文件结构与填空槽位、人物参考图模板、执行契约表格、**项目状态卡/变更影响传播清单/道具状态事实表**、**环境动效账/段任务包/冻结字段速查卡/质量缺陷台账** | assets/templates.md · templates-character.md · templates-execution.md |
+| **资产系统模板（资产表/人物模板 A·B/LOOK/表情动作矩阵/场景圣经/道具 turnaround/色板 7 角色）** | assets/templates-assets.md |
 | **独立评审任务书/评分卡/评审记录表（评审门）** | assets/templates-review.md |
 
 **重复即缺陷**：同一条规则写进两个文件，迟早不一致——V2.4 修过的"动作容量随时长缩放"因存在三份拷贝，两份旧拷贝漂移到 V2.8 才被清掉。发现重复时保留归属表里的那个家，其余改为指针。
@@ -48,7 +49,7 @@ description: Use when the user wants to create AI-generated videos from an idea 
 | references/cinematography.md | 设计分镜时（运镜/8 生成端转场+5 剪辑端转场/景别/机位/**光影选型库**/峰值分配/**单镜时长与节奏**/**竖屏构图安全区**/**7 类场景镜头序列**） |
 | references/styles.md | 阶段1 定风格时 |
 | references/consistency.md | 建锚定表（02）与跨镜/跨集一致性问题时 |
-| references/realism.md | 写人物/场景/情景图提示词时；**动物主角/猛兽/宠物同读第七节（动物物理层）** |
+| references/realism.md | 写人物/场景/情景图提示词时；**动物主角/猛兽/宠物同读第七节（动物物理层）**；**真实感四层结构与故障对照见第八节** |
 | references/examples.md | 需要对照完整示例时 |
 | **references/knowledge-index.md** | **阶段1 定风格/分镜时先读此索引**——按需定位扩展知识（FACS微表情/武打动作/电影级参数/导演风格/多视图/情绪方法论/UGC质感/2D转真人），命中场景才读对应文件；**动作戏项目必读 action-combat.md**。**expressions.md 的读取时点提前（V2.9）**：不等阶段5——**阶段2-4 写情景图的表演状态指纹/表演注时就要读**（画面里的人物表情与身体姿态在图片端已经发生），实测教训：把表演规范推迟到阶段5，画布上写表演注时无依据只能自研 |
 | **references/content-safety.md** | **提示词被审核拦截后必读**——按降级阶梯找解法（措辞级解法库/构图级模式表/二分定位）。**写高危题材前只查"是否命中已登记模式"**（该文件二·三节 + 项目 03 规范节）——反应式降级（V2.9 用户裁定）：未登记的内容正常写，**不做预防性降敏** |
@@ -57,6 +58,7 @@ description: Use when the user wants to create AI-generated videos from an idea 
 | **references/production-workflow.md** | **意图路由=续作/定向修改/局部重排、换模型/改时长/改画幅/改母版、画布同步、每批写 03/04/05 前**（变更矩阵/局部重排/稳定镜号/段落制/画布纪律/执行契约六条全文） |
 | assets/templates.md | 创建项目文件时 |
 | assets/templates-character.md | 写 03 人物参考图时（0a 合图变体/分张退路/多人脸对照条） |
+| **assets/templates-assets.md** | **建资产系统时**（资产表/人物模板 A·B/LOOK 妆造库/16 格表情与动作/场景 3×3 圣经/道具 turnaround/色板 7 角色/多素材职责表） |
 | assets/templates-execution.md | 每批写 03/04/05 前（批次卡/批次校验记录/段落锁定清单九项/无台词段/**走位总谱+逐镜动线+背景动作线/光影演变/动作桥/负面提示词两段式/环境动效账/段任务包/冻结字段速查卡/质量缺陷台账**） |
 | assets/templates-review.md | GATE1.5 剧本、02 锚定、03/04 大批次、05 台词表评审前（独立评审任务书+评分卡+评审记录表） |
 

@@ -134,6 +134,7 @@ H3 and Seedance differ in reference-to-video capability and text adherence. **Th
 ├── assets/
 │   ├── templates.md      # Standard templates for project files 00-06 (01 includes project status card / change-impact list / prop state facts / compression ledger / on-screen props / lens column; 02 includes master-fact list / four prop fields / costume tiers / persistent scene state / four-group negative library; 03 includes direction anchors / target-state images / vertical safe zones / Seedance no-scene-image; 04 includes PLAN/REF + PLAN-TAIL / attachment order / per-shot routes / background action lines / lens / light evolution; 06 includes shot duration / editing transitions / rhythm / key sound mixing)
 │   ├── templates-character.md  # Character reference templates (0a combined sheet default / split fallback / 0c / multi-face strip / 0d)
+│   ├── templates-assets.md     # Asset-system templates (asset table / character templates A·B / LOOK / expression-action matrices / scene bible / prop turnaround / 7-role palette)
 │   ├── templates-execution.md  # Execution-contract templates (batch card / segment state ledger / A1-A16 validation record / nine-item segment lock / no-dialogue segment / one-page segment template with blocking score / light evolution / action bridges / two-part negative block / environment-effect ledger / segment packet / freeze card / quality defect ledger)
 │   └── templates-review.md     # Independent review gate (reviewer brief + script/02/03/04/05 scorecards + review record)
 ├── scripts/
