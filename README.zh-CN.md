@@ -109,7 +109,7 @@ H3 与 Seedance 在参考生视频能力和文本遵从度上有代差，**能�
 ## 目录结构（规则全文的唯一权威）
 
 ```
-├── SKILL.md              # GATE0 问卷（含叙事形态/平台）+ 工作流 + 意图路由（含活剧本修订/变更影响传播/局部重排）+ 23 条硬规则（要点+指针，含 K1-K17 check.py 门 + A16-A19/K18 opt-in 审计 + 母版事实清单 + 执行契约 + 独立评审/两次升级/缺陷传播）+ 回退阶梯 + 停点收缩（真分叉才停）+ E2 挂图不阻塞 + 效率纪律（段任务包/速查卡/批次门）
+├── SKILL.md              # GATE0 问卷（含叙事形态/平台）+ 工作流 + 意图路由（含活剧本修订/变更影响传播/局部重排）+ 23 条硬规则（要点+指针，含 K1-K17 check.py 门 + A16-A20 opt-in 审计 + 母版事实清单 + 执行契约 + 独立评审/两次升级/缺陷传播）+ 回退阶梯 + 停点收缩（真分叉才停）+ E2 挂图不阻塞 + 效率纪律（段任务包/速查卡/批次门）
 ├── references/
 │   ├── screenwriting-craft.md # 剧本创作：7 大漏洞自检 + 台词行动理论 + 场景发动机与升级六问 + 当集兑现 + 反对七式 + 误会四判据 + 钩子悬念纪律 + 故事三层分离 + GATE1.5 + 故事板四格 + 一·九 形态 B（竖屏短剧）+ 一·十 原文改编压缩账
 │   ├── short-drama-market.md # 平台短剧立项与排集：档位/集数 + 40 赛道 + 流派/情绪契约/单元链 + 六档证据×反驳 + 付费墙 + 前三集节拍卡（仅竖屏短剧项目读）
@@ -136,7 +136,7 @@ H3 与 Seedance 在参考生视频能力和文本遵从度上有代差，**能�
 │   ├── templates-execution.md  # 执行契约模板（批次生产卡 / 段状态账 / 批次校验记录 A1-A16 / 段落锁定清单九项 / 无台词段 / 一页版段模板含走位总谱/光影演变/动作桥 / 负面提示词两段式 / 环境动效账 / 段任务包 / 冻结字段速查卡 / 质量缺陷台账）
 │   └── templates-review.md     # 独立评审门（评审子代理任务书 + 剧本/02/03/04/05 评分卡 + 评审记录表）
 ├── scripts/
-│   ├── check.py          # 薄校验层（K1-K17 机械门，纯标准库；A16/A17/A18/A19/K18 为 opt-in；轻量 profile + --video-variant + --batch）
+│   ├── check.py          # 薄校验层（K1-K17 机械门，纯标准库；A16-A20 为 opt-in；轻量 profile + --video-variant + --batch）
 │   ├── check.mjs         # Node CLI（有 Python 自动委托 check.py 全量；无 Python 时 K1-K17 子集）
 │   ├── pack.py           # 批次生产效率工具（segment 段任务包 / freeze 冻结字段速查卡）
 │   ├── batch-gates.json  # 批次门映射唯一源（03/04/05/milestone）
@@ -147,7 +147,7 @@ H3 与 Seedance 在参考生视频能力和文本遵从度上有代差，**能�
 │   ├── check-gates-d.mjs # K15-K16 门
 │   ├── check-gates-e.mjs # A16/A17/A18/A19 可选审计
 │   ├── check-gates-f.mjs # K17 提示词卫生
-│   ├── check-gates-g.mjs # K18 动作链诊断（opt-in）
+│   ├── check-gates-g.mjs # A20 动作链诊断（opt-in，原名 K18）
 │   ├── vigen_md.py       # Python 解析层
 │   ├── vigen-md.mjs      # Node 解析层（行为对齐 vigen_md.py）
 │   └── export.py         # 交付打包（快照 + manifest + checksums，不声称审批）
@@ -176,7 +176,7 @@ H3 与 Seedance 在参考生视频能力和文本遵从度上有代差，**能�
 - **Shot ID / 轻量 profile**：支持 `A1v3` 等段号；`图片生成提示词.md`/`视频生成提示词.md` 别名可被识别，变体用 `--video-variant`。
 - **Seedance 默认**：动作描述走意图级（0.13），整步跳过情景图（仅失败补单张 L2）；H3/happyhorse 维持 L1-L4。
 - **质量包**：独立评审门（templates-review）+ 两次升级 + 缺陷传播；**效率包**：`pack.py segment/freeze` + `--batch` 分层校验。
-- **K18 动作链诊断**（opt-in）：时间块连续/动作锁顺序/道具状态账。
+- **A20 动作链诊断**（opt-in，原名 K18）：时间块连续/动作锁顺序/道具状态账。
 
 ## 安装
 
@@ -212,7 +212,7 @@ cp -r references assets scripts ~/.claude/skills/vigen/
 ## 已知边界
 
 - 只产提示词与项目文件，不调用生成 API、不做剪辑执行；check.py / check.mjs 只读校验项目 Markdown，同样不调 API、不改文件
-- `check.mjs`（V3.24）：**有 Python 时自动委托 check.py（权威全量）并返回其退出码；无 Python 时只跑默认 K1-K17 子集**。A16-A19/K18 为可选审计，仅在 Python 侧可用；`VIGEN_NODE_NO_DELEGATE=1` 强制本地子集，`VIGEN_PYTHON`/`VIGEN_CHECK_PY` 可覆盖解释器与委托脚本（测试用）。现有 Node 可选门代码保留为遗留实现、不再注册
+- `check.mjs`（V3.24）：**有 Python 时自动委托 check.py（权威全量）并返回其退出码；无 Python 时只跑默认 K1-K17 子集**。A16-A20 为可选审计，仅在 Python 侧可用；`VIGEN_NODE_NO_DELEGATE=1` 强制本地子集，`VIGEN_PYTHON`/`VIGEN_CHECK_PY` 可覆盖解释器与委托脚本（测试用）。现有 Node 可选门代码保留为遗留实现、不再注册
 - **A16（先锁后写）是 opt-in 审计**：`--gate A16` 机检风格圣经逐字/入画 REF 登记/持续在场三项；技术动作与朝向三要素仍人工核对
 - **A17（执行契约留痕）是 opt-in 审计**：`--gate A17` 机检批次生产卡/批次校验记录 A1-A16/段状态账/参考契约/时间账/风格锁逐字/04 段锁定清单九项/人物道具群像就地绑定/走位总谱+逐镜动线+背景动作线/动作桥/负面提示词闭环/每镜焦段/光影演变线；不查内容质量
 - **A18（图片约束预算）是 opt-in 审计**：`--gate A18` 对 03 单张图提示词 >260 汉字或约束词 >10 处报警；技术参考图/文字排版类豁免。警告后按 prompt-rules 0.12 删减，不为过 A18 删承重锚

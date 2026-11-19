@@ -1,4 +1,4 @@
-// K18 动作链自检（opt-in 诊断门，V3.23）——行为对齐 check.py gate_k18。
+// A20 动作链自检（opt-in 诊断门，V3.23 原名 K18）——行为对齐 check.py gate_a20。
 import { DOC_FILES, blocks, blockText, finding } from "./vigen-md.mjs";
 
 const AT_RE = /^\s*(?:[-*]\s*)?At\s+(\d{1,3}):(\d{2})(?:\.(\d{1,3}))?\s*[：:,]?/;
@@ -82,9 +82,9 @@ function matchChain(body, items) {
   return { missing, positions, hits };
 }
 
-export function gateK18(project) {
+export function gateA20(project) {
   const doc = project.doc("04");
-  if (doc === null) return [warn("K18", "04", "04 缺失，K18 未执行")];
+  if (doc === null) return [warn("A20", "04", "04 缺失，A20 未执行")];
   const findings = [];
   const warned = new Set();
   for (const [unitLine, text] of units(doc)) {
@@ -121,7 +121,7 @@ export function gateK18(project) {
     if (atBlocks.length) {
       if (atBlocks[0][0] > 0.5) {
         findings.push(finding(
-          "K18", DOC_FILES["04"], unitLine,
+          "A20", DOC_FILES["04"], unitLine,
           `首个时间块起始 ${atBlocks[0][0].toFixed(1)}s > 0.5s（时间轴须从 0 附近开始）`,
         ));
       }
@@ -129,13 +129,13 @@ export function gateK18(project) {
       for (const [sec, content] of atBlocks) {
         if (sec <= prev) {
           findings.push(finding(
-            "K18", DOC_FILES["04"], unitLine,
+            "A20", DOC_FILES["04"], unitLine,
             `时间块 ${sec.toFixed(1)}s 未严格递增（上一块 ${prev.toFixed(1)}s）`,
           ));
         }
         if (!content) {
           findings.push(finding(
-            "K18", DOC_FILES["04"], unitLine,
+            "A20", DOC_FILES["04"], unitLine,
             `时间块 ${sec.toFixed(1)}s 后无内容（空时间块）`,
           ));
         }
@@ -143,14 +143,14 @@ export function gateK18(project) {
       }
       if (duration !== null && atBlocks[atBlocks.length - 1][0] > duration + 0.2) {
         findings.push(finding(
-          "K18", DOC_FILES["04"], unitLine,
+          "A20", DOC_FILES["04"], unitLine,
           `末个时间块 ${atBlocks[atBlocks.length - 1][0].toFixed(1)}s > 生成时长 ${duration.toFixed(1)}s + 0.2s`,
         ));
       }
     } else if (rangeBlocks.length) {
       if (rangeBlocks[0][0] > 0.5) {
         findings.push(finding(
-          "K18", DOC_FILES["04"], unitLine,
+          "A20", DOC_FILES["04"], unitLine,
           `首个时间块起始 ${rangeBlocks[0][0].toFixed(1)}s > 0.5s（时间轴须从 0 附近开始）`,
         ));
       }
@@ -159,18 +159,18 @@ export function gateK18(project) {
       for (const [start, end, content] of rangeBlocks) {
         if (start < prevStart) {
           findings.push(finding(
-            "K18", DOC_FILES["04"], unitLine,
+            "A20", DOC_FILES["04"], unitLine,
             `时间块 ${start.toFixed(1)}s–${end.toFixed(1)}s 乱序（前一拍从 ${prevStart.toFixed(1)}s 开始）`,
           ));
         } else if (prevEnd >= 0 && start > prevEnd + 1.0) {
           findings.push(finding(
-            "K18", DOC_FILES["04"], unitLine,
+            "A20", DOC_FILES["04"], unitLine,
             `时间块断档：${prevStart.toFixed(1)}s–${prevEnd.toFixed(1)}s 之后下一拍从 ${start.toFixed(1)}s 开始（>${(prevEnd + 1.0).toFixed(1)}s 间隙）`,
           ));
         }
         if (!content) {
           findings.push(finding(
-            "K18", DOC_FILES["04"], unitLine,
+            "A20", DOC_FILES["04"], unitLine,
             `时间块 ${start.toFixed(1)}s–${end.toFixed(1)}s 后无内容（空时间块）`,
           ));
         }
@@ -179,14 +179,14 @@ export function gateK18(project) {
       }
       if (duration !== null && rangeBlocks[rangeBlocks.length - 1][1] > duration + 0.2) {
         findings.push(finding(
-          "K18", DOC_FILES["04"], unitLine,
+          "A20", DOC_FILES["04"], unitLine,
           `末个时间块 ${rangeBlocks[rangeBlocks.length - 1][1].toFixed(1)}s > 生成时长 ${duration.toFixed(1)}s + 0.2s`,
         ));
       }
     } else {
       const key = "k18-no-time";
       if (!warned.has(key)) {
-        findings.push(warn("K18", "04", "本块无时间块（At/时间范围），K18 时间连续性未核对"));
+        findings.push(warn("A20", "04", "本块无时间块（At/时间范围），A20 时间连续性未核对"));
         warned.add(key);
       }
     }
@@ -234,13 +234,13 @@ export function gateK18(project) {
       const missRatio = missing.length / lockItems.length;
       if (missRatio > 0.5) {
         findings.push(warn(
-          "K18", "04",
+          "A20", "04",
           `动作锁与正文措辞差异较大（${missing.length}/${lockItems.length} 项未匹配），跳过顺序检查（人工确认）`,
         ));
       } else {
         for (const item of missing) {
           findings.push(finding(
-            "K18", DOC_FILES["04"], unitLine,
+            "A20", DOC_FILES["04"], unitLine,
             `动作锁项「${item}」未在正文找到（可能改写或遗漏，人工确认）`,
           ));
         }
@@ -249,7 +249,7 @@ export function gateK18(project) {
           for (let i = 0; i + 1 < strong.length; i += 1) {
             if (strong[i + 1][0] < strong[i][0]) {
               findings.push(finding(
-                "K18", DOC_FILES["04"], unitLine,
+                "A20", DOC_FILES["04"], unitLine,
                 "动作锁顺序与正文不一致（可能改写或遗漏，人工确认）",
               ));
               break;
@@ -281,12 +281,12 @@ export function gateK18(project) {
         const normName = norm(name);
         if (joined.includes("不入画")) {
           if (normName && propBody.includes(normName)) {
-            findings.push(warn("K18", "04", `道具「${name}」标记不入画，但正文出现（人工确认）`));
+            findings.push(warn("A20", "04", `道具「${name}」标记不入画，但正文出现（人工确认）`));
           }
         } else if (joined.includes("入画")) {
           if (normName && !propBody.includes(normName)) {
             findings.push(finding(
-              "K18", DOC_FILES["04"], unitLine,
+              "A20", DOC_FILES["04"], unitLine,
               `道具「${name}」标记入画，但正文未出现`,
             ));
           }
@@ -294,7 +294,7 @@ export function gateK18(project) {
       }
       const key = `k18-prop-fmt|${unitLine}`;
       if (!parsed && !warned.has(key)) {
-        findings.push(warn("K18", "04", "道具锁格式未识别（缺 ｜ 分隔），K18 道具账未核对"));
+        findings.push(warn("A20", "04", "道具锁格式未识别（缺 ｜ 分隔），A20 道具账未核对"));
         warned.add(key);
       }
     }

@@ -225,6 +225,7 @@ AI（包括执行本 skill 的代理）对画面、场景、构图、运镜的�
 | V3.22.2 | **代码评审修复（A17/A18 机检 15 项）** | A18 豁免收窄（不再被 No text 收尾句触发）；K17 负向节按围栏块丢弃；全片负面清单表格识别；py/mjs parity 三项；A17 正则/加粗走位/无参考图焦段/群像阈值与括号；文档两处；Python 122 / Node 132 |
 | V3.22.3 | **文档：英文 README 默认 + 模型认知/边界 + MIT** | README 双语拆分（README.md 英文默认 / README.zh-CN.md 中文）；Seedance/H3/happyhorse 情景图策略；H3 逼近 Seedance 八条优化；边界与测试现状更新；新增 LICENSE（MIT） |
 | V3.23 | **task2 实战复盘（28 项）+ 用户追加：Seedance 最终生产模型** | 母版事实清单/A19、变更影响传播/状态卡、K14 口径（实际时间轴/Σ估算秒/旧公式；预算与校验分离）、Shot ID 扩展（A1v3）、轻量 profile（03/04 别名 + `--video-variant`）、画布 JSON 三件套、参考图三段式+语法表、动物物理层、环境动效账、压缩账、K18 动作链诊断（opt-in）、动作描述密度分档（默认意图级；H3 `[用户实测]`、Seedance `[待实测]`）、Seedance 整步跳过情景图（失败补单张 L2）、效率包（pack.py segment/freeze + batch-gates.json）、质量包（独立评审门/两次升级/缺陷传播）。**未吸收**：跨集资产复用清单（留 V3.24 候选）；Seedance 微操阈值与免情景图失败率待实测回填 |
+| V3.24 | **双实现收敛 + 门命名统一** | Node 有 Python 时自动委托 check.py（全量）、无 Python 时 K1-K17 子集；可选门 A16-A20 需 Python；K18 更名 A20（旧名兼容）；README 双语边界同步 |
 
 ## 八、Troubleshooting 速查表（实测高频问题 → 先查哪条 → 改哪一节）
 

@@ -109,7 +109,7 @@ H3 and Seedance differ in reference-to-video capability and text adherence. **Th
 ## Directory layout (the single source of truth for rules)
 
 ```
-├── SKILL.md              # GATE0 questionnaire + workflow + intent routing (live-script revision / change-impact propagation) + 23 hard rules + K1-K17 checks + A16-A19/K18 opt-in audits + master-fact list + execution contract + independent review / two-round escalation / defect propagation + fallback ladder + efficiency kit (segment packet / freeze card / batch gates)
+├── SKILL.md              # GATE0 questionnaire + workflow + intent routing (live-script revision / change-impact propagation) + 23 hard rules + K1-K17 checks + A16-A20 opt-in audits + master-fact list + execution contract + independent review / two-round escalation / defect propagation + fallback ladder + efficiency kit (segment packet / freeze card / batch gates)
 ├── references/
 │   ├── screenwriting-craft.md # Script craft: seven-hole self-check + dialogue-as-action + scene engine + payoff + seven opposition forms + four misunderstanding tests + hook discipline + three-layer story + GATE1.5 + Form B vertical drama + source-compression ledger
 │   ├── short-drama-market.md # Platform short-drama planning: tiers / episode counts / 40 tracks / genre / emotion contract / unit chain / paywall / first-three-episode beat cards (vertical drama only)
@@ -136,7 +136,7 @@ H3 and Seedance differ in reference-to-video capability and text adherence. **Th
 │   ├── templates-execution.md  # Execution-contract templates (batch card / segment state ledger / A1-A16 validation record / nine-item segment lock / no-dialogue segment / one-page segment template with blocking score / light evolution / action bridges / two-part negative block / environment-effect ledger / segment packet / freeze card / quality defect ledger)
 │   └── templates-review.md     # Independent review gate (reviewer brief + script/02/03/04/05 scorecards + review record)
 ├── scripts/
-│   ├── check.py          # Thin validation layer (K1-K17 mechanical gates; A16/A17/A18/A19/K18 opt-in; light profile + --video-variant + --batch)
+│   ├── check.py          # Thin validation layer (K1-K17 mechanical gates; A16-A20 opt-in; light profile + --video-variant + --batch)
 │   ├── check.mjs         # Node CLI (with Python: delegates to check.py; without Python: K1-K17 subset)
 │   ├── pack.py           # Batch-production efficiency tool (segment packet / freeze card)
 │   ├── batch-gates.json  # Single source for batch gate mapping (03/04/05/milestone)
@@ -147,7 +147,7 @@ H3 and Seedance differ in reference-to-video capability and text adherence. **Th
 │   ├── check-gates-d.mjs # K15-K16 gates
 │   ├── check-gates-e.mjs # A16/A17/A18/A19 optional audits
 │   ├── check-gates-f.mjs # K17 prompt hygiene
-│   ├── check-gates-g.mjs # K18 action-chain diagnostic (opt-in)
+│   ├── check-gates-g.mjs # A20 action-chain diagnostic (opt-in; renamed from K18)
 │   ├── vigen_md.py       # Python parsing layer
 │   ├── vigen-md.mjs      # Node parsing layer (aligned with vigen_md.py)
 │   └── export.py         # Delivery packaging (snapshot + manifest + checksums; does not assert approval)
@@ -176,7 +176,7 @@ H3 and Seedance differ in reference-to-video capability and text adherence. **Th
 - **Shot ID / light profile**: `A1v3`-style IDs parse; `图片生成提示词.md` / `视频生成提示词.md` aliases are recognized; variants use `--video-variant`.
 - **Seedance defaults**: intent-level action density (0.13); skip the scene-image step entirely (fallback: one L2 pose image on failure); H3/happyhorse keep L1-L4.
 - **Quality pack**: independent review gate (templates-review) + two-round escalation + defect propagation; **efficiency pack**: `pack.py segment/freeze` + `--batch` layered checks.
-- **K18 action-chain diagnostic** (opt-in): time-block continuity / action-lock order / prop state ledger.
+- **A20 action-chain diagnostic** (opt-in; renamed from K18): time-block continuity / action-lock order / prop state ledger.
 
 ## Install
 
@@ -212,7 +212,7 @@ No manual invocation is needed after installation — intents such as "make me a
 ## Known boundaries
 
 - Produces prompts and project files only; does not call generation APIs or perform editing. check.py / check.mjs only read project Markdown; they do not call APIs or modify files
-- `check.mjs` (V3.24): **with Python it delegates to check.py (authoritative, full set) and returns its exit code; without Python it runs only the default K1-K17 subset**. A16-A19/K18 opt-in audits require Python; `VIGEN_NODE_NO_DELEGATE=1` forces the local subset; `VIGEN_PYTHON` / `VIGEN_CHECK_PY` override the interpreter and delegated script (tests). The old Node opt-in implementations remain as unregistered legacy code
+- `check.mjs` (V3.24): **with Python it delegates to check.py (authoritative, full set) and returns its exit code; without Python it runs only the default K1-K17 subset**. A16-A20 opt-in audits require Python; `VIGEN_NODE_NO_DELEGATE=1` forces the local subset; `VIGEN_PYTHON` / `VIGEN_CHECK_PY` override the interpreter and delegated script (tests). The old Node opt-in implementations remain as unregistered legacy code
 - **A16 (lock-before-write)** is an opt-in audit: style-bible verbatim / on-screen REF registration / persistent presence. Technical actions and three-element orientation remain human-reviewed
 - **A17 (execution-contract evidence)** is an opt-in audit: batch cards / A1-A16 validation records / segment state ledger / reference contracts / time ledger / style-lock verbatim / nine-item segment lock / character-prop-group inline binding / blocking score + per-shot routes + background action lines / action bridges / negative-block closure / lens per shot / light-evolution line. It does not judge content quality
 - **A18 (image constraint budget)** is an opt-in audit: flags 03 image prompts over 260 CJK characters or more than 10 constraint words; technical sheets and text-layout images are exempt. Reduce prompts per prompt-rules 0.12 after a warning; never delete load-bearing anchors just to pass A18

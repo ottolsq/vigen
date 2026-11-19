@@ -39,7 +39,7 @@ enforce 的条款（与 vigen_md 解析层配套）：
       → 警告约束过密（技术参考图/文字排版类豁免）
   A19 母版事实一致性（opt-in，V3.23）：02 母版事实清单逐字出现在
       01/03/04 带「母版事实标记」的块中；多语言/多画幅按标记区分
-  K18 动作链诊断（opt-in，V3.23）：时间块连续（At/时间范围两种格式）+
+  A20 动作链诊断（opt-in，V3.23 原名 K18）：时间块连续（At/时间范围两种格式）+
       动作锁顺序（宽松前缀）+ 道具状态账；改写措辞允许人工确认后忽略
 
 用法（CT6）：
@@ -2771,7 +2771,7 @@ def gate_a19(project: Project, partial: bool) -> List[Finding]:
     return findings
 
 
-# ------------------------------------------------------------------ K18 动作链（opt-in 诊断，V3.23）
+# ------------------------------------------------------------------ A20 动作链（opt-in 诊断，V3.23 原名 K18）
 
 _K18_AT_RE = re.compile(r"^\s*(?:[-*]\s*)?At\s+(\d{1,3}):(\d{2})(?:\.(\d{1,3}))?\s*[：:,]?")
 _K18_RANGE_RE = re.compile(
@@ -2832,8 +2832,8 @@ def _k18_match_action_chain(body: str, items: List[str]) -> Tuple[List[str], Lis
     return missing, positions, hits
 
 
-def gate_k18(project: Project, partial: bool) -> List[Finding]:
-    """K18 动作链自检（V3.23，opt-in 诊断门）。
+def gate_a20(project: Project, partial: bool) -> List[Finding]:
+    """A20 动作链自检（V3.23，opt-in 诊断门；原名 K18）。
 
     - 时间块连续性：`At 0:03.600：` 与 `0.0s–1.4s` 两种格式都识别
     - 动作锁顺序：宽松前缀匹配；>50% 缺失只报一条警告（防改写措辞刷屏）
@@ -2841,7 +2841,7 @@ def gate_k18(project: Project, partial: bool) -> List[Finding]:
     """
     doc = project.doc("04")
     if doc is None:
-        return [_warn("K18", "04", "04 缺失，K18 未执行")]
+        return [_warn("A20", "04", "04 缺失，A20 未执行")]
     findings: List[Finding] = []
     warned: set = set()
     units = _k18_units(doc)
@@ -2875,52 +2875,52 @@ def gate_k18(project: Project, partial: bool) -> List[Finding]:
         if at_blocks:
             if at_blocks[0][0] > 0.5:
                 findings.append(Finding(
-                    "K18", DOC_FILES["04"], unit_line,
+                    "A20", DOC_FILES["04"], unit_line,
                     "首个时间块起始 %.1fs > 0.5s（时间轴须从 0 附近开始）" % at_blocks[0][0]))
             prev = -1.0
             for sec, content in at_blocks:
                 if sec <= prev:
                     findings.append(Finding(
-                        "K18", DOC_FILES["04"], unit_line,
+                        "A20", DOC_FILES["04"], unit_line,
                         "时间块 %.1fs 未严格递增（上一块 %.1fs）" % (sec, prev)))
                 if not content:
                     findings.append(Finding(
-                        "K18", DOC_FILES["04"], unit_line,
+                        "A20", DOC_FILES["04"], unit_line,
                         "时间块 %.1fs 后无内容（空时间块）" % sec))
                 prev = sec
             if duration is not None and at_blocks[-1][0] > duration + 0.2:
                 findings.append(Finding(
-                    "K18", DOC_FILES["04"], unit_line,
+                    "A20", DOC_FILES["04"], unit_line,
                     "末个时间块 %.1fs > 生成时长 %.1fs + 0.2s" % (at_blocks[-1][0], duration)))
         elif range_blocks:
             if range_blocks[0][0] > 0.5:
                 findings.append(Finding(
-                    "K18", DOC_FILES["04"], unit_line,
+                    "A20", DOC_FILES["04"], unit_line,
                     "首个时间块起始 %.1fs > 0.5s（时间轴须从 0 附近开始）" % range_blocks[0][0]))
             prev_start, prev_end = -1.0, -1.0
             for start, end, content in range_blocks:
                 if start < prev_start:
                     findings.append(Finding(
-                        "K18", DOC_FILES["04"], unit_line,
+                        "A20", DOC_FILES["04"], unit_line,
                         "时间块 %.1fs–%.1fs 乱序（前一拍从 %.1fs 开始）" % (start, end, prev_start)))
                 elif prev_end >= 0 and start > prev_end + 1.0:
                     findings.append(Finding(
-                        "K18", DOC_FILES["04"], unit_line,
+                        "A20", DOC_FILES["04"], unit_line,
                         "时间块断档：%.1fs–%.1fs 之后下一拍从 %.1fs 开始（>%.1fs 间隙）"
                         % (prev_start, prev_end, start, prev_end + 1.0)))
                 if not content:
                     findings.append(Finding(
-                        "K18", DOC_FILES["04"], unit_line,
+                        "A20", DOC_FILES["04"], unit_line,
                         "时间块 %.1fs–%.1fs 后无内容（空时间块）" % (start, end)))
                 prev_start, prev_end = start, end
             if duration is not None and range_blocks[-1][1] > duration + 0.2:
                 findings.append(Finding(
-                    "K18", DOC_FILES["04"], unit_line,
+                    "A20", DOC_FILES["04"], unit_line,
                     "末个时间块 %.1fs > 生成时长 %.1fs + 0.2s"
                     % (range_blocks[-1][1], duration)))
         else:
             if "k18-no-time" not in warned:
-                findings.append(_warn("K18", "04", "本块无时间块（At/时间范围），K18 时间连续性未核对"))
+                findings.append(_warn("A20", "04", "本块无时间块（At/时间范围），A20 时间连续性未核对"))
                 warned.add("k18-no-time")
 
         # ---- 动作锁 ----
@@ -2969,20 +2969,20 @@ def gate_k18(project: Project, partial: bool) -> List[Finding]:
             miss_ratio = len(missing) / float(len(lock_items))
             if miss_ratio > 0.5:
                 findings.append(_warn(
-                    "K18", "04",
+                    "A20", "04",
                     "动作锁与正文措辞差异较大（%d/%d 项未匹配），跳过顺序检查（人工确认）"
                     % (len(missing), len(lock_items))))
             else:
                 for item in missing:
                     findings.append(Finding(
-                        "K18", DOC_FILES["04"], unit_line,
+                        "A20", DOC_FILES["04"], unit_line,
                         "动作锁项「%s」未在正文找到（可能改写或遗漏，人工确认）" % item))
                 strong = positions
                 if not missing and len(positions) == len(lock_items):
                     for (a, _sa), (b, _sb) in zip(strong, strong[1:]):
                         if b < a:
                             findings.append(Finding(
-                                "K18", DOC_FILES["04"], unit_line,
+                                "A20", DOC_FILES["04"], unit_line,
                                 "动作锁顺序与正文不一致（可能改写或遗漏，人工确认）"))
                             break
 
@@ -3009,21 +3009,21 @@ def gate_k18(project: Project, partial: bool) -> List[Finding]:
                 if "不入画" in joined:
                     if name_norm and name_norm in prop_body:
                         findings.append(_warn(
-                            "K18", "04", "道具「%s」标记不入画，但正文出现（人工确认）" % name))
+                            "A20", "04", "道具「%s」标记不入画，但正文出现（人工确认）" % name))
                 elif "入画" in joined:
                     if name_norm and name_norm not in prop_body:
                         findings.append(Finding(
-                            "K18", DOC_FILES["04"], unit_line,
+                            "A20", DOC_FILES["04"], unit_line,
                             "道具「%s」标记入画，但正文未出现" % name))
             if not parsed and ("k18-prop-fmt", unit_line) not in warned:
-                findings.append(_warn("K18", "04", "道具锁格式未识别（缺 ｜ 分隔），K18 道具账未核对"))
+                findings.append(_warn("A20", "04", "道具锁格式未识别（缺 ｜ 分隔），A20 道具账未核对"))
                 warned.add(("k18-prop-fmt", unit_line))
     return findings
 
 
 OPTIONAL_GATES: List[Tuple[str, GateFn]] = [
     ("A16", gate_a16), ("A17", gate_a17), ("A18", gate_a18), ("A19", gate_a19),
-    ("K18", gate_k18),
+    ("A20", gate_a20),
 ]
 
 
@@ -3078,7 +3078,7 @@ def main(argv: List[str]) -> int:
               % (MINIMUM_PYTHON[0], MINIMUM_PYTHON[1], sys.version_info[0], sys.version_info[1]))
         return 2
 
-    ap = argparse.ArgumentParser(description="vigen 项目文件机械校验（K1-K17 + A16-A19/K18 opt-in）")
+    ap = argparse.ArgumentParser(description="vigen 项目文件机械校验（K1-K17 + A16-A20 opt-in）")
     ap.add_argument("project_dir", nargs="?", help="项目目录（含 01-06 Markdown）")
     ap.add_argument("--partial", action="store_true",
                     help="只核对已有文档；缺文档的门静默跳过（全量要求 01-05 齐备）")
@@ -3116,6 +3116,10 @@ def main(argv: List[str]) -> int:
     selected: Optional[set] = None
     if args.gate:
         wanted = {g.strip().upper() for g in args.gate.split(",") if g.strip()}
+        if "K18" in wanted:
+            wanted.discard("K18")
+            wanted.add("A20")
+            print("提示：K18 已更名为 A20（已按 A20 执行）")
         bad = wanted - valid
         if bad:
             print("未知门：%s（合法取值：%s）" % (", ".join(sorted(bad)), ", ".join(g for g, _ in all_gates)))

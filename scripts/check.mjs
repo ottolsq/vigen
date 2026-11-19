@@ -11,14 +11,13 @@ import { gateK13, gateK14 } from "./check-gates-c.mjs";
 import { gateK15, gateK16 } from "./check-gates-d.mjs";
 import { gateA16, gateA17, gateA18, gateA19 } from "./check-gates-e.mjs";
 import { gateK17 } from "./check-gates-f.mjs";
-import { gateK18 } from "./check-gates-g.mjs";
 
 // V3.24：Node 只承诺默认 K1-K17；有 Python 时 main 会先委托 check.py（全量）。
 const NODE_SUPPORTED = [
   "K1", "K2", "K3", "K4", "K5", "K6", "K7", "K8", "K9", "K10",
   "K11", "K12", "K13", "K14", "K15", "K16", "K17",
 ];
-const KNOWN_OPTIONAL = new Set(["A16", "A17", "A18", "A19", "K18"]);
+const KNOWN_OPTIONAL = new Set(["A16", "A17", "A18", "A19", "A20", "K18"]);
 const ALL_GATES = [...NODE_SUPPORTED];
 const IMPLEMENTED = new Set(ALL_GATES);
 const GATES = [
@@ -29,7 +28,7 @@ const GATES = [
   ["K17", gateK17],
 ];
 const OPTIONAL_GATES = [
-  ["A16", gateA16], ["A17", gateA17], ["A18", gateA18], ["A19", gateA19], ["K18", gateK18],
+  ["A16", gateA16], ["A17", gateA17], ["A18", gateA18], ["A19", gateA19],
 ];
 const ALL_GATE_FNS = [...GATES, ...OPTIONAL_GATES];
 
