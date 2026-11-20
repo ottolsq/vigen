@@ -1,4 +1,5 @@
 // A20 动作链自检（opt-in 诊断门，V3.23 原名 K18）——行为对齐 check.py gate_a20。
+// V3.26：打斗段另警告抽象频率写法与中景以上 90° 侧面正拍。
 import { DOC_FILES, blocks, blockText, finding } from "./vigen-md.mjs";
 
 const AT_RE = /^\s*(?:[-*]\s*)?At\s+(\d{1,3}):(\d{2})(?:\.(\d{1,3}))?\s*[：:,]?/;
@@ -296,6 +297,27 @@ export function gateA20(project) {
       if (!parsed && !warned.has(key)) {
         findings.push(warn("A20", "04", "道具锁格式未识别（缺 ｜ 分隔），A20 道具账未核对"));
         warned.add(key);
+      }
+    }
+
+    // ---- 打斗段正文诊断（V3.26） ----
+    if (text.includes("打斗段：是")) {
+      const fightBody = propBodyLines.join("\n");
+      if (/(每秒|每秒钟|每\s*秒\s*\d+).{0,8}(攻击|出拳|出腿|击打|拳|脚|招)|每击间隔|攻击频率|次\s*\/\s*秒|机枪节奏/.test(fightBody)) {
+        findings.push(warn(
+          "A20", "04",
+          "打斗段出现抽象频率写法（每秒攻击N次/每击间隔/攻击频率/机枪节奏）——改用招式链：招式+落点+防守反馈（action-combat §6.5）",
+        ));
+      }
+      for (const ln of propBodyLines) {
+        if (/(中景|全景|中全景|大全景|远景)/.test(ln)
+            && /(90\s*°?\s*侧|侧面\s*90|90\s*度\s*侧|正侧拍|90°\s*侧拍)/.test(ln)) {
+          findings.push(warn(
+            "A20", "04",
+            "打斗段中景及以上出现 90° 侧面正拍（格斗游戏感/丢纵深）——改 30-60° 斜角（action-combat §6）",
+          ));
+          break;
+        }
       }
     }
   }

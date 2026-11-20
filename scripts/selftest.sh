@@ -101,6 +101,36 @@ else
   bad "A20 fixture" "$(tail -3 "$TMP/a20.txt")"
 fi
 
+# ---------- 3b. A20 打斗段诊断（V3.26：抽象频率 / 中景90°侧拍） ----------
+mkdir -p "$TMP/k18bad"
+cat > "$TMP/k18bad/01_方案与剧本.md" <<'EOF'
+# t
+## 整体方案
+| 项 | 值 |
+| --- | --- |
+| 节拍制 | off |
+EOF
+cat > "$TMP/k18bad/04_视频提示词.md" <<'EOF'
+# t
+## 段落1（0-5s，生成5s）
+```text
+打斗段：是（交手账 R1）
+动作锁：出拳→格挡→踢腿
+道具锁：棍｜完整｜右手｜共1件｜入画
+0.0s–2.0s
+中景·侧面90°平视·跟拍跟镜，武松握着棍出拳，每秒攻击3次。
+2.0s–5.0s
+武松格挡后踢腿，棍仍在右手。
+```
+EOF
+if python "$ROOT/scripts/check.py" "$TMP/k18bad" --gate A20 --partial > "$TMP/a20bad.txt" 2>&1; then
+  bad "A20 打斗诊断 fixture 应失败" "$(tail -3 "$TMP/a20bad.txt")"
+elif grep -q "抽象频率" "$TMP/a20bad.txt" && grep -q "90° 侧面正拍" "$TMP/a20bad.txt"; then
+  ok
+else
+  bad "A20 打斗诊断未同时报两条" "$(tail -5 "$TMP/a20bad.txt")"
+fi
+
 # ---------- 4. Node 子集边界（强制本地） ----------
 VIGEN_NODE_NO_DELEGATE=1 node "$ROOT/scripts/check.mjs" "$TMP/k18" --gate A20 --partial > "$TMP/node-a20.txt" 2>&1
 if [ $? -eq 2 ] && grep -q "Node 子集不支持" "$TMP/node-a20.txt"; then

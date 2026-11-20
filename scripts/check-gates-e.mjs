@@ -472,7 +472,7 @@ export function gateA17(project, partial) {
     }
   }
 
-  const ledgerNames = ["运镜库", "转场库", "场景镜头序列", "FACS", "身体姿态", "情绪反向", "打斗七段", "导演风格", "VFX", "方向锚", "群像参考", "负面清单", "短剧市场", "内容合规"];
+  const ledgerNames = ["运镜库", "转场库", "场景镜头序列", "FACS", "身体姿态", "情绪反向", "打斗七段", "近景对招", "防守三态", "空气反馈", "导演风格", "VFX", "方向锚", "群像参考", "负面清单", "短剧市场", "内容合规"];
   let ledgerFound = false;
   for (const [headNo, header, body] of iterTables(doc)) {
     const capI = headerIndex(header, "能力");

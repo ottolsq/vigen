@@ -40,7 +40,8 @@ enforce 的条款（与 vigen_md 解析层配套）：
   A19 母版事实一致性（opt-in，V3.23）：02 母版事实清单逐字出现在
       01/03/04 带「母版事实标记」的块中；多语言/多画幅按标记区分
   A20 动作链诊断（opt-in，V3.23 原名 K18）：时间块连续（At/时间范围两种格式）+
-      动作锁顺序（宽松前缀）+ 道具状态账；改写措辞允许人工确认后忽略
+      动作锁顺序（宽松前缀）+ 道具状态账；V3.26 打斗段另警告抽象频率写法与
+      中景以上 90° 侧面正拍；改写措辞允许人工确认后忽略
 
 用法（CT6）：
     python check.py <项目目录> [--partial] [--gate K5[,K6]] [--video-variant 9x16]
@@ -2309,10 +2310,11 @@ def gate_a17(project: Project, partial: bool) -> List[Finding]:
                     "转场不在库内（生成端 8 种：硬切/相似动作/前景遮挡/形状匹配/甩镜/闪白/视线/匹配剪辑；"
                     "剪辑端 5 种：叠化/淡入淡出/闪黑/缩放/划像）：%s" % value[:24]))
 
-    # P0-4 可选能力台账：每项 使用/不适用/待定 + 证据（V3.21 / V3.22 扩项）
+    # P0-4 可选能力台账：每项 使用/不适用/待定 + 证据（V3.21 / V3.22 扩项 / V3.26 扩项）
     ledger_names = ("运镜库", "转场库", "场景镜头序列", "FACS", "身体姿态",
-                    "情绪反向", "打斗七段", "导演风格", "VFX",
-                    "方向锚", "群像参考", "负面清单", "短剧市场", "内容合规")
+                    "情绪反向", "打斗七段", "近景对招", "防守三态", "空气反馈",
+                    "导演风格", "VFX", "方向锚", "群像参考", "负面清单",
+                    "短剧市场", "内容合规")
     ledger_found = False
     for head_no, header, body in iter_tables(doc):
         cap_i = _header_index(header, "能力")
@@ -3018,6 +3020,26 @@ def gate_a20(project: Project, partial: bool) -> List[Finding]:
             if not parsed and ("k18-prop-fmt", unit_line) not in warned:
                 findings.append(_warn("A20", "04", "道具锁格式未识别（缺 ｜ 分隔），A20 道具账未核对"))
                 warned.add(("k18-prop-fmt", unit_line))
+
+        # ---- 打斗段正文诊断（V3.26） ----
+        if "打斗段：是" in text:
+            fight_body = "\n".join(prop_body_lines)
+            if re.search(
+                    r"(每秒|每秒钟|每\s*秒\s*\d+).{0,8}(攻击|出拳|出腿|击打|拳|脚|招)"
+                    r"|每击间隔|攻击频率|次\s*/\s*秒|机枪节奏",
+                    fight_body):
+                findings.append(_warn(
+                    "A20", "04",
+                    "打斗段出现抽象频率写法（每秒攻击N次/每击间隔/攻击频率/机枪节奏）——"
+                    "改用招式链：招式+落点+防守反馈（action-combat §6.5）"))
+            for ln in prop_body_lines:
+                if (re.search(r"(中景|全景|中全景|大全景|远景)", ln)
+                        and re.search(r"(90\s*°?\s*侧|侧面\s*90|90\s*度\s*侧|正侧拍|90°\s*侧拍)", ln)):
+                    findings.append(_warn(
+                        "A20", "04",
+                        "打斗段中景及以上出现 90° 侧面正拍（格斗游戏感/丢纵深）——"
+                        "改 30-60° 斜角（action-combat §6）"))
+                    break
     return findings
 
 
