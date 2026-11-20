@@ -2313,8 +2313,8 @@ def gate_a17(project: Project, partial: bool) -> List[Finding]:
     # P0-4 可选能力台账：每项 使用/不适用/待定 + 证据（V3.21 / V3.22 扩项 / V3.26 扩项）
     ledger_names = ("运镜库", "转场库", "场景镜头序列", "FACS", "身体姿态",
                     "情绪反向", "打斗七段", "近景对招", "防守三态", "空气反馈",
-                    "导演风格", "VFX", "方向锚", "群像参考", "负面清单",
-                    "短剧市场", "内容合规")
+                    "武学招式库", "导演风格", "VFX", "方向锚", "群像参考",
+                    "负面清单", "短剧市场", "内容合规")
     ledger_found = False
     for head_no, header, body in iter_tables(doc):
         cap_i = _header_index(header, "能力")
