@@ -123,7 +123,7 @@ H3 与 Seedance 在参考生视频能力和文本遵从度上有代差，**能�
 │   ├── content-safety.md # 内容安全反应式降级：措辞级解法库 + 构图级模式表 + 降级阶梯 + 显式否定旧设定 + 失败分类对策
 │   ├── knowledge-index.md# 扩展知识库路由表（命中才读）+ 负面词效力分端裁决
 │   ├── examples.md       # 完整示例
-│   ├── action-combat.md  # [扩展] 武打动作引擎：交手账 + 打击呈现三件套 + 围攻方位纪律 + 三拍容器 + 打斗接触专条
+│   ├── action-combat.md  # [扩展] 武打动作引擎：交手账+升级三线 + 防守三态 + 近景对招/打击密度 + 命中分部位 + 景别-幅度匹配 + 武学风格速查 + 失败诊断
 │   ├── vfx-effects.md    # [扩展] 技能特效：Niagra 三层光效 + 法师/射手/剑修三类形态 + 动态轨迹 + 失败模式负面清单
 │   ├── cinema-grade-params.md # [扩展] 电影级参数块 + 国漫四视图
 │   ├── expressions.md / director-styles.md / extended-views.md / emotion-craft.md / ugc-realism.md / anime-to-real.md  # [扩展]
