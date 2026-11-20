@@ -444,7 +444,7 @@ export function extractDialogueCell(text) {
 }
 
 export const EMPHASIS_SLOW = ["慢动作", "慢镜", "Time Ramp", "升格"];
-export const EMPHASIS_OTHER = ["冲击重复", "短促推近", "定格", "闪白"];
+export const EMPHASIS_OTHER = ["冲击重复", "短促推近", "定格", "闪白", "冲击帧", "黑白闪"];
 export const EMPHASIS_WORDS = [...EMPHASIS_SLOW, ...EMPHASIS_OTHER];
 
 export const ENV_MOTION_WORDS = [

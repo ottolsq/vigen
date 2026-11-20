@@ -131,6 +131,56 @@ else
   bad "A20 打斗诊断未同时报两条" "$(tail -5 "$TMP/a20bad.txt")"
 fi
 
+# ---------- 3c. K5 冲击帧/黑白闪纳入闪白家族（V3.26-D） ----------
+mkdir -p "$TMP/k5bad" "$TMP/k5good"
+for d in k5bad k5good; do
+  cat > "$TMP/$d/01_方案与剧本.md" <<'EOF'
+# t
+## 情节点清单
+| # | 情节点 | 覆盖镜号 |
+| --- | --- | --- |
+| 1 | 【峰】反击 | 镜头1 |
+EOF
+done
+cat > "$TMP/k5bad/04_视频提示词.md" <<'EOF'
+# t
+## 段落1（0-5s，生成5s）
+```text
+0.0s–2.0s
+决定性一击命中，插入 1-2 帧冲击帧。
+2.0s–5.0s
+余波。
+```
+EOF
+cat > "$TMP/k5good/04_视频提示词.md" <<'EOF'
+# t
+## 段落1（0-5s，生成5s）
+```text
+0.0s–2.0s
+决定性一击命中，插入 1-2 帧冲击帧 ←峰值：情节点1。
+2.0s–5.0s
+余波。
+```
+EOF
+if python "$ROOT/scripts/check.py" "$TMP/k5bad" --gate K5 --partial > "$TMP/k5bad.txt" 2>&1; then
+  bad "K5 冲击帧无峰值标注应失败" "$(tail -3 "$TMP/k5bad.txt")"
+elif grep -q "冲击帧" "$TMP/k5bad.txt"; then
+  ok
+else
+  bad "K5 未把冲击帧纳入强调手段" "$(tail -5 "$TMP/k5bad.txt")"
+fi
+if python "$ROOT/scripts/check.py" "$TMP/k5good" --gate K5 --partial > "$TMP/k5good.txt" 2>&1; then
+  ok
+else
+  bad "K5 冲击帧+峰值标注应通过" "$(tail -5 "$TMP/k5good.txt")"
+fi
+VIGEN_NODE_NO_DELEGATE=1 node "$ROOT/scripts/check.mjs" "$TMP/k5bad" --gate K5 --partial > "$TMP/k5bad-node.txt" 2>&1
+if grep -q "冲击帧" "$TMP/k5bad-node.txt"; then
+  ok
+else
+  bad "Node K5 未把冲击帧纳入强调手段" "$(tail -5 "$TMP/k5bad-node.txt")"
+fi
+
 # ---------- 4. Node 子集边界（强制本地） ----------
 VIGEN_NODE_NO_DELEGATE=1 node "$ROOT/scripts/check.mjs" "$TMP/k18" --gate A20 --partial > "$TMP/node-a20.txt" 2>&1
 if [ $? -eq 2 ] && grep -q "Node 子集不支持" "$TMP/node-a20.txt"; then

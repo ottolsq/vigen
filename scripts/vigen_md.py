@@ -466,7 +466,7 @@ def is_dialogue_line(line: str) -> bool:
 # ------------------------------------------------------------------ 关键词表
 
 EMPHASIS_SLOW = ("慢动作", "慢镜", "Time Ramp", "升格")
-EMPHASIS_OTHER = ("冲击重复", "短促推近", "定格", "闪白")
+EMPHASIS_OTHER = ("冲击重复", "短促推近", "定格", "闪白", "冲击帧", "黑白闪")
 EMPHASIS_WORDS = EMPHASIS_SLOW + EMPHASIS_OTHER
 
 ENV_MOTION_WORDS = (
