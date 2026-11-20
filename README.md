@@ -123,7 +123,7 @@ H3 and Seedance differ in reference-to-video capability and text adherence. **Th
 │   ├── content-safety.md # Reactive moderation downgrade: wording solutions + composition patterns + ladder + explicit negation + failure classification
 │   ├── knowledge-index.md# Extension-knowledge router (read on hit) + negative-word adjudication
 │   ├── examples.md       # Complete example
-│   ├── action-combat.md  # [extension] Combat engine: exchange ledger + defense three-states + close-quarter density + impact presentation + camera/amplitude rules + style quick-reference + combat diagnostics
+│   ├── action-combat.md  # [extension] Combat engine: exchange ledger + defense three-states + physical-force writing (suppression/weight/fatigue) + damage accumulation + close-quarter density + impact presentation + camera/amplitude rules + shot rhythm/invisible cuts + 5-dimension mapping + 4-style render blocks + 30s case + style quick-reference + combat diagnostics
 │   ├── martial-arts-moves.md # [extension] Traditional martial-arts move vocabulary (on demand): 24 style sections + 36 locks + 36 kicks + 67 judo throws + situational index (advance/combo/hand/foot/deflection/two-limb/finisher); original characters and fictional/IP schools removed
 │   ├── vfx-effects.md    # [extension] Skill VFX: Niagara three-layer lighting + mage/archer/swordsman forms + motion trails + failure-mode negative list
 │   ├── cinema-grade-params.md # [extension] Cinema parameter block + anime four-view sheets

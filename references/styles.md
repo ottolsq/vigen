@@ -159,6 +159,7 @@
 - 适用：动画电影、合家欢、奇幻、运动题材的动画化
 - 大白话：皮克斯那种圆润造型、大眼睛、皮肤透亮、光影柔和但有电影感的 3D 动画；不是照片级真人，也不是二次元赛璐璐
 - 区分：`高精度3D动画电影风格` 是泛化词，会出照片级/游戏 CG；必须写 `Pixar-style 3D animated feature` + 造型/材质词，并在图片端加排除句
+- **变体·3D 国漫 CG（PBR/次世代）**：身份句 `cinematic 3D Chinese animation, PBR materials, next-gen lighting, volumetric light, physics-simulated cloth and hair, cinematic depth of field`；区分：不是 Pixar 圆润风，也不是照片写实；**"8K 质感"是空话，按反空话规则剔除**，用 PBR/体积光/物理解算/景深这些可执行维度替代。
 
 ## 风格身份句速查（叙事画面必写；与风格圣经+色号合称三件套）
 
