@@ -310,9 +310,14 @@ export const SKIP_SECTIONS = new Set([
 
 export const QUOTE_RE = /"([^"]+)"|“([^”]+)”|「([^」]+)」/g;
 const SPEAKER_CUE = /[：:]\s*$/;
-// Scan Seedance speech and quotes together to keep quotes inside braced lines intact.
-const SEEDANCE_DIALOGUE = /(?:说道|说|开口|问道|问|答道|回答|念道|念|\b(?:says?|speaks?|asks?|replies?)\b)\s*[：:]?\s*\{([^{}]+)\}(?!\})/;
-const DIALOGUE_RE = new RegExp(`${QUOTE_RE.source}|${SEEDANCE_DIALOGUE.source}`, "gi");
+// Scan all formats together to preserve quotes within a line of dialogue.
+const SPEECH_VERB = /(?:说道|说|开口|问道|问|答道|回答|念道|念|\b(?:says?|speaks?|asks?|replies?)\b)/.source;
+const SPEECH_LANGUAGE = /(?:语言\s*[：:]\s*[^()（）,，;；]+|普通话|国语|[\u3400-\u9fff]{1,10}(?:语|文|话|方言)|Chinese|Mandarin|Cantonese|English|Japanese|Korean|French|German|Spanish|Portuguese)/.source;
+const SPEECH_METADATA =
+  /[（(]\s*(?:[^()（）,，;；]+[,，;；]\s*)*/.source + SPEECH_LANGUAGE + /(?:\s*[,，;；][^()（）,，;；]+)*\s*[)）]\s*[：:]/.source;
+const SEEDANCE_DIALOGUE = `(?:${SPEECH_VERB}${/\s*[：:]?/.source}|${SPEECH_METADATA})${/\s*\{([^{}]+)\}(?!\})/.source}`;
+const SINGLE_QUOTED_SPEECH = SPEECH_VERB + /(?:\s*[（(][^()（）]+[)）])?\s*[：:]?\s*'((?:[^']|(?<=[A-Za-z])'(?=[A-Za-z]))+)'/.source;
+const DIALOGUE_RE = new RegExp(`${QUOTE_RE.source}|${SEEDANCE_DIALOGUE}|${SINGLE_QUOTED_SPEECH}`, "gi");
 
 export const ACTION_PREFIXES = [
   "第",
@@ -347,8 +352,9 @@ export function dialogueQuotes(lines) {
       section = "";
     }
     for (const m of ln.matchAll(DIALOGUE_RE)) {
-      if (m[4] !== undefined) {
-        if (m[4].trim()) out.push([i + 1, m[4]]);
+      const speech = m[4] ?? m[5];
+      if (speech !== undefined) {
+        if (speech.trim()) out.push([i + 1, speech]);
         continue;
       }
       if (s.includes("→")) continue;

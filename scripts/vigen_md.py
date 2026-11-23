@@ -340,10 +340,20 @@ SKIP_SECTIONS = frozenset((
 QUOTE_RE = re.compile(r'"([^"]+)"|“([^”]+)”|「([^」]+)」')
 # 台词判据：引号紧跟冒号（说话人/语气描述之后），或整行以引号开头（两行式）
 _SPEAKER_CUE = re.compile(r"[：:]\s*$")
-# Seedance 的单层花括号跟在发声提示后。与引号一起扫描，台词内部的引号属于原文。
+# 全部格式合并扫描，保留台词内部的引号。单引号仅在显式发声提示后认领。
+_SPEECH_VERB = r"(?:说道|说|开口|问道|问|答道|回答|念道|念|\b(?:says?|speaks?|asks?|replies?)\b)"
+_SPEECH_LANGUAGE = (
+    r"(?:语言\s*[：:]\s*[^()（）,，;；]+|普通话|国语|[\u3400-\u9fff]{1,10}(?:语|文|话|方言)|"
+    r"Chinese|Mandarin|Cantonese|English|Japanese|Korean|French|German|Spanish|Portuguese)"
+)
+_SPEECH_METADATA = (
+    r"[（(]\s*(?:[^()（）,，;；]+[,，;；]\s*)*" + _SPEECH_LANGUAGE
+    + r"(?:\s*[,，;；][^()（）,，;；]+)*\s*[)）]\s*[：:]"
+)
 _DIALOGUE_RE = re.compile(
-    QUOTE_RE.pattern + r"|(?:说道|说|开口|问道|问|答道|回答|念道|念|"
-    r"\b(?:says?|speaks?|asks?|replies?)\b)\s*[：:]?\s*\{([^{}]+)\}(?!\})",
+    QUOTE_RE.pattern
+    + rf"|(?:{_SPEECH_VERB}\s*[：:]?|{_SPEECH_METADATA})\s*\{{([^{{}}]+)\}}(?!\}})"
+    + rf"|{_SPEECH_VERB}(?:\s*[（(][^()（）]+[)）])?\s*[：:]?\s*'((?:[^']|(?<=[A-Za-z])'(?=[A-Za-z]))+)'",
     re.IGNORECASE,
 )
 
@@ -369,9 +379,10 @@ def dialogue_quotes(lines: Optional[List[str]]) -> List[Tuple[int, str]]:
                 continue
             section = ""
         for m in _DIALOGUE_RE.finditer(ln):
-            if m[4] is not None:
-                if m[4].strip():
-                    out.append((i, m[4]))
+            speech = m[4] if m[4] is not None else m[5]
+            if speech is not None:
+                if speech.strip():
+                    out.append((i, speech))
                 continue
             if "→" in s:
                 continue

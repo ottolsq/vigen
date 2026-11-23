@@ -641,7 +641,8 @@ for runtime in python node; do
 done
 
 # ---------- K1/K17：Seedance 原生台词、旧引号与静默段 ----------
-for fixture in native changed quoted silent; do
+dialogue_fixtures=(native changed quoted metadata metadata-changed single-quoted single-quoted-changed silent)
+for fixture in "${dialogue_fixtures[@]}"; do
   mkdir -p "$TMP/dialogue-$fixture"
   cat > "$TMP/dialogue-$fixture/01_方案与剧本.md" <<'EOF'
 # 剧本
@@ -657,7 +658,11 @@ EOF
     native) line='周姐（中文，平声）轻扣「空袋」，以中文同期声说{空袋搁这儿就行。} 随后低声说道：{她刚才说：「搁这儿」。}' ;;
     changed) line='道具入画 → 周姐（中文，平声）以中文同期声说{空袋拿回去吧。}' ;;
     quoted) line='周姐（平声）：「空袋搁这儿就行。」' ;;
-    silent) line='用 {{ref 1}} 锁定木柜；{道具}留在原位；转写模板示例说{{ref 2}}。' ;;
+    metadata) line='周姐（中文，平声）：{她刚才说：「搁这儿」。}' ;;
+    metadata-changed) line='周姐说{空袋搁这儿就行。} 随后，周姐（中文，平声）：{空袋拿回去吧。}' ;;
+    single-quoted) line="周姐（中文，平声）说:'空袋搁这儿就行。'" ;;
+    single-quoted-changed) line="周姐说{空袋搁这儿就行。} 随后，周姐（中文，平声）说:'空袋拿回去吧。'" ;;
+    silent) line='用 {{ref 1}} 锁定木柜；{道具}留在原位；转写模板示例说{{ref 2}}。周姐（中文，平声）：{{ref 3}}。构图（近景）：{道具}。' ;;
   esac
   cat > "$TMP/dialogue-$fixture/04_视频提示词.md" <<EOF
 # 视频提示词
@@ -674,13 +679,13 @@ for runtime in python node; do
   else
     checker=(env VIGEN_NODE_NO_DELEGATE=1 node "$ROOT/scripts/check.mjs")
   fi
-  for fixture in native changed quoted silent; do
+  for fixture in "${dialogue_fixtures[@]}"; do
     gates=K1,K17
     if [ "$fixture" = silent ]; then gates=K17; fi
     "${checker[@]}" "$TMP/dialogue-$fixture" --gate "$gates" --partial > "$TMP/dialogue.txt" 2>&1
     rc=$?
-    if { { [ "$fixture" = native ] || [ "$fixture" = quoted ]; } && [ "$rc" -eq 0 ] && ! grep -q '\[K[0-9]' "$TMP/dialogue.txt"; } ||
-       { [ "$fixture" = changed ] && [ "$rc" -eq 1 ] && grep -q '\[K1\].*台词与01定稿不一致.*空袋拿回去吧' "$TMP/dialogue.txt" && ! grep -q '\[K17\]' "$TMP/dialogue.txt"; } ||
+    if { [[ "$fixture" =~ ^(native|quoted|metadata|single-quoted)$ ]] && [ "$rc" -eq 0 ] && ! grep -q '\[K[0-9]' "$TMP/dialogue.txt"; } ||
+       { [[ "$fixture" == *changed ]] && [ "$rc" -eq 1 ] && grep -q '\[K1\].*台词与01定稿不一致.*空袋拿回去吧' "$TMP/dialogue.txt" && ! grep -q '\[K17\]' "$TMP/dialogue.txt"; } ||
        { [ "$fixture" = silent ] && [ "$rc" -eq 1 ] && grep -q '\[K17\].*无台词段缺' "$TMP/dialogue.txt"; }; then
       ok
     else
