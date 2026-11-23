@@ -424,16 +424,22 @@ def _shot_header_lines(lines: Optional[List[str]]) -> List[Tuple[int, str]]:
 
 
 def gate_k4(project: Project, partial: bool) -> List[Finding]:
-    if project.doc("01") is None:
+    doc01 = project.doc("01")
+    if doc01 is None:
         return []
     findings: List[Finding] = []
     live, voided = _shot_ids(project)
-    if not live:
+    # 按完整列名识别分镜表，避免将节拍表的「认领镜号」当成「镜号」。
+    has_storyboard = any(
+        name in header for _, header, _ in iter_tables(doc01)
+        for name in STORY_ALIASES["镜号"]
+    )
+    has_prompts = any(project.doc(key) is not None for key in ("03", "04"))
+    if not live and (not partial or has_storyboard or has_prompts):
         findings.append(_warn("K4", "01", "未解析到分镜表镜号，K4 未执行"))
 
     seen: set = set()
-    rows = _story_rows(project) or []
-    for row in rows:
+    for row in _story_rows(project) or []:
         raw = row.cells.get("镜号", "").strip()
         if VOIDED_RE.match(raw):
             continue
@@ -632,21 +638,23 @@ def gate_k7(project: Project, partial: bool) -> List[Finding]:
 
 # ------------------------------------------------------------------ K8 骨架槽位
 
-def _code_blocks(lines: List[str]) -> List[Tuple[int, List[str]]]:
+def _code_blocks(lines: List[str]) -> Tuple[List[Tuple[int, List[str]]], Optional[int]]:
     out: List[Tuple[int, List[str]]] = []
     cur: Optional[List[str]] = None
     start = 0
+    width = 0
     for i, ln in enumerate(lines, start=1):
-        if ln.strip() == "```":
-            if cur is None:
+        marker = re.fullmatch(r"(`{3,})([^`]*)", ln.strip())
+        if cur is None:
+            if marker:
                 cur, start = [], i
-            else:
-                out.append((start, cur))
-                cur = None
-            continue
-        if cur is not None:
+                width = len(marker[1])
+        elif marker and not marker[2].strip() and len(marker[1]) >= width:
+            out.append((start, cur))
+            cur = None
+        else:
             cur.append(ln)
-    return out
+    return out, start if cur is not None else None
 
 
 def gate_k8(project: Project, partial: bool) -> List[Finding]:
@@ -654,21 +662,34 @@ def gate_k8(project: Project, partial: bool) -> List[Finding]:
     if lines is None:
         return []
     findings: List[Finding] = []
-    seen_a = 0
-    for start, block in _code_blocks(lines):
-        texts = [t.strip() for t in block]
-        if "SCENE CONTEXT" not in texts:
+    prompt_blocks, unclosed = _code_blocks(lines)
+    if unclosed is not None:
+        findings.append(Finding("K8", DOC_FILES["04"], unclosed, "提示词代码围栏未闭合"))
+    starts: List[int] = []
+    for start, block in prompt_blocks:
+        texts = {t.strip() for t in block}
+        if texts.isdisjoint(SKELETON_A_SECTIONS):
             continue
-        seen_a += 1
+        starts.append(start)
         for sec in SKELETON_A_SECTIONS:
-            if not any(t == sec for t in texts):
+            if sec not in texts:
                 findings.append(Finding(
                     "K8", DOC_FILES["04"], start,
                     "骨架A缺节：%s（须单独成行——prompt-rules 骨架槽位清单）" % sec))
-    if seen_a == 0:
-        findings.append(_warn("K8", "04", "未找到骨架 A code block，K8 未执行"))
+    segments = blocks(lines, only_segments=True)
+    single_heads = {segment[0][0] for segment in segments if re.match(r"^##\s*镜头", segment[0][1])}
+    if not starts and not segments and unclosed is None:
+        findings.append(Finding("K8", DOC_FILES["04"], 0, "无可核验的骨架 A 提示词正文"))
+    for segment in segments:
+        first = segment[0][0]
+        if first in single_heads:
+            if not any(first < start <= segment[-1][0] and any(line.strip() for line in block)
+                       for start, block in prompt_blocks):
+                findings.append(Finding("K8", DOC_FILES["04"], first, "本镜无可核验的骨架 B 提示词正文"))
+        elif not any(first < start <= segment[-1][0] for start in starts):
+            findings.append(Finding("K8", DOC_FILES["04"], first, "本段无可核验的骨架 A 提示词正文"))
 
-    if re.search(r"^##\s*镜头\s*(?:S|A)?\d+(?:v\d+)?[a-z]?", "\n".join(lines), re.M):
+    if single_heads:
         note = "\n".join(t for _, t in project.section("01", "分镜总览表"))
         ok = re.search(r"骨架\s*B[^\n]{0,40}(理由|：|—|-)", note) or re.search(
             r"骨架\s*B[^\n]{0,40}(理由|：|—|-)", "\n".join(project.doc("01") or []))
@@ -801,24 +822,11 @@ _BODY_RE = re.compile(r"(左手|右手|左臂|右臂|左肩|右肩|左腿|右腿
 _VAGUE_HIT_RE = re.compile(r"(打在|踢在|砍在|刺在|击中|砸在|撞在|落在)[^。；\n]{0,8}(身上|某处|要害)")
 
 
-def _prompt_lines(project: Project, key: str) -> List[Tuple[int, str]]:
+def _prompt_lines(prompt_blocks: List[Tuple[int, List[str]]]) -> List[Tuple[int, str]]:
     """03/04 的 code block 正文行（跳过围栏、空行与骨架小节标签）。"""
-    lines = project.doc(key)
-    if lines is None:
-        return []
-    out: List[Tuple[int, str]] = []
-    in_block = False
-    for i, ln in enumerate(lines, start=1):
-        if ln.strip() == "```":
-            in_block = not in_block
-            continue
-        if not in_block:
-            continue
-        s = ln.strip()
-        if not s or s in SKELETON_A_SECTIONS:
-            continue
-        out.append((i, ln))
-    return out
+    return [(i, ln) for start, block in prompt_blocks
+            for i, ln in enumerate(block, start=start + 1)
+            if ln.strip() and ln.strip() not in SKELETON_A_SECTIONS]
 
 
 def gate_k12(project: Project, partial: bool) -> List[Finding]:
@@ -827,11 +835,16 @@ def gate_k12(project: Project, partial: bool) -> List[Finding]:
     names = character_names(project)
     total_units = 0
     for key in ("03", "04"):
-        if project.doc(key) is None:
+        lines = project.doc(key)
+        if lines is None:
             continue
-        units = 0
-        for line_no, ln in _prompt_lines(project, key):
-            units += 1
+        prompt_blocks, unclosed = _code_blocks(lines)
+        if unclosed is not None:
+            findings.append(Finding("K12", DOC_FILES[key], unclosed, "提示词代码围栏未闭合"))
+        prompt_lines = _prompt_lines(prompt_blocks)
+        if key == "04" and not prompt_lines and unclosed is None:
+            findings.append(Finding("K12", DOC_FILES[key], 0, "无可核验的视频提示词正文"))
+        for line_no, ln in prompt_lines:
             text = QUOTE_RE.sub("", ln)          # 台词引号内的人称代词不受限
             line_names = sorted(n for n in names if n in text)
             for m in _PRONOUN_RE.finditer(text):
@@ -860,9 +873,9 @@ def gate_k12(project: Project, partial: bool) -> List[Finding]:
                         "K12", DOC_FILES[key], line_no,
                         "部位「%s」未带主人与左右归属——写「<角色名>的%s」并写明位置/朝向/持握"
                         % (part, part)))
-        total_units += units
-    if total_units == 0 and (project.doc("03") is not None or project.doc("04") is not None):
-        findings.append(_warn("K12", "04", "未找到可检查的提示词正文（03/04 无 code block），K12 未执行"))
+        total_units += len(prompt_lines)
+    if total_units == 0 and project.doc("03") is not None and project.doc("04") is None and not findings:
+        findings.append(Finding("K12", DOC_FILES["03"], 0, "无可核验的图片提示词正文"))
     return findings
 
 

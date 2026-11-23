@@ -468,5 +468,52 @@ else
   bad "offline full-project check and export" "$(cat "$TMP/offline.txt")"
 fi
 
+# ---------- K8/K12：语言标签不改变提示词覆盖 ----------
+mkdir -p "$TMP/fence-ok" "$TMP/fence-bad" "$TMP/fence-open" "$TMP/fence-single"
+fence_doc='04_视频提示词.md'
+sed '0,/^```$/s//```text/' "$TMP/offline-project/$fence_doc" > "$TMP/fence-ok/$fence_doc"
+cp "$TMP/offline-project/$fence_doc" "$TMP/fence-bad/$fence_doc"
+printf '\n## 段落2（8–16s，生成 8s）\n' >> "$TMP/fence-bad/$fence_doc"
+sed -n '/^SCENE CONTEXT$/,$p' "$TMP/offline-project/$fence_doc" |
+  sed '/^ENDING FRAME$/d;s/林青将湿信/她将湿信/' |
+  { printf '%s\n' '```text'; cat; } >> "$TMP/fence-bad/$fence_doc"
+sed '$d' "$TMP/fence-ok/$fence_doc" > "$TMP/fence-open/$fence_doc"
+printf '%s\n' '# 分镜' '骨架 B 理由：一镜到底张力' > "$TMP/fence-single/01_方案与剧本.md"
+printf '%s\n' '## 镜头S1（生成 8s）' '```text' '林青将湿信放到长椅上。' '```' > "$TMP/fence-single/$fence_doc"
+
+for runtime in python node; do
+  if [ "$runtime" = python ]; then
+    checker=(python "$ROOT/scripts/check.py")
+  else
+    checker=(env VIGEN_NODE_NO_DELEGATE=1 node "$ROOT/scripts/check.mjs")
+  fi
+  if "${checker[@]}" "$TMP/fence-ok" --gate K8,K12 --partial > "$TMP/fence-ok.txt" 2>&1; then
+    ok
+  else
+    bad "$runtime: valid tagged fence" "$(cat "$TMP/fence-ok.txt")"
+  fi
+  "${checker[@]}" "$TMP/fence-bad" --gate K8,K12 --partial > "$TMP/fence-bad.txt" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '\[K8\].*缺节：ENDING FRAME' "$TMP/fence-bad.txt" &&
+     grep -q '\[K12\].*人物指代用了「她」' "$TMP/fence-bad.txt"; then
+    ok
+  else
+    bad "$runtime: tagged block must not disappear behind a valid block (exit $rc)" "$(cat "$TMP/fence-bad.txt")"
+  fi
+  "${checker[@]}" "$TMP/fence-open" --gate K8,K12 --partial > "$TMP/fence-open.txt" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '\[K8\].*围栏未闭合' "$TMP/fence-open.txt" &&
+     grep -q '\[K12\].*围栏未闭合' "$TMP/fence-open.txt"; then
+    ok
+  else
+    bad "$runtime: unclosed prompt fence (exit $rc)" "$(cat "$TMP/fence-open.txt")"
+  fi
+  if "${checker[@]}" "$TMP/fence-single" --gate K8,K12 --partial > "$TMP/fence-single.txt" 2>&1; then
+    ok
+  else
+    bad "$runtime: skeleton B requires no skeleton A" "$(cat "$TMP/fence-single.txt")"
+  fi
+done
+
 echo "selftest: $PASS 通过 / $FAIL 失败"
 [ "$FAIL" -eq 0 ]

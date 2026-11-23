@@ -66,34 +66,39 @@ function codeBlocks(lines) {
   const out = [];
   let cur = null;
   let start = 0;
+  let width = 0;
   for (let i = 0; i < lines.length; i += 1) {
     const ln = lines[i];
-    if (ln.trim() === "```") {
-      if (cur === null) {
+    const marker = /^(`{3,})([^`]*)$/.exec(ln.trim());
+    if (cur === null) {
+      if (marker) {
         cur = [];
         start = i + 1;
-      } else {
-        out.push([start, cur]);
-        cur = null;
+        width = marker[1].length;
       }
-      continue;
+    } else if (marker && !marker[2].trim() && marker[1].length >= width) {
+      out.push([start, cur]);
+      cur = null;
+    } else {
+      cur.push(ln);
     }
-    if (cur !== null) cur.push(ln);
   }
-  return out;
+  return [out, cur === null ? null : start];
 }
 
 export function gateK8(project) {
   const lines = project.doc("04");
   if (lines === null) return [];
   const findings = [];
-  let seenA = 0;
-  for (const [start, block] of codeBlocks(lines)) {
-    const texts = block.map((t) => t.trim());
-    if (!texts.includes("SCENE CONTEXT")) continue;
-    seenA += 1;
+  const [promptBlocks, unclosed] = codeBlocks(lines);
+  if (unclosed !== null) findings.push(finding("K8", DOC_FILES["04"], unclosed, "提示词代码围栏未闭合"));
+  const starts = [];
+  for (const [start, block] of promptBlocks) {
+    const texts = new Set(block.map((t) => t.trim()));
+    if (!SKELETON_A_SECTIONS.some((sec) => texts.has(sec))) continue;
+    starts.push(start);
     for (const sec of SKELETON_A_SECTIONS) {
-      if (!texts.includes(sec)) {
+      if (!texts.has(sec)) {
         findings.push(finding(
           "K8", DOC_FILES["04"], start,
           `骨架A缺节：${sec}（须单独成行——prompt-rules 骨架槽位清单）`,
@@ -101,9 +106,24 @@ export function gateK8(project) {
       }
     }
   }
-  if (seenA === 0) findings.push(warn("K8", "04", "未找到骨架 A code block，K8 未执行"));
+  const segments = blocks(lines, true);
+  const singleHeads = new Set(segments.filter(([[, heading]]) => /^##\s*镜头/.test(heading)).map(([[line]]) => line));
+  if (starts.length === 0 && segments.length === 0 && unclosed === null) {
+    findings.push(finding("K8", DOC_FILES["04"], 0, "无可核验的骨架 A 提示词正文"));
+  }
+  for (const segment of segments) {
+    const first = segment[0][0];
+    const last = segment.at(-1)[0];
+    if (singleHeads.has(first)) {
+      if (!promptBlocks.some(([start, block]) => start > first && start <= last && block.some((line) => line.trim()))) {
+        findings.push(finding("K8", DOC_FILES["04"], first, "本镜无可核验的骨架 B 提示词正文"));
+      }
+    } else if (!starts.some((start) => start > first && start <= last)) {
+      findings.push(finding("K8", DOC_FILES["04"], first, "本段无可核验的骨架 A 提示词正文"));
+    }
+  }
 
-  if (/^##\s*镜头\s*(?:S|A)?\d+(?:v\d+)?[a-z]?/m.test(lines.join("\n"))) {
+  if (singleHeads.size > 0) {
     const doc01 = (project.doc("01") || []).join("\n");
     const note = project.section("01", "分镜总览表").map(([, t]) => t).join("\n");
     const ok =
@@ -242,23 +262,10 @@ export function gateK11(project) {
 }
 
 // ------------------------------------------------------------------ K12 指代与部位
-function promptLines(project, key) {
-  const lines = project.doc(key);
-  if (lines === null) return [];
-  const out = [];
-  let inBlock = false;
-  for (let i = 0; i < lines.length; i += 1) {
-    const ln = lines[i];
-    if (ln.trim() === "```") {
-      inBlock = !inBlock;
-      continue;
-    }
-    if (!inBlock) continue;
-    const s = ln.trim();
-    if (!s || SKELETON_A_SECTIONS.includes(s)) continue;
-    out.push([i + 1, ln]);
-  }
-  return out;
+function promptLines(promptBlocks) {
+  return promptBlocks.flatMap(([start, block]) => block
+    .map((line, index) => [start + index + 1, line])
+    .filter(([, line]) => line.trim() && !SKELETON_A_SECTIONS.includes(line.trim())));
 }
 
 export function gateK12(project) {
@@ -266,10 +273,15 @@ export function gateK12(project) {
   const names = characterNames(project);
   let totalUnits = 0;
   for (const key of ["03", "04"]) {
-    if (project.doc(key) === null) continue;
-    let units = 0;
-    for (const [lineNo, ln] of promptLines(project, key)) {
-      units += 1;
+    const lines = project.doc(key);
+    if (lines === null) continue;
+    const [promptBlocks, unclosed] = codeBlocks(lines);
+    if (unclosed !== null) findings.push(finding("K12", DOC_FILES[key], unclosed, "提示词代码围栏未闭合"));
+    const prompt = promptLines(promptBlocks);
+    if (key === "04" && prompt.length === 0 && unclosed === null) {
+      findings.push(finding("K12", DOC_FILES[key], 0, "无可核验的视频提示词正文"));
+    }
+    for (const [lineNo, ln] of prompt) {
       const text = ln.replace(QUOTE_G(), "");
       const lineNames = [...names].filter((n) => text.includes(n)).sort();
       for (const m of text.matchAll(PRONOUN_G())) {
@@ -302,10 +314,10 @@ export function gateK12(project) {
         }
       }
     }
-    totalUnits += units;
+    totalUnits += prompt.length;
   }
-  if (totalUnits === 0 && (project.doc("03") !== null || project.doc("04") !== null)) {
-    findings.push(warn("K12", "04", "未找到可检查的提示词正文（03/04 无 code block），K12 未执行"));
+  if (totalUnits === 0 && project.doc("03") !== null && project.doc("04") === null && findings.length === 0) {
+    findings.push(finding("K12", DOC_FILES["03"], 0, "无可核验的图片提示词正文"));
   }
   return findings;
 }

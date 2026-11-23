@@ -317,11 +317,18 @@ function shotHeaderLines(lines) {
   return out;
 }
 
-export function gateK4(project) {
-  if (project.doc("01") === null) return [];
+export function gateK4(project, partial) {
+  const doc01 = project.doc("01");
+  if (doc01 === null) return [];
   const findings = [];
   const [live, voided] = shotIds(project);
-  if (live.size === 0) findings.push(warn("K4", "01", "未解析到分镜表镜号，K4 未执行"));
+  const hasStoryboard = [...iterTables(doc01)].some(([, header]) =>
+    STORY_ALIASES["镜号"].some((name) => header.includes(name)),
+  );
+  const hasPrompts = ["03", "04"].some((key) => project.doc(key) !== null);
+  if (live.size === 0 && (!partial || hasStoryboard || hasPrompts)) {
+    findings.push(warn("K4", "01", "未解析到分镜表镜号，K4 未执行"));
+  }
 
   const seen = new Set();
   for (const r of storyRows(project) || []) {

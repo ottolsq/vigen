@@ -733,7 +733,7 @@ H3 官方三模块：**H3-Context-IR**（托管预处理，把自然语言+多�
 | 台词 | `<Subject 1> (S1) speaks softly, <d>[Chinese] 台词原文</d>`——`<d>` 是 tokenizer 特殊 token，**台词逐字保留不翻译** |
 | PERFORMANCE LOCK / CONTINUITY RULE / NO | 并入 `integrated_multimodal_description` 正文（IR 格式无独立字段）；负面概念只保留字幕/音频类禁令，画面类改正向 |
 
-> 官方 README 的 T2VA/I2VA/Ref2VA 三个可复现案例给出了 Context-IR 输出全文，是直连路径的权威样例（`skills制作相关参考材料/minimax-h3-README.md`）。**GATE0 问卷要问清生成路径**（走平台还是直连），路径不明时默认按"含 IR"处理并在 04 文件头注明。
+> 官方 README 的 T2VA/I2VA/Ref2VA 三个可复现案例给出了 Context-IR 输出全文，是直连路径的权威样例（`skills制作相关参考材料/minimax-h3-README.md`）。按 `models.md`「项目路线记录」确认平台或直连入口。入口未知时，可在 04 文件头标记「暂按含 IR 编写」，作为工作稿交审。放行按 `production-workflow.md` 四节。
 
 **H3 多帧对齐配方（跨环境切镜必做；仅 H3 多图参考项目；先实测供应商是否支持）**
 
