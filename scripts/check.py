@@ -423,19 +423,23 @@ def _shot_header_lines(lines: Optional[List[str]]) -> List[Tuple[int, str]]:
     return out
 
 
+def _storyboarding_started(project: Project) -> bool:
+    # 按完整列名识别分镜表，避免将节拍表的「认领镜号」当成「镜号」。
+    has_storyboard = any(
+        name in header for _, header, _ in iter_tables(project.doc("01") or [])
+        for name in STORY_ALIASES["镜号"]
+    )
+    has_prompts = any(project.doc(key) is not None for key in ("03", "04"))
+    return has_storyboard or has_prompts
+
+
 def gate_k4(project: Project, partial: bool) -> List[Finding]:
     doc01 = project.doc("01")
     if doc01 is None:
         return []
     findings: List[Finding] = []
     live, voided = _shot_ids(project)
-    # 按完整列名识别分镜表，避免将节拍表的「认领镜号」当成「镜号」。
-    has_storyboard = any(
-        name in header for _, header, _ in iter_tables(doc01)
-        for name in STORY_ALIASES["镜号"]
-    )
-    has_prompts = any(project.doc(key) is not None for key in ("03", "04"))
-    if not live and (not partial or has_storyboard or has_prompts):
+    if not live and (not partial or _storyboarding_started(project)):
         findings.append(_warn("K4", "01", "未解析到分镜表镜号，K4 未执行"))
 
     seen: set = set()
@@ -705,6 +709,8 @@ def gate_k8(project: Project, partial: bool) -> List[Finding]:
 
 def gate_k9(project: Project, partial: bool) -> List[Finding]:
     if project.doc("01") is None:
+        return []
+    if partial and not _storyboarding_started(project):
         return []
     rows = _plot_rows(project)
     if not rows:

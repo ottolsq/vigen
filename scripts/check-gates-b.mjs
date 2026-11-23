@@ -7,6 +7,7 @@ import {
   characterNames,
   ENV_MOTION_WORDS,
   finding,
+  iterTables,
   modelNativeMin,
   shotBlocks,
   SKELETON_A_SECTIONS,
@@ -141,8 +142,16 @@ export function gateK8(project) {
 }
 
 // ------------------------------------------------------------------ K9 情节点覆盖
-export function gateK9(project) {
-  if (project.doc("01") === null) return [];
+export function gateK9(project, partial) {
+  const doc01 = project.doc("01");
+  if (doc01 === null) return [];
+  if (partial) {
+    const hasStoryboard = [...iterTables(doc01)].some(([, header]) =>
+      STORY_ALIASES["镜号"].some((name) => header.includes(name)),
+    );
+    const hasPrompts = ["03", "04"].some((key) => project.doc(key) !== null);
+    if (!hasStoryboard && !hasPrompts) return [];
+  }
   const rows = plotRows(project);
   if (!rows || !rows.length) return [warn("K9", "01", "未解析到情节点清单，K9 未执行")];
   const findings = [];

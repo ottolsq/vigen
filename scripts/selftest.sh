@@ -515,5 +515,66 @@ for runtime in python node; do
   fi
 done
 
+# ---------- K9：剧本阶段允许先登记情节点，进入分镜后才核对覆盖 ----------
+plot_doc='01_方案与剧本.md'
+for fixture in script-only plot-draft story-empty plot-uncovered prompts-only plot-covered; do
+  mkdir -p "$TMP/k9-$fixture"
+  cat > "$TMP/k9-$fixture/$plot_doc" <<'EOF'
+# 剧本
+## 场次节拍表
+| 节拍号 | 内容摘要 | 认领镜号 |
+| --- | --- | --- |
+| B1 | 林青把信放到长椅上 | |
+EOF
+done
+for fixture in plot-draft story-empty plot-uncovered plot-covered; do
+  cat >> "$TMP/k9-$fixture/$plot_doc" <<'EOF'
+
+## 情节点清单
+| 情节点 | 覆盖镜号 | 状态 |
+| --- | --- | --- |
+EOF
+  if [ "$fixture" = plot-covered ]; then
+    printf '%s\n' '| 林青交出信 | 镜S1 | ✓ |' >> "$TMP/k9-$fixture/$plot_doc"
+  else
+    printf '%s\n' '| 林青交出信 | | 待定稿 |' >> "$TMP/k9-$fixture/$plot_doc"
+  fi
+done
+for fixture in story-empty plot-uncovered plot-covered; do
+  printf '%s\n' '' '## 分镜总览表' '| 镜号 | 运镜 |' '| --- | --- |' >> "$TMP/k9-$fixture/$plot_doc"
+  if [ "$fixture" != story-empty ]; then
+    printf '%s\n' '| S1 | 固定 |' >> "$TMP/k9-$fixture/$plot_doc"
+  fi
+done
+printf '# 图片提示词\n' > "$TMP/k9-prompts-only/03_图片提示词.md"
+
+for runtime in python node; do
+  if [ "$runtime" = python ]; then
+    checker=(python "$ROOT/scripts/check.py")
+  else
+    checker=(env VIGEN_NODE_NO_DELEGATE=1 node "$ROOT/scripts/check.mjs")
+  fi
+  for fixture in script-only plot-draft plot-covered; do
+    if "${checker[@]}" "$TMP/k9-$fixture" --gate K9 --partial > "$TMP/k9.txt" 2>&1; then
+      ok
+    else
+      bad "$runtime: K9 $fixture should pass" "$(cat "$TMP/k9.txt")"
+    fi
+  done
+  for fixture in story-empty plot-uncovered prompts-only plot-draft; do
+    mode=(--partial)
+    diagnostic='覆盖镜号列为空'
+    if [ "$fixture" = prompts-only ]; then diagnostic='未解析到情节点清单'; fi
+    if [ "$fixture" = plot-draft ]; then mode=(); fi
+    "${checker[@]}" "$TMP/k9-$fixture" --gate K9 "${mode[@]}" > "$TMP/k9.txt" 2>&1
+    rc=$?
+    if [ "$rc" -eq 1 ] && grep -q "\[K9\].*$diagnostic" "$TMP/k9.txt"; then
+      ok
+    else
+      bad "$runtime: K9 $fixture should preserve coverage check (exit $rc)" "$(cat "$TMP/k9.txt")"
+    fi
+  done
+done
+
 echo "selftest: $PASS 通过 / $FAIL 失败"
 [ "$FAIL" -eq 0 ]
