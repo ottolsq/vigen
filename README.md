@@ -54,7 +54,7 @@ GATE0 intake + alignment
 
 Three stops: **GATE0** (questionnaire + requirement alignment), **GATE1.5** (script lock — never move to shot design before this), **GATE1** (anchoring confirmation). The lock covers the story skeleton and plot-point checklist; the shot table remains a living document (later additions follow the living-script revision path).
 
-**Execution contract (V3.16)**: before writing 03/04/05 in each batch, re-read 02/01/05; fill a "batch production card" per segment; append a "batch validation record" (A1-A16 + evidence) to 01; optional `--gate A17` mechanical audit and `--gate A18` image-budget audit. No record means you may not say "done".
+**Execution contract (V3.16)**: see the [execution contract](references/production-workflow.md) (section 4) for batch preparation, evidence, and acceptance checks.
 
 **Project layout**: single video `<project>/01-06`; series `<series>/00_story_state.md + ep01/…ep02/…`.
 
@@ -217,9 +217,9 @@ No manual invocation is needed after installation — intents such as "make me a
 ## Known boundaries
 
 - Produces prompts and project files only; does not call generation APIs or perform editing. check.py / check.mjs only read project Markdown; they do not call APIs or modify files
-- `check.mjs` (V3.24): **with Python it delegates to check.py (authoritative, full set) and returns its exit code; without Python it runs only the default K1-K17 subset**. A16-A20 opt-in audits require Python; `VIGEN_NODE_NO_DELEGATE=1` forces the local subset; `VIGEN_PYTHON` / `VIGEN_CHECK_PY` override the interpreter and delegated script (tests). The old Node opt-in implementations remain as unregistered legacy code
+- `check.mjs` (V3.24): **with Python it delegates to check.py (authoritative, full set) and returns its exit code; without Python it runs only the default K1-K17 subset**. A16-A20 are outside the default gate set and require Python; `VIGEN_NODE_NO_DELEGATE=1` forces the local subset; `VIGEN_PYTHON` / `VIGEN_CHECK_PY` override the interpreter and delegated script (tests). The old Node implementations for the extra gates remain as unregistered legacy code
 - **A16 (lock-before-write)** is an opt-in audit: style-bible verbatim / on-screen REF registration / persistent presence. Technical actions and three-element orientation remain human-reviewed
-- **A17 (execution-contract evidence)** is an opt-in audit: batch cards / A1-A16 validation records / segment state ledger / reference contracts / time ledger / style-lock verbatim / nine-item segment lock / character-prop-group inline binding / blocking score + per-shot routes + background action lines / action bridges / negative-block closure / lens per shot / light-evolution line. It does not judge content quality
+- **A17 (execution-contract evidence)** is outside the default gates but required for batch acceptance. See the [execution contract](references/production-workflow.md) (section 4) for the required checks and the Node fallback
 - **A18 (image constraint budget)** is an opt-in audit: flags 03 image prompts over 260 CJK characters or more than 10 constraint words; technical sheets and text-layout images are exempt. Reduce prompts per prompt-rules 0.12 after a warning; never delete load-bearing anchors just to pass A18
 - **K17 (prompt hygiene)** is a default gate: 04/03 positive bodies must not contain music words; no-dialogue segments must declare "no dialogue / no narration / no voices"; sound sections need the positive closing line "no second sound, no continuous ambience". Explicitly marked negative-prompt sections are skipped
 - **04 split volumes (V3.17)**: large projects may split into `04_video_prompts_volNN.md`; `04_video_prompts.md` is only an index, and check.py/check.mjs merge volumes by filename order
