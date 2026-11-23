@@ -205,6 +205,128 @@ else
   bad "batch-list 缺 milestone"
 fi
 
+if python - "$ROOT/scripts" "$TMP" > "$TMP/export.txt" 2>&1 <<'PY'
+import sys
+from pathlib import Path
+from unittest.mock import patch
+
+sys.path.insert(0, sys.argv[1])
+import export
+
+parent = Path(sys.argv[2]) / "export-guard"
+project = parent / "group" / "project"
+project.mkdir(parents=True)
+source = project / "01_fixture.md"
+source.write_bytes(b"# Source fixture\n")
+with patch.object(export.shutil, "rmtree", side_effect=AssertionError("export attempted recursive deletion")):
+    for ancestor in (project.parent, parent):
+        code = export.main(["export.py", str(project), "--out", str(ancestor), "--overwrite"])
+        assert code == 2, f"expected rejection for {ancestor}, got {code}"
+        assert source.read_bytes() == b"# Source fixture\n"
+
+destination = project.parent / "delivery"
+code = export.main(["export.py", str(project), "--out", str(destination)])
+assert code == 0, f"expected sibling export to succeed, got {code}"
+assert (destination / source.name).read_bytes() == source.read_bytes()
+assert (destination / "manifest.json").is_file()
+PY
+then
+  ok
+else
+  bad "export ancestor guard" "$(cat "$TMP/export.txt")"
+fi
+
+if python - "$ROOT/scripts" "$TMP" > "$TMP/export-episode.txt" 2>&1 <<'PY'
+import json
+import sys
+from pathlib import Path
+
+sys.path.insert(0, sys.argv[1])
+import export
+
+base = Path(sys.argv[2]) / "export-episodes"
+project = base / "project"
+shared = "00_series.md"
+by_episode = {
+    episode: {f"{container}{episode}/01_script.md" for container in ("剧集/", "episodes/", "")}
+    for episode in ("EP001", "EP002", "EP003")
+}
+all_paths = {shared}.union(*by_episode.values())
+for relative in all_paths:
+    source = project / relative
+    source.parent.mkdir(parents=True, exist_ok=True)
+    source.write_bytes(b"# Series fixture\n")
+
+for label, chosen in (("single", ["EP001"]), ("multiple", ["EP001", "EP003"]), ("all", [])):
+    destination = base / label
+    args = ["export.py", str(project), "--out", str(destination)]
+    for episode in chosen:
+        args.extend(["--episode", episode])
+    code = export.main(args)
+    assert code == 0, f"{label}: export returned {code}"
+    expected = {shared}.union(*(by_episode[episode] for episode in chosen)) if chosen else all_paths
+    copied = {file.relative_to(destination).as_posix() for file in destination.rglob("*.md")}
+    assert copied == expected, f"{label}: unexpected {sorted(copied - expected)}, missing {sorted(expected - copied)}"
+    manifest = json.loads((destination / "manifest.json").read_text(encoding="utf-8"))
+    assert {item["path"] for item in manifest["files"]} == expected
+PY
+then
+  ok
+else
+  bad "export episode filter" "$(cat "$TMP/export-episode.txt")"
+fi
+
+if python - "$ROOT/scripts" "$TMP" > "$TMP/export-overwrite.txt" 2>&1 <<'PY'
+import sys
+from pathlib import Path
+from unittest.mock import patch
+
+sys.path.insert(0, sys.argv[1])
+import export
+
+base = Path(sys.argv[2]).resolve() / "export-overwrite"
+project = base / "project"
+project.mkdir(parents=True)
+source = project / "01_fixture.md"
+source.write_bytes(b"# Initial fixture\n")
+
+def run(out, *flags):
+    return export.main(["export.py", str(project), "--out", str(out), *flags])
+
+foreign = base / "foreign"
+foreign.mkdir()
+(foreign / "notes.md").write_bytes(b"# Keep these notes\n")
+mixed = base / "mixed"
+assert run(mixed) == 0
+(mixed / "notes.md").write_bytes(b"# Keep these notes\n")
+empty = base / "empty"
+empty.mkdir()
+
+with patch.object(export.shutil, "rmtree", side_effect=AssertionError("unexpected recursive deletion")):
+    for unsafe in (foreign, mixed):
+        assert run(unsafe, "--overwrite") == 2
+        assert (unsafe / "notes.md").read_bytes() == b"# Keep these notes\n"
+    assert run(empty, "--overwrite") == 0
+
+snapshot = base / "snapshot"
+assert run(snapshot) == 0
+source.write_bytes(b"# Updated fixture\n")
+remove = export.shutil.rmtree
+
+def remove_snapshot(path):
+    assert path == snapshot.resolve() and path.parent == base.resolve()
+    remove(path)
+
+with patch.object(export.shutil, "rmtree", side_effect=remove_snapshot):
+    assert run(snapshot, "--overwrite") == 0
+assert (snapshot / source.name).read_bytes() == source.read_bytes()
+PY
+then
+  ok
+else
+  bad "export protects non-snapshot directories" "$(cat "$TMP/export-overwrite.txt")"
+fi
+
 mkdir -p "$TMP/offline-project"
 cat > "$TMP/offline-project/01_方案与剧本.md" <<'EOF'
 # 雨棚下的信

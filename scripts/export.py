@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 MINIMUM_PYTHON = (3, 9)
+SNAPSHOT_TOOL = "vigen export"
 
 # 项目根下按 01-06 契约命名的可交付文档
 DOC_PREFIXES = ("00_", "01_", "02_", "03_", "04_", "05_", "06_")
@@ -51,23 +52,62 @@ def is_media(path: Path) -> bool:
     return path.suffix.lower() in MEDIA_SUFFIXES
 
 
+def is_replaceable_snapshot(out: Path) -> bool:
+    manifest_path = out / "manifest.json"
+    metadata = {Path("manifest.json"), Path("checksums.sha256")}
+    try:
+        if manifest_path.is_symlink():
+            return False
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if manifest["tool"] != SNAPSHOT_TOOL or not isinstance(manifest["files"], list):
+            return False
+        declared = {Path(item["path"]) for item in manifest["files"]}
+        if not declared or declared & metadata:
+            return False
+        if any(not path.parts or path.anchor or ".." in path.parts for path in declared):
+            return False
+        expected_files = declared | metadata
+        expected_dirs = {parent for path in expected_files for parent in path.parents if parent.parts}
+        actual_files, actual_dirs = set(), set()
+        for entry in out.rglob("*"):
+            relative = entry.relative_to(out)
+            if entry.is_symlink() or entry.resolve() != entry:
+                return False
+            if entry.is_file():
+                actual_files.add(relative)
+            elif entry.is_dir():
+                actual_dirs.add(relative)
+            else:
+                return False
+        return actual_files == expected_files and actual_dirs == expected_dirs
+    except (OSError, ValueError, TypeError, KeyError, RuntimeError):
+        return False
+
+
 def collect(project: Path, episodes: Optional[List[str]], include_media: bool) -> List[Path]:
     """收集要交付的文件（相对项目根）。"""
     picked: List[Path] = []
+    selected = set(episodes or ())
     for entry in sorted(project.iterdir()):
         name = entry.name
         if entry.is_dir():
             if name in EXCLUDED_DIRS:
                 continue
             # 系列项目：剧集/<EP>/ 或 epNN/ 每集目录
-            is_ep_dir = episodes is not None and name in episodes
-            in_series = entry.name in ("剧集", "episodes") or name.lower().startswith("ep")
-            if in_series or is_ep_dir:
-                for sub in sorted(entry.rglob("*")):
-                    if sub.is_file() and not any(part in EXCLUDED_DIRS for part in sub.relative_to(project).parts):
+            if name in ("剧集", "episodes"):
+                roots = [child for child in sorted(entry.iterdir())
+                         if child.name in selected and child.is_dir()] if selected else [entry]
+            elif name in selected or (not selected and name.lower().startswith("ep")):
+                roots = [entry]
+            else:
+                continue
+            for root in roots:
+                for sub in sorted(root.rglob("*")):
+                    relative = sub.relative_to(project)
+                    if sub.is_file() and not any(part in EXCLUDED_DIRS for part in relative.parts):
                         if not include_media and is_media(sub):
                             continue
-                        picked.append(sub.relative_to(project))
+                        picked.append(relative)
             continue
         if not entry.is_file():
             continue
@@ -75,10 +115,6 @@ def collect(project: Path, episodes: Optional[List[str]], include_media: bool) -
             picked.append(entry.relative_to(project))
         elif name in EPISODE_DOC_NAMES:
             picked.append(entry.relative_to(project))
-    if episodes:
-        picked = [p for p in picked
-                  if not p.parts[0].lower().startswith("ep") or p.parts[0] in episodes
-                  or p.parts[0] in ("剧集", "episodes")]
     return picked
 
 
@@ -94,10 +130,10 @@ def main(argv: List[str]) -> int:
 
     ap = argparse.ArgumentParser(description="vigen 项目交付打包（当前状态快照）")
     ap.add_argument("project_dir")
-    ap.add_argument("--out", required=True, help="输出目录（必须在项目之外）")
+    ap.add_argument("--out", required=True, help="输出目录（不能包含项目，也不能在项目内）")
     ap.add_argument("--episode", action="append", default=None, help="只导出指定集，可重复")
     ap.add_argument("--no-media", action="store_true", help="只导出文字，不含图片/视频/音频")
-    ap.add_argument("--overwrite", action="store_true", help="覆盖已存在的输出目录")
+    ap.add_argument("--overwrite", action="store_true", help="仅覆盖目录结构与清单一致的 vigen 快照")
     args = ap.parse_args(argv[1:])
 
     project = Path(args.project_dir).resolve()
@@ -105,19 +141,29 @@ def main(argv: List[str]) -> int:
     if not project.is_dir():
         print("项目目录不存在：%s" % project)
         return 2
-    if out == project or project in out.parents:
-        print("--out 必须在项目之外（当前：%s）" % out)
+    if out == project or project in out.parents or out in project.parents:
+        print("--out 不能是项目目录、其子目录或祖先目录（当前：%s）" % out)
         return 2
-    if out.exists() and any(out.iterdir()) and not args.overwrite:
-        print("输出目录非空：%s（加 --overwrite 覆盖）" % out)
-        return 2
+    replace_existing = False
+    if out.exists():
+        if not out.is_dir():
+            print("输出路径不是目录：%s" % out)
+            return 2
+        if any(out.iterdir()):
+            if not args.overwrite:
+                print("输出目录非空：%s（加 --overwrite 仅可覆盖 vigen 快照）" % out)
+                return 2
+            if not is_replaceable_snapshot(out):
+                print("无法确认输出目录是完整的 vigen 快照；请改用空目录：%s" % out)
+                return 2
+            replace_existing = True
 
     files = collect(project, args.episode, not args.no_media)
     if not files:
         print("没有可导出的文件——项目未按 01-06 契约组织？")
         return 2
 
-    if out.exists() and args.overwrite:
+    if replace_existing:
         shutil.rmtree(out)
     out.mkdir(parents=True, exist_ok=True)
 
@@ -133,7 +179,7 @@ def main(argv: List[str]) -> int:
         checksums.append((digest, rel.as_posix()))
 
     manifest = {
-        "tool": "vigen export",
+        "tool": SNAPSHOT_TOOL,
         "exported_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "project": project.name,
         "episodes": args.episode,
