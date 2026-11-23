@@ -33,7 +33,7 @@ description: Use when the user wants to create AI-generated videos from an idea 
 | 负面词效力与冲突检查裁决 | references/knowledge-index.md |
 | 00-06 文件结构与填空槽位、人物参考图模板、执行契约表格、**项目状态卡/变更影响传播清单/道具状态事实表**、**环境动效账/段任务包/冻结字段速查卡/质量缺陷台账** | assets/templates.md · templates-character.md · templates-execution.md |
 | **资产系统模板（资产表/人物模板 A·B/LOOK/表情动作矩阵/场景圣经/道具 turnaround/色板 7 角色）** | assets/templates-assets.md |
-| **独立评审任务书/评分卡/评审记录表（评审门）** | assets/templates-review.md |
+| **独立评审任务书/评分卡/评审记录表（含 04 参考与声音、06 剪辑复核）** | assets/templates-review.md |
 
 **重复即缺陷**：同一条规则写进两个文件，迟早不一致——V2.4 修过的"动作容量随时长缩放"因存在三份拷贝，两份旧拷贝漂移到 V2.8 才被清掉。发现重复时保留归属表里的那个家，其余改为指针。
 
@@ -60,7 +60,7 @@ description: Use when the user wants to create AI-generated videos from an idea 
 | assets/templates-character.md | 写 03 人物参考图时（0a 合图变体/分张退路/多人脸对照条） |
 | **assets/templates-assets.md** | **建资产系统时**（资产表/人物模板 A·B/LOOK 妆造库/16 格表情与动作/场景 3×3 圣经/道具 turnaround/色板 7 角色/多素材职责表） |
 | assets/templates-execution.md | 每批写 03/04/05 前（批次卡/批次校验记录/段落锁定清单九项/无台词段/**走位总谱+逐镜动线+背景动作线/光影演变/动作桥/负面提示词两段式/环境动效账/段任务包/冻结字段速查卡/质量缺陷台账**） |
-| assets/templates-review.md | GATE1.5 剧本、02 锚定、03 批次、正式 04 批次、05 台词表评审及局部复审前（评审任务书+评分卡+评审记录表） |
+| assets/templates-review.md | GATE1.5 剧本、02 锚定、03 批次、正式 04 批次、05 台词表、06 剪辑清单评审及局部复审前（评审任务书+评分卡+评审记录表） |
 
 > ⚠ references/_archive-suspended-claims.md 是停用主张归档，**任何阶段都不要读取**，其内容不作为规则依据。
 > ⚠ references/learning-guide.md（自身缺陷清单/使用边界/资料吸收台账）**不进日常项目执行链路**——只在①用户提供新学习资料 ②用户询问 skill 缺陷/边界/学习状态 时读取；届时按其第一节四步学习法处理并更新台账。
@@ -161,7 +161,7 @@ GATE0 问卷+对齐 → 阶段1a 剧本创作 ─GATE1.5 剧本定稿─→ 阶�
 - **台词必须带情绪，不许只写"生气的说"**：每句台词绑**发声描述公式**（前置身份两段 + 六参数，8 段缺一不可），嵌在动作链中而非独立成行。**实测教训：只写情绪标签→出来的对白没有语调语速变化，平得像念稿。** 写法与四禁写见 prompt-rules 三·五节
 
 **阶段6 剪辑清单**
-写完后按 `assets/templates-review.md`「04 评分卡」的连续性项回核剪辑切点。
+写完后按 `assets/templates-review.md`「06 评分卡」回核剪辑清单，结果记入 01「质量缺陷台账」。
 产出 `06_剪辑清单.md`（拼接顺序、每段头尾各裁 0.5s、转场实现方式对应 01 转场列、**转场音频处理防背景音效硬中断**、BGM 后期统一配、调色提示；H3 项目注意视频留存期到期前转存）。**单镜时长按 cinematography 六节基准（骨架 A 段内不重切、只裁段头尾；骨架 B/单镜片段才按基准裁）**；**剪辑端转场（叠化/淡入淡出/闪黑/缩放/划像）在 06 实现，04 在该切点写硬切（逐切点，不覆盖同段其他转场）**；竖屏项目另做安全区/开场钩子/呼吸点检查。
 
 **系列项目追加**：每集全部完成后**强制更新 `00_剧情状态.md`**（本集剧情摘要/角色状态变化/道具状态变化/本集尾帧描述/未回收伏笔）——下一集开工时先读 00 再读上集尾帧，防长剧遗忘细节。
