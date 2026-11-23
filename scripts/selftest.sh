@@ -576,5 +576,69 @@ for runtime in python node; do
   done
 done
 
+# ---------- K14：闭合短片收束、续接悬念、旧稿兼容 ----------
+for fixture in closed closed-early closed-no-ending continue continue-early legacy legacy-no-ending; do
+  mkdir -p "$TMP/k14-$fixture"
+  mode=''
+  middle='—'
+  ending='【余韵】'
+  case "$fixture" in
+    closed*) mode='| 结尾模式 | 闭合 |' ;;
+    continue*) mode='| 结尾模式 | 续接 |' ;;
+  esac
+  case "$fixture" in
+    closed-early) middle='【收束】'; ending='—' ;;
+    closed-no-ending) ending='—' ;;
+    continue-early) middle='【悬念】'; ending='—' ;;
+    legacy) ending='【悬念】' ;;
+  esac
+  cat > "$TMP/k14-$fixture/01_方案与剧本.md" <<EOF
+# 短片
+## 整体方案
+| 项 | 值 |
+| --- | --- |
+| 节拍制 | on |
+| 总时长 | 9s |
+$mode
+
+## 场次节拍表
+| 节拍号 | 类型 | 台词字数 | 估算秒 | 认领镜号 | 标记 |
+| --- | --- | --- | --- | --- | --- |
+| B1 | 动作 | 0 | 3 | | 【钩子】 |
+| B2 | 动作 | 0 | 3 | | $middle |
+| B3 | 动作 | 0 | 3 | | $ending |
+
+## 时长预算
+| 项 | 值 |
+| --- | --- |
+| 预计总时长 | 9s |
+EOF
+done
+
+for runtime in python node; do
+  if [ "$runtime" = python ]; then
+    checker=(python "$ROOT/scripts/check.py")
+  else
+    checker=(env VIGEN_NODE_NO_DELEGATE=1 node "$ROOT/scripts/check.mjs")
+  fi
+  for fixture in closed closed-early closed-no-ending continue continue-early legacy legacy-no-ending; do
+    expected=''
+    case "$fixture" in
+      closed-early) expected='须在末拍' ;;
+      closed-no-ending) expected='须恰好一个【收束】或【余韵】' ;;
+      continue|legacy-no-ending) expected='须恰好一个【悬念】' ;;
+      continue-early) expected='须在末拍' ;;
+    esac
+    "${checker[@]}" "$TMP/k14-$fixture" --gate K14 --partial > "$TMP/k14.txt" 2>&1
+    rc=$?
+    if { [ -z "$expected" ] && [ "$rc" -eq 0 ]; } ||
+       { [ -n "$expected" ] && [ "$rc" -eq 1 ] && grep -q "\[K14\].*$expected" "$TMP/k14.txt"; }; then
+      ok
+    else
+      bad "$runtime: K14 $fixture (exit $rc)" "$(cat "$TMP/k14.txt")"
+    fi
+  done
+done
+
 echo "selftest: $PASS 通过 / $FAIL 失败"
 [ "$FAIL" -eq 0 ]

@@ -273,12 +273,29 @@ export function gateK14(project) {
   if (rows === null) return [];
   const findings = [];
   const hooks = [];
-  const suspense = [];
+  const endings = [];
+  const plan = project.section("01", "整体方案").map(([, text]) => text);
+  let endingMode;
+  for (const [, header, body] of iterTables(plan)) {
+    if (header.length < 2 && body.length === 0) continue;
+    const entry = body.find(([, cells]) => cells.length >= 2 &&
+      cells[0].replace(/^[* ]+|[* ]+$/g, "").trim() === "结尾模式");
+    if (entry) {
+      endingMode = entry[1][1].trim();
+      break;
+    }
+  }
+  const closed = endingMode === "闭合";
+  const endingLabel = closed ? "【收束】或【余韵】" : "【悬念】";
   rows.forEach((r, i) => {
     const mark = cell(r, "标记");
     const bid = cell(r, "节拍号").trim();
     if (mark.includes("钩子")) hooks.push([i, bid]);
-    if (mark.includes("悬念")) suspense.push([i, bid]);
+    if (closed) {
+      for (const match of mark.matchAll(/【(?:收束|余韵)】/g)) endings.push([i, bid]);
+    } else if (mark.includes("悬念")) {
+      endings.push([i, bid]);
+    }
   });
   if (hooks.length !== 1) {
     findings.push(finding(
@@ -291,15 +308,16 @@ export function gateK14(project) {
       `钩子在第 ${hooks[0][0] + 1} 拍（${hooks[0][1]}），须落在前 3 拍`,
     ));
   }
-  if (suspense.length !== 1) {
+  if (endings.length !== 1) {
     findings.push(finding(
       "K14", DOC_FILES["01"], 0,
-      `须恰好一个【悬念】标记（当前 ${suspense.length} 个）`,
+      `须恰好一个${endingLabel}标记（当前 ${endings.length} 个）`,
     ));
-  } else if (suspense[0][0] !== rows.length - 1) {
+  } else if (endings[0][0] !== rows.length - 1) {
+    const [index, bid] = endings[0];
     findings.push(finding(
       "K14", DOC_FILES["01"], 0,
-      `【悬念】在第 ${suspense[0][0] + 1} 拍（${suspense[0][1]}），须在末拍（第 ${rows.length} 拍）`,
+      `${endingLabel}在第 ${index + 1} 拍（${bid}），须在末拍（第 ${rows.length} 拍）`,
     ));
   }
 

@@ -1129,14 +1129,18 @@ def gate_k14(project: Project, partial: bool) -> List[Finding]:
         return []
     findings: List[Finding] = []
     hooks: List[Tuple[int, str]] = []
-    suspense: List[Tuple[int, str]] = []
+    endings: List[Tuple[int, str]] = []
+    closed = _kv_lookup(project.section("01", "整体方案"), "结尾模式") == "闭合"
+    ending_label = "【收束】或【余韵】" if closed else "【悬念】"
     for i, row in enumerate(rows):
         mark = cell(row, "标记")
         bid = cell(row, "节拍号").strip()
         if "钩子" in mark:
             hooks.append((i, bid))
-        if "悬念" in mark:
-            suspense.append((i, bid))
+        if closed:
+            endings.extend((i, bid) for _ in re.finditer(r"【(?:收束|余韵)】", mark))
+        elif "悬念" in mark:
+            endings.append((i, bid))
     if len(hooks) != 1:
         findings.append(Finding(
             "K14", DOC_FILES["01"], 0,
@@ -1146,15 +1150,16 @@ def gate_k14(project: Project, partial: bool) -> List[Finding]:
             "K14", DOC_FILES["01"], 0,
             "钩子在第 %d 拍（%s），须落在前 3 拍"
             % (hooks[0][0] + 1, hooks[0][1])))
-    if len(suspense) != 1:
+    if len(endings) != 1:
         findings.append(Finding(
             "K14", DOC_FILES["01"], 0,
-            "须恰好一个【悬念】标记（当前 %d 个）" % len(suspense)))
-    elif suspense[0][0] != len(rows) - 1:
+            "须恰好一个%s标记（当前 %d 个）" % (ending_label, len(endings))))
+    elif endings[0][0] != len(rows) - 1:
+        index, bid = endings[0]
         findings.append(Finding(
             "K14", DOC_FILES["01"], 0,
-            "【悬念】在第 %d 拍（%s），须在末拍（第 %d 拍）"
-            % (suspense[0][0] + 1, suspense[0][1], len(rows))))
+            "%s在第 %d 拍（%s），须在末拍（第 %d 拍）"
+            % (ending_label, index + 1, bid, len(rows))))
 
     target = _parse_seconds(_kv_value(project, "总时长", "目标时长"))
     if target is None:
