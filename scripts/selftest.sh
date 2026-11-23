@@ -205,5 +205,146 @@ else
   bad "batch-list 缺 milestone"
 fi
 
+mkdir -p "$TMP/offline-project"
+cat > "$TMP/offline-project/01_方案与剧本.md" <<'EOF'
+# 雨棚下的信
+## 整体方案
+| 项 | 值 |
+| --- | --- |
+| 叙事形态 | 电影化 |
+| 节拍制 | on |
+| 总时长 | 8s |
+| 实际时间轴合计 | 8s |
+
+## 分场剧本
+### 第1场 · 站台雨棚 · 日
+林青把湿信放到雨棚内侧的长椅上。
+林青：信还没干。
+雨水沿信纸折痕洇开，露出蓝色门牌号。
+
+## 场次节拍表
+| 场次 | 节拍号 | 类型 | 内容摘要 | 台词字数 | 估算秒 | 认领镜号 | 标记 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | B1 | 动作 | 将湿信放到长椅 | 0 | 2 | 镜S1 | 【钩子】 |
+| 1 | B2 | 台词 | 提醒信纸仍湿 | 5 | 2 | 镜S1 | — |
+| 1 | B3 | 动作 | 折痕洇开，出现门牌号 | 0 | 4 | 镜S2 | 【悬念】 |
+
+## 时长预算
+| 项 | 值 |
+| --- | --- |
+| 台词秒数 | 2s |
+| 动作秒数 | 6s |
+| 预计总时长 | 8s |
+
+## 情节点清单
+| # | 情节点 | 覆盖镜号 | 状态 |
+| --- | --- | --- | --- |
+| 1 | 林青在雨棚放下湿信并提醒 | 镜S1 | ✓ |
+| 2 | 【峰】湿信折痕出现蓝色门牌号 | 镜S2 | ✓ |
+
+## 分镜总览表
+| 镜号 | 生成时长 | 运镜 | 运镜动机 | 认领节拍 |
+| --- | --- | --- | --- | --- |
+| S1 | 4s | 固定 | alignment(R7)：保留人物与长椅的相对位置 | B1,B2 |
+| S2 | 4s | 短促推近 | pressure(R3)：让注意力落在信纸的蓝色门牌号上 | B3 |
+EOF
+cat > "$TMP/offline-project/02_锚定表.md" <<'EOF'
+# 锚定表
+## 目标模型
+| 用途 | 模型 | 生成时长 |
+| --- | --- | --- |
+| 视频 | 离线测试模型 | 4s–12s |
+
+## 角色锚定表
+### 林青
+| 项 | 值 |
+| --- | --- |
+| 锚定短语（中文） | 林青，齐耳黑发，灰蓝雨衣 |
+
+## 色彩基调
+| 角色 | 色号 | 落点 |
+| --- | --- | --- |
+| 环境底色 | #697A87 | 雨后站台 |
+EOF
+cat > "$TMP/offline-project/03_图片提示词.md" <<'EOF'
+# 图片提示词
+## 镜头S1 · 起点图
+```
+林青，齐耳黑发，灰蓝雨衣。雨棚内侧的木长椅在画面右下；窗外雨后站台落在 #697A87。平视中景，50mm，棚外漫射日光，椅面有细小水滴。
+```
+EOF
+cat > "$TMP/offline-project/04_视频提示词.md" <<'EOF'
+# 视频提示词
+## 段落1（0–8s，生成 8s）
+```
+SCENE CONTEXT
+雨后站台，雨棚内从人物到长椅的距离约半米。林青，齐耳黑发，灰蓝雨衣。
+ACTIVE REFERENCES
+无；本段使用文字锚定。
+CONTINUITY RULE
+只有一封湿信，始终留在长椅内侧。
+FORMAT
+8 秒，横画幅，普通话，无字幕。
+色调：#697A87 落在雨后站台。
+CAMERA / EDITING
+从人物中景硬切到信纸特写。
+0.0s–4.0s｜镜头S1｜放信
+平视固定机位，50mm，雨棚支架随风微振。林青将湿信放在长椅内侧，说：“信还没干。”信纸贴在椅面上。
+4.0s–8.0s｜镜头S2｜墨迹现形
+俯拍特写，85mm。雨滴在椅面形成小圈涟漪，蓝色墨迹沿折痕散开。短促推近，停在蓝色门牌号上。←峰值：情节点2
+ENDING FRAME
+蓝色门牌号位于画面中央，信纸仍贴着椅面。
+PERFORMANCE LOCK
+林青说完即停，不再补充。
+FACE LOCK
+保留林青的发型和面部轮廓。
+AUDIO
+只留林青的单句对白。没有第二种声音，也没有任何持续声底。
+LIGHTING
+雨棚外的漫射日光保持不变。
+NO
+不要字幕，不新增人物。
+```
+EOF
+cat > "$TMP/offline-project/05_语音台词表.md" <<'EOF'
+# 语音台词表
+| # | 镜号/段落 | 角色 | 台词原文 | 朗读时长 | 所在镜头时长 |
+| --- | --- | --- | --- | --- | --- |
+| 1 | 镜S1 / 段1 | 林青 | 信还没干。 | 2s | 4s |
+EOF
+
+if python "$ROOT/scripts/check.py" "$TMP/offline-project" > "$TMP/offline.txt" 2>&1 &&
+   python "$ROOT/scripts/export.py" "$TMP/offline-project" --out "$TMP/offline-delivery" --no-media >> "$TMP/offline.txt" 2>&1 &&
+   python - "$TMP/offline-project" "$TMP/offline-delivery" >> "$TMP/offline.txt" 2>&1 <<'PY'
+import hashlib
+import json
+import sys
+from pathlib import Path
+
+project, delivery = map(Path, sys.argv[1:])
+source_names = {path.name for path in project.glob("*.md")}
+expected = source_names | {"manifest.json", "checksums.sha256"}
+assert len(source_names) == 5
+assert {path.name for path in delivery.iterdir()} == expected
+manifest = json.loads((delivery / "manifest.json").read_text(encoding="utf-8"))
+assert manifest["asserts_approval"] is False
+assert {entry["path"] for entry in manifest["files"]} == source_names
+checksums = set((delivery / "checksums.sha256").read_text(encoding="utf-8").splitlines())
+expected_checksums = set()
+for entry in manifest["files"]:
+    name = entry["path"]
+    data = (delivery / name).read_bytes()
+    digest = hashlib.sha256(data).hexdigest()
+    assert data == (project / name).read_bytes()
+    assert entry["sha256"] == digest and entry["size"] == len(data)
+    expected_checksums.add(f"{digest}  {name}")
+assert checksums == expected_checksums
+PY
+then
+  ok
+else
+  bad "offline full-project check and export" "$(cat "$TMP/offline.txt")"
+fi
+
 echo "selftest: $PASS 通过 / $FAIL 失败"
 [ "$FAIL" -eq 0 ]
