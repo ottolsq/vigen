@@ -310,6 +310,9 @@ export const SKIP_SECTIONS = new Set([
 
 export const QUOTE_RE = /"([^"]+)"|“([^”]+)”|「([^」]+)」/g;
 const SPEAKER_CUE = /[：:]\s*$/;
+// Scan Seedance speech and quotes together to keep quotes inside braced lines intact.
+const SEEDANCE_DIALOGUE = /(?:说道|说|开口|问道|问|答道|回答|念道|念|\b(?:says?|speaks?|asks?|replies?)\b)\s*[：:]?\s*\{([^{}]+)\}(?!\})/;
+const DIALOGUE_RE = new RegExp(`${QUOTE_RE.source}|${SEEDANCE_DIALOGUE.source}`, "gi");
 
 export const ACTION_PREFIXES = [
   "第",
@@ -332,7 +335,7 @@ export function dialogueQuotes(lines) {
   for (let i = 0; i < lines.length; i += 1) {
     const ln = lines[i];
     const s = ln.trim();
-    if (s.startsWith(">") || s.startsWith("#") || s.startsWith("|") || s.includes("→")) {
+    if (s.startsWith(">") || s.startsWith("#") || s.startsWith("|")) {
       continue;
     }
     if (SKIP_SECTIONS.has(s)) {
@@ -343,7 +346,12 @@ export function dialogueQuotes(lines) {
       if (!TIME_RANGE.test(s) && !s.startsWith("## ")) continue;
       section = "";
     }
-    for (const m of ln.matchAll(QUOTE_RE)) {
+    for (const m of ln.matchAll(DIALOGUE_RE)) {
+      if (m[4] !== undefined) {
+        if (m[4].trim()) out.push([i + 1, m[4]]);
+        continue;
+      }
+      if (s.includes("→")) continue;
       const text = m[1] ?? m[2] ?? m[3];
       const pre = ln.slice(0, m.index);
       const isCue = SPEAKER_CUE.test(pre.slice(-6));

@@ -640,5 +640,54 @@ for runtime in python node; do
   done
 done
 
+# ---------- K1/K17：Seedance 原生台词、旧引号与静默段 ----------
+for fixture in native changed quoted silent; do
+  mkdir -p "$TMP/dialogue-$fixture"
+  cat > "$TMP/dialogue-$fixture/01_方案与剧本.md" <<'EOF'
+# 剧本
+## 人物表
+- 周姐：值班员
+
+## 分场剧本
+周姐：空袋搁这儿就行。
+周姐：
+"她刚才说：「搁这儿」。"
+EOF
+  case "$fixture" in
+    native) line='周姐（中文，平声）轻扣「空袋」，以中文同期声说{空袋搁这儿就行。} 随后低声说道：{她刚才说：「搁这儿」。}' ;;
+    changed) line='道具入画 → 周姐（中文，平声）以中文同期声说{空袋拿回去吧。}' ;;
+    quoted) line='周姐（平声）：「空袋搁这儿就行。」' ;;
+    silent) line='用 {{ref 1}} 锁定木柜；{道具}留在原位；转写模板示例说{{ref 2}}。' ;;
+  esac
+  cat > "$TMP/dialogue-$fixture/04_视频提示词.md" <<EOF
+# 视频提示词
+## 段1
+CONTINUITY RULE
+参照原样说{这是技术段的示例。}
+0s–8s｜镜头S1 $line
+EOF
+done
+
+for runtime in python node; do
+  if [ "$runtime" = python ]; then
+    checker=(python "$ROOT/scripts/check.py")
+  else
+    checker=(env VIGEN_NODE_NO_DELEGATE=1 node "$ROOT/scripts/check.mjs")
+  fi
+  for fixture in native changed quoted silent; do
+    gates=K1,K17
+    if [ "$fixture" = silent ]; then gates=K17; fi
+    "${checker[@]}" "$TMP/dialogue-$fixture" --gate "$gates" --partial > "$TMP/dialogue.txt" 2>&1
+    rc=$?
+    if { { [ "$fixture" = native ] || [ "$fixture" = quoted ]; } && [ "$rc" -eq 0 ] && ! grep -q '\[K[0-9]' "$TMP/dialogue.txt"; } ||
+       { [ "$fixture" = changed ] && [ "$rc" -eq 1 ] && grep -q '\[K1\].*台词与01定稿不一致.*空袋拿回去吧' "$TMP/dialogue.txt" && ! grep -q '\[K17\]' "$TMP/dialogue.txt"; } ||
+       { [ "$fixture" = silent ] && [ "$rc" -eq 1 ] && grep -q '\[K17\].*无台词段缺' "$TMP/dialogue.txt"; }; then
+      ok
+    else
+      bad "$runtime: K1/K17 $fixture (exit $rc)" "$(cat "$TMP/dialogue.txt")"
+    fi
+  done
+done
+
 echo "selftest: $PASS 通过 / $FAIL 失败"
 [ "$FAIL" -eq 0 ]

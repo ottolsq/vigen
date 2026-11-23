@@ -340,19 +340,25 @@ SKIP_SECTIONS = frozenset((
 QUOTE_RE = re.compile(r'"([^"]+)"|“([^”]+)”|「([^」]+)」')
 # 台词判据：引号紧跟冒号（说话人/语气描述之后），或整行以引号开头（两行式）
 _SPEAKER_CUE = re.compile(r"[：:]\s*$")
+# Seedance 的单层花括号跟在发声提示后。与引号一起扫描，台词内部的引号属于原文。
+_DIALOGUE_RE = re.compile(
+    QUOTE_RE.pattern + r"|(?:说道|说|开口|问道|问|答道|回答|念道|念|"
+    r"\b(?:says?|speaks?|asks?|replies?)\b)\s*[：:]?\s*\{([^{}]+)\}(?!\})",
+    re.IGNORECASE,
+)
 
 ACTION_PREFIXES = ("第", "格", "镜", "段", "场景状态", "场景", "镜头", "画面", "站位", "落点", "动机")
 
 
 def dialogue_quotes(lines: Optional[List[str]]) -> List[Tuple[int, str]]:
-    """04 的台词引号：(行号, 文本)。按结构判定，不按关键词黑名单。"""
+    """提取 04 中用引号或 Seedance 花括号标记的台词。"""
     if lines is None:
         return []
     out: List[Tuple[int, str]] = []
     section = ""
     for i, ln in enumerate(lines, start=1):
         s = ln.strip()
-        if s.startswith((">", "#", "|")) or "→" in s:
+        if s.startswith((">", "#", "|")):
             continue
         if s in SKIP_SECTIONS:
             section = s
@@ -362,8 +368,14 @@ def dialogue_quotes(lines: Optional[List[str]]) -> List[Tuple[int, str]]:
             if not _TIME_RANGE.match(s) and not s.startswith("## "):
                 continue
             section = ""
-        for m in QUOTE_RE.finditer(ln):
-            text = next(g for g in m.groups() if g is not None)
+        for m in _DIALOGUE_RE.finditer(ln):
+            if m[4] is not None:
+                if m[4].strip():
+                    out.append((i, m[4]))
+                continue
+            if "→" in s:
+                continue
+            text = m[1] or m[2] or m[3]
             pre = ln[:m.start()]
             is_cue = bool(_SPEAKER_CUE.search(pre[-6:]))
             starts_line = not pre.strip(" -·\t")
