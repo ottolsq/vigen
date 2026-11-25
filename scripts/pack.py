@@ -27,6 +27,7 @@ from vigen_md import (
     block_text,
     cell,
     iter_tables,
+    round_ids,
     shot_blocks,
     sub_blocks,
     table_rows,
@@ -372,6 +373,23 @@ def build_segment_packet(project: Project, segment: str, shots_spec: Optional[st
         out.append("## 3e. 批次生产卡（01:%d）" % card_start)
         for r in cards:
             out.append("- 01:%d：%s" % (r.line, "｜".join("%s=%s" % (k, v) for k, v in r.cells.items() if v)))
+        out.append("")
+    combat_rounds: set[int] = set()
+    for card in cards:
+        decision = cell(card, "打斗判定")
+        if decision.startswith("是"):
+            combat_rounds.update(round_ids(decision))
+    if combat_rounds:
+        out.append("## 3f. 交手账回合（01）")
+        ledger = project.section("01", "打斗交手账")
+        if ledger:
+            for _, header, rows in iter_tables([line for _, line in ledger]):
+                if "回合" not in header:
+                    continue
+                round_column = header.index("回合")
+                for row_no, cells in rows:
+                    if len(cells) > round_column and round_ids(cells[round_column]) & combat_rounds:
+                        out.append("- 01:%d：%s" % (ledger[row_no - 1][0], "｜".join(cells)))
         out.append("")
     doc05 = project.doc("05")
     if doc05 is not None:

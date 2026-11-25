@@ -33,6 +33,7 @@ class Finding:
     file: str
     line: int    # 1-based；0=文件级
     message: str
+    blocking: bool = True
 
 
 @dataclass(frozen=True)
@@ -311,6 +312,17 @@ def block_text(block: List[Tuple[int, str]]) -> str:
     return "\n".join(t for _, t in block)
 
 
+def round_ids(text: str) -> set[int]:
+    """Expand registered R numbers and inclusive ranges."""
+    ranges = re.findall(r"\bR(\d+)(?:\s*[-–—~至]\s*R(\d+))?", text, re.I)
+    result = set()
+    for first, last in ranges:
+        start, end = int(first), int(last or first)
+        if 0 < start <= end <= start + 1000:
+            result.update(range(start, end + 1))
+    return result
+
+
 def sub_blocks(lines: Optional[List[str]], prefix: str = "### ") -> List[List[Tuple[int, str]]]:
     """按指定级别标题切子块（02 的 '### 角色名' 用）。"""
     if lines is None:
@@ -358,6 +370,17 @@ _DIALOGUE_RE = re.compile(
 )
 
 ACTION_PREFIXES = ("第", "格", "镜", "段", "场景状态", "场景", "镜头", "画面", "站位", "落点", "动机")
+
+
+def strip_dialogue_content(line: str) -> str:
+    """Ignore spoken text while retaining the speaker, cue, and reference tag."""
+    def strip_match(match: re.Match) -> str:
+        for group in (4, 5):
+            if match[group] is not None:
+                return line[match.start():match.start(group)]
+        return ""
+
+    return _DIALOGUE_RE.sub(strip_match, line)
 
 
 def dialogue_quotes(lines: Optional[List[str]]) -> List[Tuple[int, str]]:

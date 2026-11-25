@@ -694,5 +694,127 @@ for runtime in python node; do
   done
 done
 
+# 04 production contract, using real gates on minimal fixtures.
+if python -B - "$ROOT/scripts" > "$TMP/segment-contract.txt" 2>&1 <<'PY'
+import sys
+from pathlib import Path
+
+sys.path.insert(0, sys.argv[1])
+from check import Project, gate_a17, gate_k12
+from vigen_md import iter_tables
+from pack import build_segment_packet
+
+execution_template = Path(sys.argv[1]).parent / 'assets' / 'templates-execution.md'
+tables = list(iter_tables(execution_template.read_text(encoding='utf-8').splitlines()))
+for column in ('打斗判定', '正文对象'):
+    _, headers, rows = next(table for table in tables if column in table[1])
+    assert rows and all(len(cells) == len(headers) for _, cells in rows)
+
+ledger = ['## 打斗交手账', '| 回合 | 发起 | 应对 | 结果改变 |',
+          '| --- | --- | --- | --- |', '| R1 | a | b | c |']
+anchors = ['| 用途 | 模型 |', '| --- | --- |', '| 视频 | Seedance 2.5 |',
+           '## 场景锚定表', '### 传达室', '| 参考图路径 | assets/room.png |']
+lock = '本段锁定清单：身份锁 表情锁 表演锁 说话人锁 道具锁 空间锁 风格锁 声音锁 动作锁'
+stages = ['起始状态：a', '意图：b', '攻击：c', '应对：d', '命中：e', '恢复：f', '结束状态：g']
+refs = ['| 正文对象 | 语法 |', '| --- | --- |', '| 传达室 | {{ref 2}} |']
+
+def project(decision, marker, body, *, table=refs, title='## 镜头 S1'):
+    p = Project(Path('.'))
+    p._cache = {f'{i:02}': None for i in range(7)}
+    p._cache['01'] = ['## 批次生产卡', '| 段号 | 镜号 | 生成时长 | 打斗判定 |',
+                      '| --- | --- | --- | --- |', f'| 段1 | S1 | 8s | {decision} |', '', *ledger]
+    p._cache['02'] = anchors
+    p._cache['04'] = [title, lock, *marker, *table, '```text', *body, '```']
+    return p
+
+def messages(p):
+    return '\n'.join(f.message for f in gate_a17(p, partial=True))
+
+good = ['传达室 {{ref 2}} 内，信封留在柜上。', *stages]
+yes = ['打斗段：是（交手账 R1）']
+no = '否（固定监控只记录环境）'
+assert '缺打斗段标记' in messages(project('是（R1）', [], good))
+assert '缺打斗段标记' in messages(project('是（R1）', [], good, title='## 段落1'))
+assert '打斗段缺七段' in messages(project('是（R1）', yes, good[:-1]))
+assert '未登记回合' in messages(project('是（R1-R2）', ['打斗段：是（交手账 R1-R2）'], good))
+assert '与 01 不一致' in messages(project('是（R1）', ['打斗段：是（交手账 R2）'], good))
+assert '打斗段' not in messages(project(no, [], good[:1]))
+no_cut = project(no, [], good[:1])
+no_cut._cache['01'][1] = '| 段号 | 镜号 | 生成时长 | 打斗判定 | 转场选型 |'
+no_cut._cache['01'][2] = '| --- | --- | --- | --- | --- |'
+no_cut._cache['01'][3] = f'| 段1 | S1 | 8s | {no} | — |'
+assert '段卡「转场选型」为空或占位' not in messages(no_cut)
+no_cut._cache['01'][3] = f'| 段1 | S1-S2 | 8s | {no} | — |'
+assert '段卡「转场选型」为空或占位' in messages(no_cut)
+assert '打斗段' not in messages(project('是（R1）', yes, good))
+packet = build_segment_packet(project('是（R1）', yes, good), '段1', None, 'B')
+assert '交手账回合（01）' in packet and 'R1｜a｜b｜c' in packet
+assert '打斗段' not in messages(project('是（R1）', yes, good[:1] + [' → '.join(stages)]))
+assert '七段顺序不符' in messages(project('是（R1）', yes, good[:1] + stages[::-1]))
+assert '缺对应的打斗判定' in messages(project('', [], good[:1]))
+assert '缺参考绑定' in messages(project(no, [], ['传达室 {{ref 2}} 的门对着传达室出口。']))
+assert '参考编号不符' in messages(project(no, [], ['传达室 {{ref 1}} 的灯亮着。']))
+assert '缺正文对象登记' in messages(project(no, [], ['传达室 {{ref 2}} 内没有人。'], table=[]))
+assert '参考绑定' not in messages(project(no, [], ['信封留在柜上。'], table=[]))
+no_image = project(no, [], ['小仓库里，信封留在柜上。'], table=[])
+no_image._cache['02'] = [*anchors, '### 小仓库', '| 参考图路径 | 无（本段不出图） |']
+assert '缺正文对象登记' not in messages(no_image)
+assert '参考编号不符' not in messages(project(no, [], ['传达室 {{ref 2}} 内没有人。']))
+zero_refs = [*refs[:2], '| 传达室 | {{ref 0}} |']
+assert '参考契约语法无效' in messages(project(no, [], ['传达室 {{ref 0}} 内没有人。'], table=zero_refs))
+assert '5000' not in messages(project(no, [], ['光' * 5000], table=[]))
+assert '5000' in messages(project(no, [], ['光' * 5001], table=[]))
+assert '超过 7000' not in messages(project(no, [], ['光' * 7000], table=[]))
+assert '超过 7000' in messages(project(no, [], ['光' * 7001], table=[]))
+soft = [f for f in gate_a17(project(no, [], ['光' * 5001], table=[]), True) if '5000' in f.message]
+hard = [f for f in gate_a17(project(no, [], ['光' * 7001], table=[]), True) if '7000' in f.message]
+assert len(soft) == 1 and not soft[0].blocking
+assert len(hard) == 1 and hard[0].blocking
+assert any('「它们」' in f.message for f in gate_k12(project(no, [], ['它们仍在桌面。']), True))
+assert not gate_k12(project(no, [], ['陈芸说：{它们是旧的。}']), True)
+PY
+then
+  ok
+else
+  bad "04 segment contract" "$(cat "$TMP/segment-contract.txt")"
+fi
+
+# K12: direct Python, delegated Node, and the Node-only subset.
+mkdir -p "$TMP/k12-object" "$TMP/k12-spoken"
+printf '%s\n' '## 镜头 S1' '```text' '它们仍在桌面。' '```' > "$TMP/k12-object/04_视频提示词.md"
+printf '%s\n' '## 镜头 S1' '```text' '陈芸说：{它们是旧的。}' '```' > "$TMP/k12-spoken/04_视频提示词.md"
+for runtime in python delegated node; do
+  case "$runtime" in
+    python) checker=(python "$ROOT/scripts/check.py") ;;
+    delegated) checker=(node "$ROOT/scripts/check.mjs") ;;
+    node) checker=(env VIGEN_NODE_NO_DELEGATE=1 node "$ROOT/scripts/check.mjs") ;;
+  esac
+  "${checker[@]}" "$TMP/k12-object" --gate K12 --partial > "$TMP/k12-object.txt" 2>&1
+  rc=$?
+  if [ "$rc" -eq 1 ] && grep -q '\[K12\].*「它们」' "$TMP/k12-object.txt" &&
+     "${checker[@]}" "$TMP/k12-spoken" --gate K12 --partial > "$TMP/k12-spoken.txt" 2>&1; then
+    ok
+  else
+    bad "$runtime: K12 object vs spoken pronouns" "$(cat "$TMP/k12-object.txt" "$TMP/k12-spoken.txt")"
+  fi
+done
+
+# A deliberate silent project and a shot without emphasis need no K1/K5 waiver.
+mkdir -p "$TMP/silent-no-emphasis"
+printf '%s\n' '## 分场剧本' '全片无台词' '保管员停下脚步。' > "$TMP/silent-no-emphasis/01_方案与剧本.md"
+printf '%s\n' '## 镜头 S1' '```text' '无台词、无旁白、无人声。保管员停下脚步。' '```' > "$TMP/silent-no-emphasis/04_视频提示词.md"
+for runtime in python node; do
+  if [ "$runtime" = python ]; then
+    checker=(python "$ROOT/scripts/check.py")
+  else
+    checker=(env VIGEN_NODE_NO_DELEGATE=1 node "$ROOT/scripts/check.mjs")
+  fi
+  if "${checker[@]}" "$TMP/silent-no-emphasis" --gate K1,K5,K17 --partial > "$TMP/silent-no-emphasis.txt" 2>&1; then
+    ok
+  else
+    bad "$runtime: silent project without emphasis" "$(cat "$TMP/silent-no-emphasis.txt")"
+  fi
+done
+
 echo "selftest: $PASS 通过 / $FAIL 失败"
 [ "$FAIL" -eq 0 ]

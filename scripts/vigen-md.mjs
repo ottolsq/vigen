@@ -333,6 +333,18 @@ export const ACTION_PREFIXES = [
   "动机",
 ];
 
+export function stripDialogueContent(line) {
+  let offset = 0;
+  let result = "";
+  for (const match of line.matchAll(DIALOGUE_RE)) {
+    result += line.slice(offset, match.index);
+    const speech = match[4] ?? match[5];
+    if (speech !== undefined) result += match[0].slice(0, -speech.length - 1);
+    offset = match.index + match[0].length;
+  }
+  return result + line.slice(offset);
+}
+
 export function dialogueQuotes(lines) {
   if (lines === null) return [];
   const out = [];

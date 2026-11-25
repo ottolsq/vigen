@@ -46,12 +46,13 @@ export function gateK1(project) {
   if (project.doc("01") === null) return [];
   const findings = [];
   const base = dialogueSet01(project);
-  if (base.size === 0) {
+  const silent = base.size === 0 && project.section("01", "分场剧本").some(([, line]) => line.trim() === "全片无台词");
+  if (base.size === 0 && !silent) {
     findings.push(warn("K1", "01", "01 未解析到台词（缺「分场剧本」节或说话人行格式不同），K1 无法核对"));
   }
   if (project.doc("04") !== null) {
     const quotes = dialogueQuotes(project.doc("04"));
-    if (quotes.length === 0) findings.push(warn("K1", "04", "未找到任何台词引号，K1 未执行"));
+    if (quotes.length === 0 && !silent) findings.push(warn("K1", "04", "未找到任何台词引号，K1 未执行"));
     for (const [lineNo, text] of quotes) {
       const t = text.trim();
       if (t && !base.has(t)) {
@@ -416,11 +417,9 @@ export function gateK5(project) {
   const starRounds = combatStarRounds(project);
   const segs = blocks(project.doc("04"), true);
   if (!segs.length) return [warn("K5", "04", "未找到段落块，K5 未执行")];
-  let units = 0;
   for (const block of segs) {
     let slow = 0;
     for (const [lineNo, isSlow, word] of emphasisSpots(block)) {
-      units += 1;
       if (isSlow) slow += 1;
       const line = block.find(([n]) => n === lineNo)[1];
       const pm = PEAK_RE.exec(line);
@@ -456,9 +455,6 @@ export function gateK5(project) {
         `慢镜超配额：本段 ${slow} 处慢镜 > 2（配额是上限不是任务）`,
       ));
     }
-  }
-  if (units === 0) {
-    findings.push(warn("K5", "04", "全片未出现强调手段，K5 未核对（如是纯文戏可忽略）"));
   }
   return findings;
 }

@@ -10,6 +10,7 @@ import {
   iterTables,
   modelNativeMin,
   shotBlocks,
+  stripDialogueContent,
   SKELETON_A_SECTIONS,
   tableRows,
   timeRangeSeconds,
@@ -28,8 +29,7 @@ import {
 } from "./check-core.mjs";
 
 const PLANREF_G = () => /(PLAN|REF)-([A-Za-z0-9]+(?:-[A-Za-z0-9]+)*)/g;
-const QUOTE_G = () => /"([^"]+)"|“([^”]+)”|「([^」]+)」/g;
-const PRONOUN_G = () => /(?<!其)(对方|那个人|两人|二人|双方|他|她|它)(?!人)/g;
+const PRONOUN_G = () => /(?<!其)(对方|那个人|两人|二人|双方|[他她它]们?)(?!人)/g;
 const BODY_G = () => /(左手|右手|左臂|右臂|左肩|右肩|左腿|右腿|左脚|右脚|左腰侧|右腰侧|左脸颊|右脸颊)(?!边)/g;
 const VAGUE_G = () => /(打在|踢在|砍在|刺在|击中|砸在|撞在|落在)[^。；\n]{0,8}(身上|某处|要害)/g;
 
@@ -291,11 +291,11 @@ export function gateK12(project) {
       findings.push(finding("K12", DOC_FILES[key], 0, "无可核验的视频提示词正文"));
     }
     for (const [lineNo, ln] of prompt) {
-      const text = ln.replace(QUOTE_G(), "");
+      const text = stripDialogueContent(ln);
       const lineNames = [...names].filter((n) => text.includes(n)).sort();
       for (const m of text.matchAll(PRONOUN_G())) {
         const tok = m[1];
-        if (tok === "它") {
+        if (key === "03" && (tok === "它" || tok === "它们")) {
           const nxt = text[m.index + m[0].length];
           if (!(nxt && HUMAN_ACTION.has(nxt))) continue;
         }

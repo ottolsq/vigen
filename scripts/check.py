@@ -77,7 +77,7 @@ from vigen_md import (  # noqa: F401 — Project/Finding 供测试与外部使�
     MODEL_CAP,
     PEAK_RE,
     PLANREF_RE,
-    QUOTE_RE,
+    strip_dialogue_content,
     REF_SHOT_RE,
     REVEAL_FAMILY,
     REVEAL_RE,
@@ -104,6 +104,7 @@ from vigen_md import (  # noqa: F401 — Project/Finding 供测试与外部使�
     is_segment_heading,
     iter_tables,
     shot_blocks,
+    round_ids,
     split_cells,
     table_rows,
 )
@@ -164,12 +165,14 @@ def gate_k1(project: Project, partial: bool) -> List[Finding]:
         return []
     findings: List[Finding] = []
     base = dialogue_set_01(project)
-    if not base:
+    silent = not base and any(line.strip() == "全片无台词"
+                              for _, line in project.section("01", "分场剧本"))
+    if not base and not silent:
         findings.append(_warn("K1", "01", "01 未解析到台词（缺「分场剧本」节或说话人行格式不同），K1 无法核对"))
 
     if project.doc("04") is not None:
         quotes = dialogue_quotes(project.doc("04"))
-        if not quotes:
+        if not quotes and not silent:
             findings.append(_warn("K1", "04", "未找到任何台词引号，K1 未执行"))
         for line_no, text in quotes:
             t = text.strip()
@@ -532,11 +535,9 @@ def gate_k5(project: Project, partial: bool) -> List[Finding]:
     segs = blocks(project.doc("04"), only_segments=True)
     if not segs:
         return [_warn("K5", "04", "未找到段落块，K5 未执行")]
-    units = 0
     for block in segs:
         slow = 0
         for line_no, is_slow, word in _emphasis_spots(block):
-            units += 1
             if is_slow:
                 slow += 1
             pm = PEAK_RE.search(next(t for n, t in block if n == line_no))
@@ -562,8 +563,6 @@ def gate_k5(project: Project, partial: bool) -> List[Finding]:
             findings.append(Finding(
                 "K5", DOC_FILES["04"], block[0][0],
                 "慢镜超配额：本段 %d 处慢镜 > 2（配额是上限不是任务）" % slow))
-    if units == 0:
-        findings.append(_warn("K5", "04", "全片未出现强调手段，K5 未核对（如是纯文戏可忽略）"))
     return findings
 
 
@@ -821,7 +820,7 @@ def gate_k11(project: Project, partial: bool) -> List[Finding]:
 # ------------------------------------------------------------------ K12 指代与部位
 
 # 人物代词（"其他/其它/他人" 由 lookbehind/lookahead 排掉）
-_PRONOUN_RE = re.compile(r"(?<!其)(对方|那个人|两人|二人|双方|他|她|它)(?!人)")
+_PRONOUN_RE = re.compile(r"(?<!其)(对方|那个人|两人|二人|双方|[他她它]们?)(?!人)")
 _HUMAN_ACTION = set("说看走站坐抬转拿握伸退冲停笑低靠盯望递接推拉蹲跪扑抓挥砍刺劈跳跑")
 _BODY_RE = re.compile(r"(左手|右手|左臂|右臂|左肩|右肩|左腿|右腿|左脚|右脚|左腰侧|右腰侧|左脸颊|右脸颊)(?!边)")
 # 「哪里」模糊：命中动词 + 身上/某处/要害（没写具体部位）
@@ -851,11 +850,11 @@ def gate_k12(project: Project, partial: bool) -> List[Finding]:
         if key == "04" and not prompt_lines and unclosed is None:
             findings.append(Finding("K12", DOC_FILES[key], 0, "无可核验的视频提示词正文"))
         for line_no, ln in prompt_lines:
-            text = QUOTE_RE.sub("", ln)          # 台词引号内的人称代词不受限
+            text = strip_dialogue_content(ln)
             line_names = sorted(n for n in names if n in text)
             for m in _PRONOUN_RE.finditer(text):
                 tok = m.group(1)
-                if tok == "它":
+                if key == "03" and tok in ("它", "它们"):
                     nxt = text[m.end():m.end() + 1]
                     if not (nxt and nxt in _HUMAN_ACTION):
                         continue                 # 「它」指物（它映着/它连接）不判
@@ -1944,8 +1943,8 @@ def gate_a16(project: Project, partial: bool) -> List[Finding]:
     return findings
 
 
-def _normalize_ref_binding(name: str) -> str:
-    return re.escape(name) + r"\s*@\s*\{?\{?\s*(?:Ref|REF|图)"
+def _has_reference_path(value: str) -> bool:
+    return _filled(value) and not re.match(r"^(?:无|不适用|未登记|未定|none|n/a)(?:[（(，,：:]|$)", value, re.I)
 
 
 def _characters_with_refs(project: Project) -> set:
@@ -1979,7 +1978,7 @@ def _characters_with_refs(project: Project) -> set:
                 continue
             cells = [c.strip() for c in text.strip().strip("|").split("|")]
             value = cells[1] if len(cells) > 1 else ""
-            if value and not _is_placeholder(value):
+            if _has_reference_path(value):
                 names.add(name)
             break
     return names
@@ -2015,7 +2014,7 @@ def _props_with_refs(project: Project) -> set:
                 continue
             cells = [c.strip() for c in text.strip().strip("|").split("|")]
             value = cells[1] if len(cells) > 1 else ""
-            if value and not _is_placeholder(value):
+            if _has_reference_path(value):
                 names.add(name)
             break
     return names
@@ -2066,7 +2065,7 @@ def _groups_with_refs(project: Project) -> set:
                 continue
             cells = [c.strip() for c in text.strip().strip("|").split("|")]
             value = cells[1] if len(cells) > 1 else ""
-            if value and not _is_placeholder(value):
+            if _has_reference_path(value):
                 names.add(name)
             break
     return names
@@ -2132,6 +2131,120 @@ def _header_index(header: List[str], *names: str) -> int:
     return -1
 
 
+_COMBAT_MARKER = re.compile(r"^\s*(?:[-*]\s*)?打斗段[：:]\s*是(.*)$", re.M)
+_REF_TAG = re.compile(r"\s*(?:@?\s*\{\{\s*ref\s*([1-9]\d*)\s*\}\}|@(?:图|Ref)\s*([1-9]\d*)|"
+                      r"<(?:Picture|Subject)\s+([1-9]\d*)>|[（(]参考图\s*([1-9]\d*)[）)])", re.I)
+
+
+def _segment_key(text: str) -> str:
+    match = re.match(r"^\s*(?:段(?:落)?\s*(\d+)|(?:镜头\s*)?([SA]?\d+(?:v\d+)?[a-z]?))", text, re.I)
+    if not match:
+        return text.strip()
+    return "段" + match[1] if match[1] else match[2].upper()
+
+
+def _a17_segment_contract(project: Project, segments: list, cards: dict) -> List[Finding]:
+    findings = []
+    registered_rounds = set()
+    ledger = [line for _, line in project.section("01", "打斗交手账")]
+    for _, headers, rows in iter_tables(ledger):
+        if "回合" in headers:
+            for _, cells in rows:
+                if all(c.strip() and not _is_placeholder(c) for c in cells[:4]) and len(cells) >= 4:
+                    registered_rounds.update(round_ids(cells[headers.index("回合")]))
+
+    model = (_video_model(project) or "").lower()
+    count_seedance = "seedance" in model or "即梦" in model
+    anchors = _characters_with_refs(project) | _props_with_refs(project) | _groups_with_refs(project)
+    scene_lines = [line for _, line in project.section("02", "场景锚定表")]
+    for scene in sub_blocks(scene_lines):
+        for _, line in scene[1:]:
+            match = re.match(r"\s*\|\s*参考图路径\s*\|\s*([^|]+)", line)
+            if match and _has_reference_path(match[1].strip()):
+                anchors.add(re.split(r"[（(]", scene[0][1][4:].strip())[0])
+                break
+
+    for segment in segments:
+        head_no, head = segment[0]
+        lines = [line for _, line in segment[1:]]
+        text = "\n".join(lines)
+        decision = cards.get(_segment_key(head[3:]))
+        marker = _COMBAT_MARKER.search(text)
+        body = [(head_no + no, line) for no, line in _prompt_body_lines(lines)]
+        declared = bool(decision and re.match(r"^是(?:[\s（(：:]|$)", decision))
+        if decision is None or not re.fullmatch(r"(?:是|否)[（(].+[）)]", decision):
+            findings.append(Finding("A17", DOC_FILES["04"], head_no, "01 段卡缺对应的打斗判定（是+回合 / 否+依据）"))
+        if declared and not marker:
+            findings.append(Finding("A17", DOC_FILES["04"], head_no, "01 已判为打斗段，04 缺打斗段标记"))
+        if marker and decision and not declared:
+            findings.append(Finding("A17", DOC_FILES["04"], head_no, "打斗段标记与 01 不一致"))
+        if declared or marker:
+            expected = round_ids(decision or "")
+            actual = round_ids(marker[1]) if marker else set()
+            if declared and marker and expected != actual:
+                findings.append(Finding("A17", DOC_FILES["04"], head_no, "打斗段回合与 01 不一致"))
+            if not (expected or actual) or (expected | actual) - registered_rounds:
+                findings.append(Finding("A17", DOC_FILES["01"], 0, "打斗段引用未登记回合（检查 01 交手账）"))
+            stages = (("Start State", "起始状态"), ("Intent", "意图"), ("Attack", "攻击"), ("Response", "应对"),
+                      ("Impact", "命中"), ("Recovery", "恢复"), ("End State", "结束状态"))
+            prompt = "\n".join(line for _, line in body)
+            positions = [re.search(
+                rf"(?:^|→)\s*(?:[-*]\s*)?(?:\*\*)?(?:{en}|{zh})(?:\*\*)?\s*[：:（(]\s*[^→\s）)]",
+                prompt, re.M | re.I) for en, zh in stages]
+            missing = [zh for (_, zh), position in zip(stages, positions) if position is None]
+            if missing:
+                findings.append(Finding("A17", DOC_FILES["04"], head_no, "打斗段缺七段：" + "、".join(missing)))
+            elif any(left.start() >= right.start() for left, right in zip(positions, positions[1:])):
+                findings.append(Finding("A17", DOC_FILES["04"], head_no, "打斗段七段顺序不符"))
+
+        if count_seedance:
+            count = len("\n".join(line for _, line in body))
+            if count > 7000:
+                findings.append(Finding("A17", DOC_FILES["04"], head_no, f"Seedance 发送正文 {count} 字符，超过 7000"))
+            elif count > 5000:
+                findings.append(Finding("A17", DOC_FILES["04"], head_no,
+                                        f"建议：Seedance 发送正文 {count} 字符，目标为 5000 以内",
+                                        blocking=False))
+
+        bindings = {}
+        for _, headers, rows in iter_tables(lines):
+            if "正文对象" not in headers or "语法" not in headers:
+                continue
+            for no, cells in rows:
+                if len(cells) < len(headers):
+                    continue
+                name = cells[headers.index("正文对象")].strip(" `")
+                tag = cells[headers.index("语法")].strip(" `")
+                if not name or name in ("—", "-", "无"):
+                    continue
+                if not _REF_TAG.fullmatch(tag) or (name in bindings and bindings[name] != tag):
+                    findings.append(Finding("A17", DOC_FILES["04"], head_no + no, f"「{name}」参考契约语法无效或不唯一"))
+                    continue
+                bindings[name] = tag
+        if not (anchors or bindings):
+            continue
+        names = re.compile("|".join(map(re.escape, sorted(anchors | bindings.keys(), key=lambda name: (-len(name), name)))))
+        for no, line in body:
+            if line.lstrip().startswith(("|", "@", ">", "#")):
+                continue
+            # 台词原文保留，发声者及其参考仍查。
+            line = strip_dialogue_content(line)
+            for mention in names.finditer(line):
+                name = mention[0]
+                expected_tag = bindings.get(name)
+                actual_tag = _REF_TAG.match(line, mention.end())
+                if not expected_tag:
+                    message = "缺正文对象登记"
+                elif not actual_tag:
+                    message = "缺参考绑定"
+                elif re.sub(r"\s+", "", actual_tag[0]).lower() != re.sub(r"\s+", "", expected_tag).lower():
+                    message = "参考编号不符或语法不符"
+                else:
+                    continue
+                findings.append(Finding("A17", DOC_FILES["04"], no, f"「{name}」{message}"))
+    return findings
+
+
 def gate_a17(project: Project, partial: bool) -> List[Finding]:
     """A17 执行契约留痕（opt-in）：只查留痕完整性，不查内容质量。
 
@@ -2147,6 +2260,7 @@ def gate_a17(project: Project, partial: bool) -> List[Finding]:
     audit_head: Optional[int] = None
     card_head: Optional[int] = None
     state_head: Optional[int] = None
+    combat_cards: Dict[str, str] = {}
     for head_no, header, body in iter_tables(doc):
         gate_i = _header_index(header, "门")
         res_i = _header_index(header, "结果")
@@ -2202,6 +2316,15 @@ def gate_a17(project: Project, partial: bool) -> List[Finding]:
         dur_i = _header_index(header, "生成时长")
         if card_i >= 0 and shot_i >= 0 and dur_i >= 0:
             card_head = head_no
+            combat_i = _header_index(header, "打斗判定")
+            if combat_i >= 0:
+                for no, cells in body:
+                    if len(cells) <= max(card_i, combat_i, shot_i):
+                        findings.append(Finding("A17", DOC_FILES["01"], no, "段卡缺打斗判定"))
+                        continue
+                    combat_cards[_segment_key(cells[card_i])] = cells[combat_i]
+                    if re.fullmatch(r"(?:镜头\s*)?[SA]?\d+(?:v\d+)?[a-z]?", cells[shot_i], re.I):
+                        combat_cards[_segment_key(cells[shot_i])] = cells[combat_i]
             if not body:
                 findings.append(Finding(
                     "A17", DOC_FILES["01"], head_no, "批次生产卡没有数据行（每段一行）"))
@@ -2243,10 +2366,14 @@ def gate_a17(project: Project, partial: bool) -> List[Finding]:
                             "A17", DOC_FILES["01"], no,
                             "批次生产卡仍是模板占位（从 02/01/05 复制填写）"))
                         break
+                    shot_id = cells[shot_i].strip() if shot_i < len(cells) else ""
+                    single_shot = bool(re.fullmatch(r"(?:镜头\s*)?[SA]?\d+(?:v\d+)?[a-z]?", shot_id, re.I))
                     for name in ("帽", "须", "道具", "运镜选型", "转场选型", "表演依据"):
                         idx = col_idx[name]
                         if idx >= 0:
                             value = cells[idx].strip() if idx < len(cells) else ""
+                            if name == "转场选型" and single_shot and value == "—":
+                                continue
                             if not value or _is_placeholder(value):
                                 findings.append(Finding(
                                     "A17", DOC_FILES["01"], no,
@@ -2417,8 +2544,9 @@ def gate_a17(project: Project, partial: bool) -> List[Finding]:
     seg_group_names = _groups_with_refs(project)
     if project.doc("04") is not None:
         segs = blocks(project.doc("04"), only_segments=True)
+        findings.extend(_a17_segment_contract(project, segs, combat_cards))
         if not segs:
-            findings.append(_warn("A17", "04", "未找到段落块，A17 锁定清单未核对"))
+            findings.append(Finding("A17", DOC_FILES["04"], 0, "未找到段落块，无法验收 04"))
         for block in segs:
             head_no = block[0][0]
             text = "\n".join(t for _no, t in block)
@@ -2441,27 +2569,6 @@ def gate_a17(project: Project, partial: bool) -> List[Finding]:
                         findings.append(Finding(
                             "A17", DOC_FILES["04"], head_no,
                             "风格锁未逐字复制 02 风格圣经（A1/A17）"))
-            # P0-1 打斗段：标记 + 七段齐全（V3.21）
-            if "打斗段：是" in text:
-                stages = (
-                    ("Start State", "起始状态"),
-                    ("Intent", "意图"),
-                    ("Attack", "攻击"),
-                    ("Response", "应对"),
-                    ("Impact", "命中"),
-                    ("Recovery", "恢复"),
-                    ("End State", "结束状态"),
-                )
-                missing = [en for en, zh in stages if en not in text and zh not in text]
-                if missing:
-                    findings.append(Finding(
-                        "A17", DOC_FILES["04"], head_no,
-                        "打斗段缺七段：%s（action-combat 第7节）" % "、".join(missing)))
-                if "交手账" not in "\n".join(project.doc("01") or []):
-                    findings.append(Finding(
-                        "A17", DOC_FILES["04"], head_no,
-                        "打斗段标记存在但 01 无「打斗交手账」（先写交手账再排镜）"))
-
             # V3.22 段走位总谱：段内出现 ≥2 个有参考图的角色（或群像）→ 走位总谱 + 连续性铁律
             present_chars = sorted(n for n in seg_char_names if n in text)
             present_groups = sorted(g for g in seg_group_names if g in text)
@@ -2541,10 +2648,7 @@ def gate_a17(project: Project, partial: bool) -> List[Finding]:
                     "A17", DOC_FILES["04"], head_no,
                     "02 标记「负向字段=支持」但本段无【负面提示词】节（有负向能力未使用——硬规则21/22）"))
 
-    # 人物/道具/群像参考就地绑定（硬规则 20）：有参考图的角色、道具、群像，每镜首次出现写 名称 @RefN
-    ref_names = _characters_with_refs(project)
-    ref_props = _props_with_refs(project)
-    ref_groups = _groups_with_refs(project)
+    # 镜头块摄影字段（运镜编号与焦段）
     if project.doc("04") is not None:
         for shot in shot_blocks(project.doc("04")):
             content: List[str] = []
@@ -2568,24 +2672,7 @@ def gate_a17(project: Project, partial: bool) -> List[Finding]:
                 findings.append(Finding(
                     "A17", DOC_FILES["04"], shot[0][0],
                     "镜头块缺焦段（写 {N}mm 或等效视角；与 01 分镜表一致——V3.22.1）"))
-            for name in sorted(ref_names):
-                if name in text and not re.search(_normalize_ref_binding(name), text):
-                    findings.append(Finding(
-                        "A17", DOC_FILES["04"], shot[0][0],
-                        "角色「%s」在本镜出现但名字后未绑定参考（写 角色名 @{{Ref N}}——硬规则20）"
-                        % name))
-            for name in sorted(ref_props):
-                if name in text and not re.search(_normalize_ref_binding(name), text):
-                    findings.append(Finding(
-                        "A17", DOC_FILES["04"], shot[0][0],
-                        "道具「%s」在本镜出现但名字后未绑定参考（写 道具名 @{{Ref N}}——硬规则20）"
-                        % name))
-            for name in sorted(ref_groups):
-                if name in text and not re.search(_normalize_ref_binding(name), text):
-                    findings.append(Finding(
-                        "A17", DOC_FILES["04"], shot[0][0],
-                        "群像「%s」在本镜出现但名字后未绑定参考（写 群像名 @{{Ref N}}——硬规则20/22）"
-                        % name))
+
     return findings
 
 
@@ -3212,8 +3299,9 @@ def main(argv: List[str]) -> int:
     for f in findings:
         loc = "%s:%d" % (f.file, f.line) if f.line else f.file
         print("[%s] %s: %s" % (f.gate, loc, f.message))
-    if findings:
-        print("check: %d 项未通过（不过不进下一阶段——SKILL.md 硬规则 15）" % len(findings))
+    blocked = sum(finding.blocking for finding in findings)
+    if blocked:
+        print("check: %d 项未通过（不过不进下一阶段——SKILL.md 硬规则 15）" % blocked)
         return rc_extra or 1
     print("check: 全部通过")
     return 0
